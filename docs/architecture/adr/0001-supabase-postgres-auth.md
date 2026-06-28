@@ -22,3 +22,4 @@ Decisione dell'owner in fase di setup, su domanda esplicita riguardo persistenza
 
 ## If we were starting today
 Sì. Per un tool interno con team piccolo, Supabase è la scelta a minor sforzo che copre DB + auth + autorizzazione insieme. Rivedere solo se servisse multi-tenancy complessa o un modello di auth non supportato.
+

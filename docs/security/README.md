@@ -1,4 +1,4 @@
-**Last updated:** 2026-06-22
+**Last updated:** 2026-06-28
 
 # Security Review
 
@@ -23,4 +23,12 @@ This is a Next.js 16 + Supabase internal dashboard. The classes that matter here
 
 ## Findings
 
-_Nessun finding aperto._
+### SEC-1 — User enumeration via verbatim OTP error (LOW)
+
+**Where:** [`src/app/login/page.tsx`](../../src/app/login/page.tsx) — `sendCode()` shows `error.message` verbatim in the `role="alert"`.
+
+**Issue:** With `shouldCreateUser: false`, Supabase returns a distinguishable error when the email is not a registered user. Rendering that message verbatim lets an unauthenticated visitor tell registered emails apart from unregistered ones (account enumeration).
+
+**Impact:** Low. Access is invite-only and internal; enumeration only reveals which addresses are members, not credentials. No account takeover.
+
+**Fix when touched:** Show a generic, non-distinguishing confirmation after `sendCode()` (e.g. "Se l'indirizzo è abilitato, riceverai un codice") regardless of the Supabase result, and only surface real errors for the verify step. Supabase's server-side rate limiting already throttles brute-force probing.

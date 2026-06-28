@@ -3,19 +3,26 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --border: rgba(0, 0, 0, 0.1);
+  --danger: #dc2626;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-border: var(--border);
+  --color-danger: var(--danger);
+  /* I --font-geist-* li inietta next/font su <html> (vedi layout.tsx); il fallback
+     copre il caso in cui non siano ancora disponibili. */
+  --font-sans: var(--font-geist-sans, ui-sans-serif, system-ui, sans-serif);
+  --font-mono: var(--font-geist-mono, ui-monospace, monospace);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --border: rgba(255, 255, 255, 0.15);
   }
 }
 

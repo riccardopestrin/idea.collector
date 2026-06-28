@@ -1,0 +1,23 @@
+// Campo di form etichettato (input o textarea), uncontrolled: il valore lo legge
+// la Server Action dal FormData. Stile condiviso da tutti i form.
+type FieldProps = {
+  label: string;
+  name: string;
+  required?: boolean;
+  multiline?: boolean;
+};
+
+const controlClass = "rounded-md border border-border px-3 py-2";
+
+export function Field({ label, name, required, multiline }: FieldProps) {
+  return (
+    <label className="flex flex-col gap-1 text-sm" htmlFor={name}>
+      {label}
+      {multiline ? (
+        <textarea id={name} name={name} required={required} rows={3} className={controlClass} />
+      ) : (
+        <input id={name} name={name} type="text" required={required} className={controlClass} />
+      )}
+    </label>
+  );
+}

@@ -1,4 +1,4 @@
-**Last updated:** 2026-06-22
+**Last updated:** 2026-06-28
 
 # Security Issues
 
@@ -14,4 +14,4 @@ _Nessuna issue aperta._
 
 ## 🟡 LOW
 
-_Nessuna issue aperta._
+- **SEC-1** — User enumeration via verbatim OTP error message on `/login`. `signInWithOtp({ shouldCreateUser: false })` returns a distinguishable error for unregistered emails, surfaced verbatim in the `role="alert"`. An unauthenticated visitor can probe which emails are registered. Low impact for an invite-only internal tool; details in [`README.md`](README.md#sec-1).
