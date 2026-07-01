@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { STATUS_LABELS } from "@/lib/board";
 import { PROPOSAL_STATUSES, type ProposalStatus } from "@/lib/proposals";
 
 // Form filtri lista (GET): la home legge q/status dai searchParams. Client per
@@ -47,7 +48,7 @@ export function ProposalFilters({
         <option value="">Tutti gli stati</option>
         {PROPOSAL_STATUSES.map((s) => (
           <option key={s} value={s}>
-            {s}
+            {STATUS_LABELS[s]}
           </option>
         ))}
       </select>

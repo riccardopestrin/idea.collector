@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { ProposalCard } from "@/components/cards/ProposalCard";
+import { Board } from "@/components/board/Board";
 import { ProposalFilters } from "@/components/filters/ProposalFilters";
 import { isProposalStatus, listProposals } from "@/lib/proposals";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -23,7 +23,10 @@ export default async function MainBoard({
   const search = (q ?? "").trim();
   const statusFilter = isProposalStatus(status) ? status : undefined;
 
-  const proposals = await listProposals(supabase, { search, status: statusFilter });
+  const [proposals, { data: profile }] = await Promise.all([
+    listProposals(supabase, { search, status: statusFilter }),
+    supabase.from("profiles").select("role").eq("id", user.id).single(),
+  ]);
 
   async function logout() {
     "use server";
@@ -49,7 +52,7 @@ export default async function MainBoard({
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
+      <main className="flex w-full flex-1 flex-col gap-6 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Proposte</h1>
           <Link
@@ -62,19 +65,14 @@ export default async function MainBoard({
 
         <ProposalFilters search={search} status={statusFilter} />
 
-        {proposals.length > 0 ? (
-          <ul className="flex flex-col gap-3">
-            {proposals.map((p) => (
-              <ProposalCard key={p.id} proposal={p} />
-            ))}
-          </ul>
-        ) : (
+        {proposals.length === 0 && (
           <p className="text-sm text-foreground/70">
             {search || statusFilter
               ? "Nessuna proposta corrisponde ai filtri."
               : "Nessuna proposta ancora. Crea la prima."}
           </p>
         )}
+        <Board proposals={proposals} canMove={profile?.role === "admin"} />
       </main>
     </>
   );
