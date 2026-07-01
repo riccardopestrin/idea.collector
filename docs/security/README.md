@@ -1,4 +1,4 @@
-**Last updated:** 2026-06-28
+**Last updated:** 2026-07-01
 
 # Security Review
 
@@ -22,6 +22,8 @@ This is a Next.js 16 + Supabase internal dashboard. The classes that matter here
 - **SSRF** — if the AI feature (or any server code) fetches a user-supplied URL/link, an attacker can target internal addresses. Validate and allowlist outbound destinations.
 
 ## Findings
+
+_SEC-2 e SEC-3 (RLS su `profiles`/`proposals`) risolte il 2026-07-01 da `0003_lock_privileged_columns.sql` — vedi [`issues.md`](issues.md)._
 
 ### SEC-1 — User enumeration via verbatim OTP error (LOW)
 
