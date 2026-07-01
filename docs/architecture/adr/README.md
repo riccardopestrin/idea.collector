@@ -11,3 +11,4 @@ Template: copia [`0000-template.md`](0000-template.md).
 | ADR | Titolo | Stato |
 |---|---|---|
 | [0001](0001-supabase-postgres-auth.md) | Supabase come database e autenticazione | Accepted |
+| [0002](0002-main-board-layout.md) | Layout della Main Board (board a colonne per stato) | Proposed |
