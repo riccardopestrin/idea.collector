@@ -2,7 +2,7 @@
 
 This is the ownership matrix for the repo. Read it first. It tells you which paths and actions are **owner-only** — owners: Riccardo
 
-**Owners:** Riccardo = `@riccardopestrin99`
+**Owners:** Riccardo = `@riccardopestrin`
 
 ## Branch & history integrity (`.git`)
 
