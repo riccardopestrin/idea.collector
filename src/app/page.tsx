@@ -1,35 +1,29 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ProposalCard } from "@/components/cards/ProposalCard";
+import { ProposalFilters } from "@/components/filters/ProposalFilters";
+import { isProposalStatus, listProposals } from "@/lib/proposals";
 import { supabaseServer } from "@/lib/supabase/server";
 
 // Home autenticata. Il proxy già blocca i non loggati; ricontrolliamo qui vicino
-// ai dati (pattern raccomandato) e per restringere il tipo di user. La dashboard
-// vera e propria arriva negli step successivi.
-export default async function Home() {
+// ai dati (pattern raccomandato) e per restringere il tipo di user.
+export default async function MainBoard({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; status?: string }>;
+}) {
   const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // proposer è un embed to-one: PostgREST lo restituisce come oggetto singolo,
-  // ma supabase-js senza tipi generati lo inferisce come array — corretto qui.
-  const { data: proposals } = await supabase
-    .from("proposals")
-    .select("id, title, description, status, created_at, proposer:profiles(name, email)")
-    .order("created_at", { ascending: false })
-    .overrideTypes<
-      Array<{
-        id: string;
-        title: string;
-        description: string | null;
-        status: string;
-        created_at: string;
-        proposer: { name: string | null; email: string } | null;
-      }>,
-      { merge: false }
-    >();
+  const { q, status } = await searchParams;
+  const search = (q ?? "").trim();
+  const statusFilter = isProposalStatus(status) ? status : undefined;
+
+  const proposals = await listProposals(supabase, { search, status: statusFilter });
 
   async function logout() {
     "use server";
@@ -66,33 +60,19 @@ export default async function Home() {
           </Link>
         </div>
 
-        {proposals && proposals.length > 0 ? (
+        <ProposalFilters search={search} status={statusFilter} />
+
+        {proposals.length > 0 ? (
           <ul className="flex flex-col gap-3">
             {proposals.map((p) => (
-              <li
-                key={p.id}
-                className="flex flex-col gap-1 rounded-lg border border-border p-4"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-medium">{p.title}</span>
-                  <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-xs text-foreground/70">
-                    {p.status}
-                  </span>
-                </div>
-                {p.description && (
-                  <p className="line-clamp-2 text-sm text-foreground/70">
-                    {p.description}
-                  </p>
-                )}
-                <span className="text-xs text-foreground/50">
-                  di {p.proposer?.name ?? p.proposer?.email ?? "sconosciuto"}
-                </span>
-              </li>
+              <ProposalCard key={p.id} proposal={p} />
             ))}
           </ul>
         ) : (
           <p className="text-sm text-foreground/70">
-            Nessuna proposta ancora. Crea la prima.
+            {search || statusFilter
+              ? "Nessuna proposta corrisponde ai filtri."
+              : "Nessuna proposta ancora. Crea la prima."}
           </p>
         )}
       </main>

@@ -2,8 +2,8 @@
 
 import { useActionState } from "react";
 
-import { Field } from "@/components/Field";
-import { SubmitButton } from "@/components/SubmitButton";
+import { Field } from "@/components/form/Field";
+import { SubmitButton } from "@/components/form/SubmitButton";
 
 import { createProposal } from "./actions";
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { SubmitButton } from "@/components/SubmitButton";
+import { SubmitButton } from "@/components/form/SubmitButton";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 // Login passwordless con magic link (vedi ADR-0001). L'utente riceve un link via
