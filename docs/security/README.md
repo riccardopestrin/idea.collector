@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-01
+**Last updated:** 2026-07-02
 
 # Security Review
 
@@ -34,3 +34,13 @@ _SEC-2 e SEC-3 (RLS su `profiles`/`proposals`) risolte il 2026-07-01 da `0003_lo
 **Impact:** Low. Access is invite-only and internal; enumeration only reveals which addresses are members, not credentials. No account takeover.
 
 **Fix when touched:** Show a generic, non-distinguishing confirmation after `sendCode()` (e.g. "Se l'indirizzo è abilitato, riceverai un codice") regardless of the Supabase result, and only surface real errors for the verify step. Supabase's server-side rate limiting already throttles brute-force probing.
+
+### SEC-4 — Vulnerable transitive `postcss` via `next` (LOW)
+
+**Where:** `pnpm-lock.yaml` — dependency path `.>next>postcss` (`postcss < 8.5.10`).
+
+**Issue:** GHSA-qx2v-qp2m-jg93 (moderate): PostCSS's CSS stringifier does not escape `</style>`, enabling XSS when untrusted CSS is stringified into HTML.
+
+**Impact:** Low. In this app PostCSS runs only at build time on our own Tailwind CSS — no untrusted CSS ever reaches the stringifier. The residual cost is a permanently red `pnpm audit --prod`, which masks future real advisories.
+
+**Fix when touched:** Bump `next` once it ships with `postcss >= 8.5.10`, or add a pnpm override (`"pnpm": { "overrides": { "postcss": ">=8.5.10" } }`) and verify the build.

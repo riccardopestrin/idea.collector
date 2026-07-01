@@ -12,7 +12,7 @@ export type ProposalListItem = {
   id: string;
   title: string;
   description: string | null;
-  status: string;
+  status: ProposalStatus;
   created_at: string;
   proposer: { name: string | null; email: string } | null;
 };

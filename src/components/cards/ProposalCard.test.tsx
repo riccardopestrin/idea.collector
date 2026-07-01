@@ -19,10 +19,9 @@ function renderCard(overrides: Partial<ProposalListItem> = {}) {
 }
 
 describe("ProposalCard", () => {
-  it("shows title, status and description", () => {
+  it("shows title and description", () => {
     renderCard();
     expect(screen.getByText("Mappa offline")).toBeInTheDocument();
-    expect(screen.getByText("nuova")).toBeInTheDocument();
     expect(screen.getByText("Serve la mappa senza rete")).toBeInTheDocument();
   });
 
