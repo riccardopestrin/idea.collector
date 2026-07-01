@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-01
+**Last updated:** 2026-07-02
 
 # Be Careful — issue note consapevolmente rinviate
 
@@ -142,7 +142,7 @@ Residuo del template: Geist viene scaricato a ogni visita e mai usato. Fix da un
 
 ## `2026-07-01-lbls` Valori enum grezzi mostrati in UI + `status` tipizzato `string`
 
-**Status:** non fissato — non si verifica nell'attuale use case.
+**Status:** ✅ risolto 2026-07-02 — branch `mainBoardlayoutfromADR0002`: introdotta `STATUS_LABELS` in `src/lib/board.ts` (usata da board e `ProposalFilters`), `ProposalListItem.status` tipizzato `ProposalStatus`; il badge grezzo in `ProposalCard` è stato rimosso (lo stato è la colonna).
 
 ### Dove
 - [src/components/cards/ProposalCard.tsx:10](../../src/components/cards/ProposalCard.tsx) e `src/components/filters/ProposalFilters.tsx:48-52` — stampano il valore DB verbatim ("in_valutazione")
@@ -159,6 +159,29 @@ UI accoppiata al nome fisico dell'enum e narrowing perso. La rinomina pianificat
 
 ### Cronologia
 - 2026-07-01 — Flaggato NICE-TO-HAVE durante review completa (`Bugfixes001`).
+
+## `2026-07-02-1d20` `updateProposalStatus`: update + history non atomici, `from_status` da lettura stale
+
+**Status:** non fissato — non si verifica nell'attuale use case.
+
+### Dove
+- [src/app/proposals/actions.ts](../../src/app/proposals/actions.ts) — lettura di `status`, poi `update`, poi insert in `status_history` (commento `ponytail:` in loco)
+
+### Il problema potenziale
+Due problemi della stessa famiglia: (1) se l'insert in `status_history` fallisce dopo l'update riuscito, lo stato è cambiato ma la transizione non è registrata (oggi: `console.error` e si prosegue); (2) due admin che spostano la stessa card in concorrenza possono leggere lo stesso `from_status` e registrare una catena di transizioni incoerente.
+
+### Perché oggi non è un problema
+Un solo admin attivo: né history-failure sistematica né mosse concorrenti. La history non alimenta ancora nessuna feature.
+
+### Quando diventa un problema
+1. Quando ci saranno più admin che triagiano insieme la board.
+2. Quando `status_history` alimenterà audit/analytics/vista cronologia (Step 4, spec §4.4/§4.5).
+
+### Cosa fare se devi toccare quest'area
+Due fix candidati: compare-and-set senza migration (`.update({status: toStatus}).eq("id", id).eq("status", from)` + gestire zero righe aggiornate) per il caso stale-read; oppure una RPC Postgres che fa update+insert in transazione (migration → owner-locked) che risolve entrambi.
+
+### Cronologia
+- 2026-07-02 — Flaggato durante review chain della board (`mainBoardlayoutfromADR0002`), finding [3]; il `Review Reviewer` ha confermato la race e indicato il CAS come mitigazione senza migration.
 
 ## `2026-07-01-alog` Errore Supabase non loggato in `createProposal`
 

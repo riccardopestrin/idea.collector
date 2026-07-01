@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { Board } from "@/components/board/Board";
 import { ProposalFilters } from "@/components/filters/ProposalFilters";
+import { getRole } from "@/lib/profiles";
 import { isProposalStatus, listProposals } from "@/lib/proposals";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -23,9 +24,9 @@ export default async function MainBoard({
   const search = (q ?? "").trim();
   const statusFilter = isProposalStatus(status) ? status : undefined;
 
-  const [proposals, { data: profile }] = await Promise.all([
+  const [proposals, role] = await Promise.all([
     listProposals(supabase, { search, status: statusFilter }),
-    supabase.from("profiles").select("role").eq("id", user.id).single(),
+    getRole(supabase, user.id),
   ]);
 
   async function logout() {
@@ -72,7 +73,7 @@ export default async function MainBoard({
               : "Nessuna proposta ancora. Crea la prima."}
           </p>
         )}
-        <Board proposals={proposals} canMove={profile?.role === "admin"} />
+        <Board proposals={proposals} canMove={role === "admin"} />
       </main>
     </>
   );

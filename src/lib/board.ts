@@ -10,7 +10,7 @@ export const BOARD_COLUMNS = PROPOSAL_STATUSES;
 
 // Label IT degli stati — unico punto che traduce l'enum DB in testo utente.
 export const STATUS_LABELS: Record<ProposalStatus, string> = {
-  nuova: "Nuovo",
+  nuova: "Nuova",
   in_valutazione: "In Valutazione",
   approvata: "Approvata",
   in_sviluppo: "In Sviluppo",

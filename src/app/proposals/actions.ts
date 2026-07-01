@@ -2,6 +2,7 @@
 
 import { refresh } from "next/cache";
 
+import { getRole } from "@/lib/profiles";
 import { isProposalStatus } from "@/lib/proposals";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -23,12 +24,7 @@ export async function updateProposalStatus(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (profile?.role !== "admin") {
+  if ((await getRole(supabase, user.id)) !== "admin") {
     return { error: "Solo un admin può spostare le proposte." };
   }
 

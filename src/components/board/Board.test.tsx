@@ -45,10 +45,10 @@ describe("Board", () => {
       />,
     );
 
-    const nuova = screen.getByRole("region", { name: "Nuovo" });
+    const nuova = screen.getByRole("region", { name: "Nuova" });
     expect(within(nuova).getByText("Mappa offline")).toBeInTheDocument();
     expect(within(nuova).getByText("Export CSV")).toBeInTheDocument();
-    expect(within(nuova).getByRole("heading")).toHaveTextContent("Nuovo2");
+    expect(within(nuova).getByRole("heading")).toHaveTextContent("Nuova2");
 
     const inSviluppo = screen.getByRole("region", { name: "In Sviluppo" });
     expect(within(inSviluppo).getByText("Dark mode")).toBeInTheDocument();

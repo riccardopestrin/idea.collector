@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-01
+**Last updated:** 2026-07-02
 
 # Accessibility
 
@@ -45,6 +45,26 @@ Portare l'area cliccabile ad almeno 44 px mantenendo il glifo centrato (es. `fle
 
 #### Cronologia
 - 2026-07-01 — Flaggato durante review completa del codebase (`Bugfixes001`).
+
+### [A11Y-03] Drag da tastiera della board impraticabile (25px per pressione)
+
+**Status:** non fissato — flaggato il 2026-07-02 durante review della PR `mainBoardlayoutfromADR0002`.
+
+#### Dove
+- `src/components/board/Board.tsx:38` (`useSensor(KeyboardSensor)` senza `coordinateGetter`)
+- `src/lib/tokens.ts` (`BOARD_COLUMN_WIDTH = "w-80"`, `BOARD_GAP = "gap-6"`)
+
+#### Cosa c'è di sbagliato
+Il `KeyboardSensor` usa il coordinate getter di default di dnd-kit: 25px per pressione di freccia. Con colonne da 320px + gap 24px servono ~14 pressioni per attraversare una colonna, senza snapping sui droppable. Il drag da tastiera esiste (le card sono focusabili, `role="button"`, Space per prendere/rilasciare) ma è di fatto inutilizzabile su una board a 7 colonne.
+
+#### Impatto user-visible
+Gli admin che usano solo la tastiera non riescono realisticamente a spostare le proposte — l'interazione principale della pagina. Severità alta per utenti keyboard-only.
+
+#### Fix raccomandato
+`coordinateGetter` custom che salta tra i centri delle colonne (supportato da `@dnd-kit/core`, non serve `@dnd-kit/sortable`), oppure fallback non-drag (menu/`<select>` "Sposta in →" che chiama la stessa `updateProposalStatus`).
+
+#### Cronologia
+- 2026-07-02 — Flaggato durante review chain della board (`mainBoardlayoutfromADR0002`), finding [4] confermato dal `Review Reviewer`.
 
 ## Issue risolti
 

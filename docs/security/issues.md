@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-01
+**Last updated:** 2026-07-02
 
 # Security Issues
 
@@ -15,3 +15,4 @@ Open-issues registry for the security review flow (`Software Reviewer` → `Revi
 ## 🟡 LOW
 
 - **SEC-1** — User enumeration via verbatim OTP error message on `/login`. `signInWithOtp({ shouldCreateUser: false })` returns a distinguishable error for unregistered emails, surfaced verbatim in the `role="alert"`. An unauthenticated visitor can probe which emails are registered. Low impact for an invite-only internal tool; details in [`README.md`](README.md#sec-1).
+- **SEC-4** — Known-vulnerable transitive dependency: `postcss < 8.5.10` via `next` (GHSA-qx2v-qp2m-jg93, moderate — XSS via unescaped `</style>` in CSS stringify output). Not exploitable here (build-time tooling, no untrusted CSS is stringified), but it keeps `pnpm audit --prod` red. Details in [`README.md`](README.md#sec-4).
