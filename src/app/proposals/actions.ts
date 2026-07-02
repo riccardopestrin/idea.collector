@@ -2,7 +2,7 @@
 
 import { refresh } from "next/cache";
 
-import { getRole } from "@/lib/profiles";
+import { getProfile } from "@/lib/profiles";
 import { isProposalStatus } from "@/lib/proposals";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -65,7 +65,7 @@ export async function deleteProposal(proposalId: string): Promise<ActionResult> 
 
   if (
     proposal.proposer_id !== user.id &&
-    (await getRole(supabase, user.id)) !== "admin"
+    (await getProfile(supabase, user.id))?.role !== "admin"
   ) {
     return { error: "Solo l'autore o un admin può eliminare la proposta." };
   }

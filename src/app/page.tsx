@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { Board } from "@/components/board/Board";
 import { ProposalFilters } from "@/components/filters/ProposalFilters";
-import { getRole } from "@/lib/profiles";
+import { getProfile } from "@/lib/profiles";
 import { isProposalStatus, listProposals } from "@/lib/proposals";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -24,10 +24,11 @@ export default async function MainBoard({
   const search = (q ?? "").trim();
   const statusFilter = isProposalStatus(status) ? status : undefined;
 
-  const [proposals, role] = await Promise.all([
+  const [proposals, profile] = await Promise.all([
     listProposals(supabase, { search, status: statusFilter }),
-    getRole(supabase, user.id),
+    getProfile(supabase, user.id),
   ]);
+  if (profile && !profile.name) redirect("/onboarding");
 
   async function logout() {
     "use server";
@@ -41,7 +42,9 @@ export default async function MainBoard({
       <header className="flex items-center justify-between border-b border-border px-6 py-4">
         <span className="font-semibold">Proposte feature</span>
         <div className="flex items-center gap-4 text-sm">
-          <span className="text-foreground/70">{user.email}</span>
+          <Link href="/profile" className="text-foreground/70 underline-offset-2 hover:underline">
+            {profile?.name ?? user.email}
+          </Link>
           <form action={logout}>
             <button
               type="submit"
@@ -73,7 +76,7 @@ export default async function MainBoard({
               : "Nessuna proposta ancora. Crea la prima."}
           </p>
         )}
-        <Board proposals={proposals} userId={user.id} isAdmin={role === "admin"} />
+        <Board proposals={proposals} userId={user.id} isAdmin={profile?.role === "admin"} />
       </main>
     </>
   );

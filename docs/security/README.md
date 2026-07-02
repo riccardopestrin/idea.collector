@@ -35,6 +35,16 @@ _SEC-2 e SEC-3 (RLS su `profiles`/`proposals`) risolte il 2026-07-01 da `0003_lo
 
 **Fix when touched:** Show a generic, non-distinguishing confirmation after `sendCode()` (e.g. "Se l'indirizzo è abilitato, riceverai un codice") regardless of the Supabase result, and only surface real errors for the verify step. Supabase's server-side rate limiting already throttles brute-force probing.
 
+### SEC-5 — No DB length constraint on `profiles.name` (LOW)
+
+**Where:** [`src/app/profile/actions.ts`](../../src/app/profile/actions.ts) (app-side 80-char cap) vs. `supabase/migrations/0003_lock_privileged_columns.sql` (column grant on `name` with no `CHECK`).
+
+**Issue:** The 80-character limit is enforced only in the `updateName` Server Action. The column grant that fixed SEC-2 intentionally allows authenticated users to update `name` on their own row via direct PostgREST, so the app-side cap can be bypassed with an arbitrarily long string.
+
+**Impact:** Low. RLS keeps the write self-scoped and the name is rendered via JSX (auto-escaped), so the worst case is a user storing an oversized name that degrades their own header/proposal-card display and wastes storage. No cross-user or privilege impact.
+
+**Fix:** migration ready in [`supabase/migrations/0008_profiles_name_length_check.sql`](../../supabase/migrations/0008_profiles_name_length_check.sql) (`CHECK (char_length(name) <= 80)`; a NULL name passes the check). Awaiting owner apply to the database.
+
 ### SEC-4 — Vulnerable transitive `postcss` via `next` (LOW)
 
 **Where:** `pnpm-lock.yaml` — dependency path `.>next>postcss` (`postcss < 8.5.10`).
