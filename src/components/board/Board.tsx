@@ -10,23 +10,27 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { useOptimistic, useState, useTransition } from "react";
+import { type ReactNode, useOptimistic, useState, useTransition } from "react";
 
-import { updateProposalStatus } from "@/app/proposals/actions";
+import { deleteProposal, updateProposalStatus } from "@/app/proposals/actions";
 import { Column } from "@/components/board/Column";
+import { DeleteProposalDialog } from "@/components/board/DeleteProposalDialog";
 import { ProposalCard } from "@/components/cards/ProposalCard";
 import { BOARD_COLUMNS, groupByStatus, STATUS_LABELS } from "@/lib/board";
 import type { ProposalListItem, ProposalStatus } from "@/lib/proposals";
 import { BOARD_GAP } from "@/lib/tokens";
 
-// Board a colonne per stato (ADR-0002). Unico Client Component e unico punto
-// che conosce @dnd-kit: colonne e card restano presentazionali.
+// Board a colonne per stato (ADR-0002 + rettifica). Unico Client Component e
+// unico punto che conosce @dnd-kit: colonne e card restano presentazionali.
+// Tutti spostano tutto; elimina solo autore o admin, previa conferma.
 export function Board({
   proposals,
-  canMove,
+  userId,
+  isAdmin,
 }: {
   proposals: ProposalListItem[];
-  canMove: boolean;
+  userId: string;
+  isAdmin: boolean;
 }) {
   const [optimisticProposals, moveOptimistic] = useOptimistic(
     proposals,
@@ -34,20 +38,33 @@ export function Board({
       current.map((p) => (p.id === move.id ? { ...p, status: move.toStatus } : p)),
   );
   const [error, setError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+  const [pendingDelete, setPendingDelete] = useState<ProposalListItem | null>(null);
+  const [isPending, startTransition] = useTransition();
   const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor));
+
+  function move(proposal: ProposalListItem, toStatus: ProposalStatus) {
+    setError(null);
+    startTransition(async () => {
+      moveOptimistic({ id: proposal.id, toStatus });
+      const result = await updateProposalStatus(proposal.id, proposal.status, toStatus);
+      if (result) setError(result.error);
+    });
+  }
 
   function handleDragEnd({ active, over }: DragEndEvent) {
     if (!over) return;
-    const id = String(active.id);
     const toStatus = over.id as ProposalStatus;
-    const proposal = optimisticProposals.find((p) => p.id === id);
+    const proposal = optimisticProposals.find((p) => p.id === String(active.id));
     if (!proposal || proposal.status === toStatus) return;
+    move(proposal, toStatus);
+  }
+
+  function handleDelete(proposal: ProposalListItem) {
     setError(null);
     startTransition(async () => {
-      moveOptimistic({ id, toStatus });
-      const result = await updateProposalStatus(id, toStatus);
+      const result = await deleteProposal(proposal.id);
       if (result) setError(result.error);
+      setPendingDelete(null);
     });
   }
 
@@ -64,15 +81,34 @@ export function Board({
       <DndContext id="board" sensors={sensors} onDragEnd={handleDragEnd}>
         <div className={`flex flex-1 ${BOARD_GAP} overflow-x-auto pb-4`}>
           {BOARD_COLUMNS.map((status) => (
-            <DroppableColumn
-              key={status}
-              status={status}
-              proposals={groups[status]}
-              canMove={canMove}
-            />
+            <DroppableColumn key={status} status={status} count={groups[status].length}>
+              {groups[status].map((proposal) => (
+                <DraggableCard
+                  key={proposal.id}
+                  proposal={proposal}
+                  onDelete={
+                    isAdmin || proposal.proposer_id === userId
+                      ? () => setPendingDelete(proposal)
+                      : undefined
+                  }
+                />
+              ))}
+            </DroppableColumn>
           ))}
         </div>
       </DndContext>
+      {pendingDelete && (
+        <DeleteProposalDialog
+          title={pendingDelete.title}
+          busy={isPending}
+          onDelete={() => handleDelete(pendingDelete)}
+          onReject={() => {
+            move(pendingDelete, "rifiutata");
+            setPendingDelete(null);
+          }}
+          onClose={() => setPendingDelete(null)}
+        />
+      )}
     </div>
   );
 }
@@ -80,24 +116,17 @@ export function Board({
 // Wrapper che lega il droppable di @dnd-kit alla Column presentazionale.
 function DroppableColumn({
   status,
-  proposals,
-  canMove,
+  count,
+  children,
 }: {
   status: ProposalStatus;
-  proposals: ProposalListItem[];
-  canMove: boolean;
+  count: number;
+  children: ReactNode;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status, disabled: !canMove });
+  const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
-    <Column
-      ref={setNodeRef}
-      title={STATUS_LABELS[status]}
-      count={proposals.length}
-      isOver={isOver}
-    >
-      {proposals.map((proposal) => (
-        <DraggableCard key={proposal.id} proposal={proposal} canMove={canMove} />
-      ))}
+    <Column ref={setNodeRef} title={STATUS_LABELS[status]} count={count} isOver={isOver}>
+      {children}
     </Column>
   );
 }
@@ -105,14 +134,13 @@ function DroppableColumn({
 // Wrapper draggable della card: la <li> porta ref/listener, la card resta pura.
 function DraggableCard({
   proposal,
-  canMove,
+  onDelete,
 }: {
   proposal: ProposalListItem;
-  canMove: boolean;
+  onDelete?: () => void;
 }) {
   const { setNodeRef, attributes, listeners, transform, isDragging } = useDraggable({
     id: proposal.id,
-    disabled: !canMove,
   });
   return (
     <li
@@ -124,9 +152,9 @@ function DraggableCard({
           ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
           : undefined
       }
-      className={canMove ? `cursor-grab ${isDragging ? "z-10 opacity-70" : ""}` : undefined}
+      className={`cursor-grab ${isDragging ? "z-10 opacity-70" : ""}`}
     >
-      <ProposalCard proposal={proposal} />
+      <ProposalCard proposal={proposal} onDelete={onDelete} />
     </li>
   );
 }

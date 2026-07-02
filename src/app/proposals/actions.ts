@@ -6,17 +6,22 @@ import { getRole } from "@/lib/profiles";
 import { isProposalStatus } from "@/lib/proposals";
 import { supabaseServer } from "@/lib/supabase/server";
 
-type UpdateStatusResult = { error: string } | null;
+type ActionResult = { error: string } | null;
 
-// Sposta una proposta in un nuovo stato e logga la transizione in status_history.
-// Solo admin: è l'invariante del DB (trigger proposals_lock_privileged_columns
-// + policy "admin insert history" in 0003/0001); il guard qui è il livello
-// applicativo, il DB resta il backstop.
+// Sposta una proposta in un nuovo stato. Aperto a tutti i membri (rettifica
+// ADR-0002): l'accountability è la history, non i permessi. La RPC move_proposal
+// (migration 0005) fa update + insert history in transazione, con compare-and-set
+// su fromStatus: una mossa basata su una board stale fallisce invece di
+// sovrascrivere quella di un altro.
 export async function updateProposalStatus(
   proposalId: string,
+  fromStatus: string,
   toStatus: string,
-): Promise<UpdateStatusResult> {
-  if (!isProposalStatus(toStatus)) return { error: "Stato non valido." };
+): Promise<ActionResult> {
+  if (!isProposalStatus(fromStatus) || !isProposalStatus(toStatus)) {
+    return { error: "Stato non valido." };
+  }
+  if (fromStatus === toStatus) return null;
 
   const supabase = await supabaseServer();
   const {
@@ -24,36 +29,52 @@ export async function updateProposalStatus(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
 
-  if ((await getRole(supabase, user.id)) !== "admin") {
-    return { error: "Solo un admin può spostare le proposte." };
-  }
-
-  const { data: proposal } = await supabase
-    .from("proposals")
-    .select("status")
-    .eq("id", proposalId)
-    .single();
-  if (!proposal) return { error: "Proposta non trovata." };
-  if (proposal.status === toStatus) return null;
-
-  const { error } = await supabase
-    .from("proposals")
-    .update({ status: toStatus })
-    .eq("id", proposalId);
+  const { data: moved, error } = await supabase.rpc("move_proposal", {
+    p_id: proposalId,
+    p_from: fromStatus,
+    p_to: toStatus,
+  });
   if (error) {
     console.error("updateProposalStatus:", error);
     return { error: "Errore nel salvataggio. Riprova." };
   }
+  if (!moved) {
+    return { error: "La proposta è stata spostata da qualcun altro. Ricarica la pagina." };
+  }
 
-  // ponytail: update + history non atomici (servirebbe una RPC, migration
-  // owner-locked); se la history fallisce lo stato è comunque cambiato — log.
-  const { error: historyError } = await supabase.from("status_history").insert({
-    proposal_id: proposalId,
-    from_status: proposal.status,
-    to_status: toStatus,
-    author_id: user.id,
-  });
-  if (historyError) console.error("updateProposalStatus history:", historyError);
+  refresh();
+  return null;
+}
+
+// Elimina una proposta. Solo l'autore o un admin (rettifica ADR-0002); il guard
+// qui è il livello applicativo, la policy "owner or admin delete" è il backstop.
+// La conferma (con l'alternativa "sposta in Rifiutata") vive nella UI.
+export async function deleteProposal(proposalId: string): Promise<ActionResult> {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+
+  const { data: proposal } = await supabase
+    .from("proposals")
+    .select("proposer_id")
+    .eq("id", proposalId)
+    .single();
+  if (!proposal) return { error: "Proposta non trovata." };
+
+  if (
+    proposal.proposer_id !== user.id &&
+    (await getRole(supabase, user.id)) !== "admin"
+  ) {
+    return { error: "Solo l'autore o un admin può eliminare la proposta." };
+  }
+
+  const { error } = await supabase.from("proposals").delete().eq("id", proposalId);
+  if (error) {
+    console.error("deleteProposal:", error);
+    return { error: "Errore nell'eliminazione. Riprova." };
+  }
 
   refresh();
   return null;

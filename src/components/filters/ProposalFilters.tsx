@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { controlClass } from "@/components/form/Field";
 import { STATUS_LABELS } from "@/lib/board";
 import { PROPOSAL_STATUSES, type ProposalStatus } from "@/lib/proposals";
 
@@ -27,7 +28,7 @@ export function ProposalFilters({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Cerca per titolo o descrizione…"
-          className="w-full rounded-md border border-border px-3 py-2 pr-9"
+          className={`w-full ${controlClass} pr-9`}
         />
         {q && (
           <button
@@ -43,7 +44,7 @@ export function ProposalFilters({
       <select
         name="status"
         defaultValue={status ?? ""}
-        className="rounded-md border border-border px-3 py-2"
+        className={controlClass}
       >
         <option value="">Tutti gli stati</option>
         {PROPOSAL_STATUSES.map((s) => (

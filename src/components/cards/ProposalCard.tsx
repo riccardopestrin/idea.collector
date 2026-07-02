@@ -2,10 +2,30 @@ import type { ProposalListItem } from "@/lib/proposals";
 
 // Card di una proposta. Presentazionale: riceve la riga già letta; il wrapper
 // (la <li> draggable della board) decide posizionamento e interazione.
-export function ProposalCard({ proposal }: { proposal: ProposalListItem }) {
+// onDelete presente solo se chi guarda può eliminare (autore o admin).
+export function ProposalCard({
+  proposal,
+  onDelete,
+}: {
+  proposal: ProposalListItem;
+  onDelete?: () => void;
+}) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border bg-background p-4">
-      <span className="font-medium">{proposal.title}</span>
+    <div className="relative flex flex-col gap-1 rounded-lg border border-border bg-background p-4">
+      {onDelete && (
+        <button
+          type="button"
+          aria-label={`Elimina ${proposal.title}`}
+          onClick={onDelete}
+          // il click non deve avviare il drag della <li> che ci ospita
+          onPointerDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          className="absolute right-1 top-1 rounded p-1.5 leading-none text-foreground/40 hover:text-foreground"
+        >
+          ×
+        </button>
+      )}
+      <span className="pr-6 font-medium">{proposal.title}</span>
       {proposal.description && (
         <p className="line-clamp-2 text-sm text-foreground/70">{proposal.description}</p>
       )}

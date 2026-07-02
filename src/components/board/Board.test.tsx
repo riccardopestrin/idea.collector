@@ -1,31 +1,40 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BOARD_COLUMNS, STATUS_LABELS } from "@/lib/board";
 import type { ProposalListItem } from "@/lib/proposals";
 
 import { Board } from "./Board";
 
-vi.mock("@/app/proposals/actions", () => ({
+const { updateProposalStatus, deleteProposal } = vi.hoisted(() => ({
   updateProposalStatus: vi.fn(async () => null),
+  deleteProposal: vi.fn(async () => null),
 }));
+vi.mock("@/app/proposals/actions", () => ({ updateProposalStatus, deleteProposal }));
 
 const proposal = (
   id: string,
   status: ProposalListItem["status"],
   title: string,
+  proposerId = "u1",
 ): ProposalListItem => ({
   id,
   title,
   description: null,
   status,
   created_at: "2026-01-01",
+  proposer_id: proposerId,
   proposer: null,
 });
 
 describe("Board", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("renders one column per status, in flow order, with its label", () => {
-    render(<Board proposals={[]} canMove={false} />);
+    render(<Board proposals={[]} userId="u1" isAdmin={false} />);
 
     const headings = screen.getAllByRole("heading", { level: 2 });
     expect(headings.map((h) => h.textContent)).toEqual(
@@ -41,7 +50,8 @@ describe("Board", () => {
           proposal("2", "in_sviluppo", "Dark mode"),
           proposal("3", "nuova", "Export CSV"),
         ]}
-        canMove
+        userId="u1"
+        isAdmin={false}
       />,
     );
 
@@ -55,19 +65,85 @@ describe("Board", () => {
     expect(within(inSviluppo).queryByText("Mappa offline")).not.toBeInTheDocument();
   });
 
-  it("exposes cards as keyboard-draggable only when the user can move them", () => {
-    const { rerender } = render(
-      <Board proposals={[proposal("1", "nuova", "Mappa offline")]} canMove />,
+  it("exposes every card as draggable, whoever the user is", () => {
+    render(
+      <Board
+        proposals={[proposal("1", "nuova", "Mappa offline", "someone-else")]}
+        userId="u1"
+        isAdmin={false}
+      />,
     );
-    expect(screen.getByText("Mappa offline").closest("li")).toHaveAttribute(
-      "role",
-      "button",
+    const li = screen.getByText("Mappa offline").closest("li");
+    expect(li).toHaveAttribute("role", "button");
+    expect(li).not.toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("shows the delete button to a contributor only on their own proposals", () => {
+    render(
+      <Board
+        proposals={[
+          proposal("1", "nuova", "Mia", "u1"),
+          proposal("2", "nuova", "Altrui", "u2"),
+        ]}
+        userId="u1"
+        isAdmin={false}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Elimina Mia" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Elimina Altrui" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the delete button to an admin on everyone's proposals", () => {
+    render(
+      <Board
+        proposals={[proposal("2", "nuova", "Altrui", "u2")]}
+        userId="u1"
+        isAdmin
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Elimina Altrui" })).toBeInTheDocument();
+  });
+
+  it("asks for confirmation and deletes only after 'Elimina definitivamente'", async () => {
+    const user = userEvent.setup();
+    render(
+      <Board proposals={[proposal("1", "nuova", "Mia", "u1")]} userId="u1" isAdmin={false} />,
     );
 
-    rerender(<Board proposals={[proposal("1", "nuova", "Mappa offline")]} canMove={false} />);
-    expect(screen.getByText("Mappa offline").closest("li")).toHaveAttribute(
-      "aria-disabled",
-      "true",
+    await user.click(screen.getByRole("button", { name: "Elimina Mia" }));
+    expect(deleteProposal).not.toHaveBeenCalled();
+    expect(screen.getByText("Eliminare “Mia”?")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Elimina definitivamente" }));
+    expect(deleteProposal).toHaveBeenCalledWith("1");
+  });
+
+  it("offers 'Sposta in Rifiutata' as the conservative alternative", async () => {
+    const user = userEvent.setup();
+    render(
+      <Board proposals={[proposal("1", "nuova", "Mia", "u1")]} userId="u1" isAdmin={false} />,
     );
+
+    await user.click(screen.getByRole("button", { name: "Elimina Mia" }));
+    await user.click(screen.getByRole("button", { name: "Sposta in Rifiutata" }));
+
+    expect(updateProposalStatus).toHaveBeenCalledWith("1", "nuova", "rifiutata");
+    expect(deleteProposal).not.toHaveBeenCalled();
+  });
+
+  it("closes the dialog on 'Annulla' without touching the proposal", async () => {
+    const user = userEvent.setup();
+    render(
+      <Board proposals={[proposal("1", "nuova", "Mia", "u1")]} userId="u1" isAdmin={false} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Elimina Mia" }));
+    await user.click(screen.getByRole("button", { name: "Annulla" }));
+
+    expect(screen.queryByText("Eliminare “Mia”?")).not.toBeInTheDocument();
+    expect(deleteProposal).not.toHaveBeenCalled();
+    expect(updateProposalStatus).not.toHaveBeenCalled();
   });
 });

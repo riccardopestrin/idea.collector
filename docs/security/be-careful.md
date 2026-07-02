@@ -106,7 +106,7 @@ Destrutturare `error` e lanciarlo (`if (error) throw error;`), aggiungere `src/a
 
 ## `2026-07-01-ctrl` Class string dei controlli form duplicata in 4 punti
 
-**Status:** non fissato — rinviato dall'owner (review 2026-07-01, era IMPORTANT).
+**Status:** ✅ risolto 2026-07-02 — branch `ideaAndEliminationArchitecture`: `controlClass` esportata da `Field.tsx` e riusata in login, `ProposalFilters` (2 punti) e nei bottoni di `DeleteProposalDialog`; la stringa letterale ora vive in un punto solo. Nessun form-kit, come prescritto.
 
 ### Dove
 - [src/components/form/Field.tsx:10](../../src/components/form/Field.tsx) (`controlClass` privata) · `src/app/login/page.tsx:59` · `src/components/filters/ProposalFilters.tsx:29,45`
@@ -162,7 +162,7 @@ UI accoppiata al nome fisico dell'enum e narrowing perso. La rinomina pianificat
 
 ## `2026-07-02-1d20` `updateProposalStatus`: update + history non atomici, `from_status` da lettura stale
 
-**Status:** non fissato — non si verifica nell'attuale use case.
+**Status:** ✅ risolto 2026-07-02 — branch `ideaAndEliminationArchitecture`: la RPC `move_proposal` (migration `0005`) esegue update + insert history in un'unica transazione, con compare-and-set su `from_status` (la mossa stale fallisce e la UI invita a ricaricare). Vedi rettifica ADR-0002.
 
 ### Dove
 - [src/app/proposals/actions.ts](../../src/app/proposals/actions.ts) — lettura di `status`, poi `update`, poi insert in `status_history` (commento `ponytail:` in loco)

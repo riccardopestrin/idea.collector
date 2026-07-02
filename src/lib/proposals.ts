@@ -14,6 +14,7 @@ export type ProposalListItem = {
   description: string | null;
   status: ProposalStatus;
   created_at: string;
+  proposer_id: string;
   proposer: { name: string | null; email: string } | null;
 };
 
@@ -29,7 +30,9 @@ export async function listProposals(
 ): Promise<ProposalListItem[]> {
   let query = supabase
     .from("proposals")
-    .select("id, title, description, status, created_at, proposer:profiles(name, email)")
+    .select(
+      "id, title, description, status, created_at, proposer_id, proposer:profiles(name, email)",
+    )
     .order("created_at", { ascending: false });
 
   if (search) {

@@ -20,6 +20,17 @@ Fuori scope (rinviato a branch dedicati): rename dell'enum `parcheggiata → arc
 **Positive:** libreria standard, accessibile e con supporto tastiera/touch out-of-the-box; il DnD è confinato in un solo componente, quindi la libreria è sostituibile senza toccare il resto (es. migrazione a Pragmatic drag-and-drop solo se serve la scala Trello); colonne per composizione → aggiungere/rinominare uno stato è una riga in `board.ts`; autorizzazione già coperta da RLS + guard; layout in puro CSS.
 **Negative:** una dipendenza runtime in più (`@dnd-kit`); l'ordinamento è vincolato a `created_at` — un futuro riordino manuale richiederebbe una colonna `position` e una migration; le colonne `Parcheggiata`/`Rifiutata` restano sempre visibili e occupano spazio orizzontale.
 
+## Rettifica 2026-07-02 — permessi di spostamento ed eliminazione (owner)
+
+Sostituisce il punto "Layering" sopra per la parte autorizzazione dello spostamento, e aggiunge l'eliminazione. Decisione dell'owner:
+
+- **Spostamento: tutti i contributor spostano tutte le proposte** tra colonne, stile ClickUp. Non è una questione di privacy: l'accountability è data dall'audit trail (`status_history` registra chi ha fatto ogni transizione), non dai permessi. La riga originale "autorizza (ruolo + ownership)" — implementata poi come admin-only per il vincolo del trigger `0003` — è superata.
+- **Meccanismo:** RPC Postgres `move_proposal` (`security definer`, migration `0005`) che esegue update con compare-and-set su `from_status` + insert in `status_history` in un'unica transazione. Questo chiude anche il deferral be-careful `2026-07-02-1d20` (update+history non atomici, `from_status` stale). Il trigger di `0003` continua a bloccare i cambi di stato diretti via PostgREST per i non-admin: lo spostamento del contributor passa solo dalla RPC, quindi la history resta completa.
+- **Eliminazione: solo l'autore della proposta o un admin.** RLS `DELETE` ampliata da admin-only a owner-or-admin, guard equivalente nella Server Action. `status_history` segue la proposta (FK `on delete cascade`).
+- **UX eliminazione:** prima di eliminare, un dialog di conferma offre l'alternativa "Sposta in Rifiutata" (che preserva la storia) accanto a "Elimina definitivamente" e "Annulla".
+
+**Conseguenze:** la board diventa collaborativa (più utenti che spostano in concorrenza — gestito dal CAS: la mossa su dato stale fallisce con invito a ricaricare); l'eliminazione è distruttiva e cancella anche la history della proposta, da cui il dialog che propone "Rifiutata" come default conservativo.
+
 ## Source
 Decisione dell'owner (2026-07-01) in [RFC-002](../rfc/RFC-002-main-board-layout.md), con scelta esplicita di Piano A (`@dnd-kit`), Opzione A per gli stati laterali e ordinamento per data. Best practice DnD 2026 dalla ricerca citata nell'RFC.
 

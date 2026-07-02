@@ -7,7 +7,8 @@ type FieldProps = {
   multiline?: boolean;
 };
 
-const controlClass = "rounded-md border border-border px-3 py-2";
+// Stile base condiviso dei controlli form (input/select/bottoni secondari) — vedi dry-beyond-sx.md.
+export const controlClass = "rounded-md border border-border px-3 py-2";
 
 export function Field({ label, name, required, multiline }: FieldProps) {
   return (

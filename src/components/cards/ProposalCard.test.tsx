@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import type { ProposalListItem } from "@/lib/proposals";
 
@@ -11,11 +12,15 @@ const base: ProposalListItem = {
   description: "Serve la mappa senza rete",
   status: "nuova",
   created_at: "2026-01-01",
+  proposer_id: "u1",
   proposer: { name: "Ada", email: "ada@hint.app" },
 };
 
-function renderCard(overrides: Partial<ProposalListItem> = {}) {
-  render(<ProposalCard proposal={{ ...base, ...overrides }} />);
+function renderCard(
+  overrides: Partial<ProposalListItem> = {},
+  onDelete?: () => void,
+) {
+  render(<ProposalCard proposal={{ ...base, ...overrides }} onDelete={onDelete} />);
 }
 
 describe("ProposalCard", () => {
@@ -43,5 +48,17 @@ describe("ProposalCard", () => {
   it("falls back to 'sconosciuto' when there is no proposer", () => {
     renderCard({ proposer: null });
     expect(screen.getByText(/di sconosciuto/)).toBeInTheDocument();
+  });
+
+  it("renders the delete button only when onDelete is provided, and wires it", async () => {
+    const onDelete = vi.fn();
+    renderCard({}, onDelete);
+    await userEvent.click(screen.getByRole("button", { name: "Elimina Mappa offline" }));
+    expect(onDelete).toHaveBeenCalled();
+  });
+
+  it("has no delete button for who cannot delete", () => {
+    renderCard();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { controlClass } from "@/components/form/Field";
 import { SubmitButton } from "@/components/form/SubmitButton";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
@@ -56,7 +57,7 @@ export default function LoginPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="rounded-md border border-border px-3 py-2"
+                className={controlClass}
               />
             </label>
 

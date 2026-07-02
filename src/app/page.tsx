@@ -73,7 +73,7 @@ export default async function MainBoard({
               : "Nessuna proposta ancora. Crea la prima."}
           </p>
         )}
-        <Board proposals={proposals} canMove={role === "admin"} />
+        <Board proposals={proposals} userId={user.id} isAdmin={role === "admin"} />
       </main>
     </>
   );

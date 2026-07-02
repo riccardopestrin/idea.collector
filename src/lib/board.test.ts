@@ -10,6 +10,7 @@ const proposal = (id: string, status: ProposalListItem["status"]): ProposalListI
   description: null,
   status,
   created_at: "2026-01-01",
+  proposer_id: "u1",
   proposer: null,
 });
 

@@ -46,15 +46,15 @@ select is(
   'un contributor non può modificare le proposte altrui'
 );
 
--- Il delete è solo admin: né la riga altrui né la propria vengono eliminate.
+-- Il delete è autore-o-admin (0005): la riga altrui resta, la propria va via.
 insert into public.proposals (id, title, proposer_id)
 values ('11111111-0000-0000-0000-000000000002', 'Di Bruno',
         'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
 delete from public.proposals;
 select is(
-  (select count(*)::int from public.proposals),
-  2,
-  'un contributor non può eliminare proposte, nemmeno le proprie'
+  (select array_agg(title) from public.proposals),
+  array['Di Alice'],
+  'un contributor elimina solo le proprie proposte, non quelle altrui'
 );
 
 select throws_ok(
@@ -87,12 +87,12 @@ select lives_ok(
 );
 
 delete from public.proposals
-  where id = '11111111-0000-0000-0000-000000000002';
+  where id = '11111111-0000-0000-0000-000000000001';
 select is(
   (select count(*)::int from public.proposals
-    where id = '11111111-0000-0000-0000-000000000002'),
+    where id = '11111111-0000-0000-0000-000000000001'),
   0,
-  'l''admin può eliminare una proposta'
+  'l''admin può eliminare una proposta altrui'
 );
 
 -- Sessione anonima: nessun grant, nessuna lettura.

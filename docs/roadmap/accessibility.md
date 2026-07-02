@@ -66,6 +66,25 @@ Gli admin che usano solo la tastiera non riescono realisticamente a spostare le 
 #### Cronologia
 - 2026-07-02 — Flaggato durante review chain della board (`mainBoardlayoutfromADR0002`), finding [4] confermato dal `Review Reviewer`.
 
+### [A11Y-04] Bottone elimina "×" sulla card: hit target sottodimensionato e contrasto basso a riposo
+
+**Status:** non fissato — flaggato il 2026-07-02 durante review della PR `ideaAndEliminationArchitecture`.
+
+#### Dove
+- `src/components/cards/ProposalCard.tsx:16-26`
+
+#### Cosa c'è di sbagliato
+Il bottone di eliminazione è un glifo `×` con `p-1.5` (~6px di padding): target effettivo ben sotto i 44px touch. Lo stato a riposo `text-foreground/40` (40% di opacità) è plausibilmente sotto il contrasto WCAG AA per un controllo interattivo. Il resto della semantica è corretto (`aria-label` col titolo, `<button>` reale, `stopPropagation` evita che Enter/Space attivino il drag, `<dialog>` nativo con focus trap/Esc).
+
+#### Impatto user-visible
+Utenti touch rischiano di mancare il bottone e avviare un drag; utenti ipovedenti possono non percepire il controllo. Severità media.
+
+#### Fix raccomandato
+Area interattiva ≥40–44px (padding + margine negativo per non alterare il layout della card, stesso approccio raccomandato per [A11Y-02]); resting `text-foreground/60` e stile `focus-visible` marcato.
+
+#### Cronologia
+- 2026-07-02 — Flaggato durante review chain di `ideaAndEliminationArchitecture`, confermato dal `Review Reviewer`.
+
 ## Issue risolti
 
 _Nessuna issue risolta._
