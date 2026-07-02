@@ -1,12 +1,11 @@
-import {
-  PROPOSAL_STATUSES,
-  type ProposalListItem,
-  type ProposalStatus,
-} from "@/lib/proposals";
+import type { ProposalListItem, ProposalStatus } from "@/lib/proposals";
 
-// SSOT della board (ADR-0002). L'ordine del flusso coincide oggi con l'ordine
-// dell'enum DB; se mai divergessero, elencare qui l'ordine delle colonne.
-export const BOARD_COLUMNS = PROPOSAL_STATUSES;
+// SSOT della board (ADR-0002). L'ordine del flusso diverge dall'enum DB:
+// Archiviata va mostrata dopo Rifiutata.
+export const BOARD_COLUMNS = [
+  "nuova", "in_valutazione", "approvata", "in_sviluppo",
+  "rilasciata", "rifiutata", "archiviata",
+] as const satisfies readonly ProposalStatus[];
 
 // Label IT degli stati — unico punto che traduce l'enum DB in testo utente.
 export const STATUS_LABELS: Record<ProposalStatus, string> = {
@@ -15,8 +14,8 @@ export const STATUS_LABELS: Record<ProposalStatus, string> = {
   approvata: "Approvata",
   in_sviluppo: "In Sviluppo",
   rilasciata: "Rilasciata",
-  parcheggiata: "Parcheggiata",
   rifiutata: "Rifiutata",
+  archiviata: "Archiviata",
 };
 
 // Raggruppa le proposte per colonna preservando l'ordine di arrivo (la query

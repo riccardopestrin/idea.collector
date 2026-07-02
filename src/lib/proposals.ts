@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // Stati proposta — mirror dell'enum `proposal_status` in supabase/migrations/0001_init.sql.
 export const PROPOSAL_STATUSES = [
   "nuova", "in_valutazione", "approvata", "in_sviluppo",
-  "rilasciata", "parcheggiata", "rifiutata",
+  "rilasciata", "archiviata", "rifiutata",
 ] as const;
 
 export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
