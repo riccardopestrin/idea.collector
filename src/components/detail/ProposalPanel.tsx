@@ -1,0 +1,139 @@
+import { STATUS_LABELS } from "@/lib/board";
+import { personLabel, type ProposalDetail } from "@/lib/proposals";
+
+import { CommentForm } from "./CommentForm";
+
+const dateFormat = new Intl.DateTimeFormat("it-IT", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+const SCORE_FIELDS = ["reach", "impact", "confidence", "effort"] as const;
+
+// I link sono input utente salvato verbatim (be-careful 2026-06-28-lnk1):
+// solo http/https diventano anchor, il resto è testo inerte.
+function isHttpUrl(link: string): boolean {
+  return /^https?:\/\//i.test(link);
+}
+
+// Pannello di dettaglio proposta (Step 4): mostra tutto — campi, punteggi se
+// valutata, cronologia stati, commenti. Server Component condiviso dalla
+// pagina piena e dal modal; l'unica parte client è il form commenti.
+export function ProposalPanel({ detail }: { detail: ProposalDetail }) {
+  const scores = SCORE_FIELDS.filter((f) => detail[f] !== null);
+
+  return (
+    <article className="flex flex-col gap-5 p-6">
+      <header className="flex flex-col gap-1 pr-6">
+        <h1 className="text-xl font-semibold">{detail.title}</h1>
+        <p className="text-sm text-foreground/60">
+          {STATUS_LABELS[detail.status]} · di {personLabel(detail.proposer)} ·{" "}
+          {dateFormat.format(new Date(detail.created_at))}
+        </p>
+      </header>
+
+      {detail.description && <Section title="Descrizione">{detail.description}</Section>}
+      {detail.problem && <Section title="Problema / motivazione">{detail.problem}</Section>}
+
+      {detail.links.length > 0 && (
+        <section className="flex flex-col gap-1">
+          <SectionTitle>Link</SectionTitle>
+          <ul className="flex flex-col gap-1 text-sm">
+            {detail.links.map((link) => (
+              <li key={link} className="break-all">
+                {isHttpUrl(link) ? (
+                  <a
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-foreground/80 underline underline-offset-2"
+                  >
+                    {link}
+                  </a>
+                ) : (
+                  <span className="text-foreground/60">{link}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {scores.length > 0 && (
+        <section className="flex flex-col gap-1">
+          <SectionTitle>Punteggio {detail.method.toUpperCase()}</SectionTitle>
+          <dl className="flex gap-6 text-sm">
+            {scores.map((field) => (
+              <div key={field}>
+                <dt className="capitalize text-foreground/60">{field}</dt>
+                <dd className="font-medium">{detail[field]}</dd>
+              </div>
+            ))}
+          </dl>
+          {detail.ai_rationale && (
+            <p className="whitespace-pre-wrap text-sm text-foreground/70">
+              {detail.ai_rationale}
+            </p>
+          )}
+        </section>
+      )}
+
+      {detail.internal_notes && (
+        <Section title="Note interne">{detail.internal_notes}</Section>
+      )}
+
+      <section className="flex flex-col gap-1">
+        <SectionTitle>Cronologia stati</SectionTitle>
+        {detail.status_history.length === 0 ? (
+          <p className="text-sm text-foreground/60">Nessuno spostamento ancora.</p>
+        ) : (
+          <ul className="flex flex-col gap-1 text-sm">
+            {detail.status_history.map((entry) => (
+              <li key={entry.id} className="text-foreground/80">
+                {entry.from_status ? `${STATUS_LABELS[entry.from_status]} → ` : ""}
+                {STATUS_LABELS[entry.to_status]}
+                <span className="text-foreground/50">
+                  {" "}
+                  · {personLabel(entry.author)} · {dateFormat.format(new Date(entry.created_at))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-3 border-t border-border pt-4">
+        <SectionTitle>Commenti e osservazioni</SectionTitle>
+        {detail.comments.length === 0 ? (
+          <p className="text-sm text-foreground/60">Nessun commento ancora.</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {detail.comments.map((comment) => (
+              <li key={comment.id} className="rounded-lg border border-border p-3">
+                <p className="text-xs text-foreground/50">
+                  {personLabel(comment.author)} ·{" "}
+                  {dateFormat.format(new Date(comment.created_at))}
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm">{comment.body}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+        <CommentForm proposalId={detail.id} />
+      </section>
+    </article>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h2 className="text-sm font-semibold">{children}</h2>;
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-1">
+      <SectionTitle>{title}</SectionTitle>
+      <p className="whitespace-pre-wrap text-sm text-foreground/80">{children}</p>
+    </section>
+  );
+}

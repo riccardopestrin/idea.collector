@@ -46,6 +46,36 @@ export async function updateProposalStatus(
   return null;
 }
 
+// Aggiunge un commento a una proposta. Qualsiasi membro autenticato può
+// commentare; la policy "author insert" (0009) è il backstop sul chi.
+// proposalId arriva via bind dal pannello; (prev, formData) da useActionState.
+export async function addComment(
+  proposalId: string,
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const body = String(formData.get("body") ?? "").trim();
+  if (!body) return { error: "Il commento non può essere vuoto." };
+  if (body.length > 4000) return { error: "Commento troppo lungo (max 4000 caratteri)." };
+
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+
+  const { error } = await supabase
+    .from("comments")
+    .insert({ proposal_id: proposalId, author_id: user.id, body });
+  if (error) {
+    console.error("addComment:", error);
+    return { error: "Errore nel salvataggio. Riprova." };
+  }
+
+  refresh();
+  return null;
+}
+
 // Elimina una proposta. Solo l'autore o un admin (rettifica ADR-0002); il guard
 // qui è il livello applicativo, la policy "owner or admin delete" è il backstop.
 // La conferma (con l'alternativa "sposta in Rifiutata") vive nella UI.

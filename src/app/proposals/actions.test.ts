@@ -1,17 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { deleteProposal, updateProposalStatus } from "./actions";
+import { addComment, deleteProposal, updateProposalStatus } from "./actions";
 
 // Builder finto per tabella: single() risolve la riga configurata; update/insert/
 // delete registrano le scritture. rpc pilota l'esito di move_proposal.
-const { getUser, rpc, tables, refresh, deleteResult } = vi.hoisted(() => {
+const { getUser, rpc, tables, refresh, deleteResult, insertResult } = vi.hoisted(() => {
   const deleteResult = { value: { error: null } as { error: unknown } };
+  const insertResult = { value: { error: null } as { error: unknown } };
   const table = (row: unknown) => {
     const builder = {
       row,
       select: vi.fn(() => builder),
       eq: vi.fn(() => builder),
       single: vi.fn(() => Promise.resolve({ data: builder.row })),
+      insert: vi.fn(() => Promise.resolve(insertResult.value)),
       delete: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve(deleteResult.value)) })),
     };
     return builder;
@@ -19,9 +21,10 @@ const { getUser, rpc, tables, refresh, deleteResult } = vi.hoisted(() => {
   return {
     getUser: vi.fn(),
     rpc: vi.fn(),
-    tables: { profiles: table(null), proposals: table(null) },
+    tables: { profiles: table(null), proposals: table(null), comments: table(null) },
     refresh: vi.fn(),
     deleteResult,
+    insertResult,
   };
 });
 
@@ -41,6 +44,53 @@ beforeEach(() => {
   tables.profiles.row = { role: "contributor" };
   tables.proposals.row = { proposer_id: "u1" };
   deleteResult.value = { error: null };
+  insertResult.value = { error: null };
+});
+
+function commentForm(body: string) {
+  const form = new FormData();
+  form.set("body", body);
+  return form;
+}
+
+describe("addComment", () => {
+  it("rejects an empty or whitespace-only body without touching the database", async () => {
+    const result = await addComment("p1", null, commentForm("   "));
+    expect(result).toEqual({ error: "Il commento non può essere vuoto." });
+    expect(tables.comments.insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects a body over 4000 characters", async () => {
+    const result = await addComment("p1", null, commentForm("x".repeat(4001)));
+    expect(result).toEqual({ error: "Commento troppo lungo (max 4000 caratteri)." });
+    expect(tables.comments.insert).not.toHaveBeenCalled();
+  });
+
+  it("refuses to write when there is no authenticated user", async () => {
+    getUser.mockResolvedValue({ data: { user: null } });
+    const result = await addComment("p1", null, commentForm("Ottima idea"));
+    expect(result).toEqual({ error: "Sessione scaduta. Rientra e riprova." });
+    expect(tables.comments.insert).not.toHaveBeenCalled();
+  });
+
+  it("inserts the trimmed comment in the caller's name and refreshes", async () => {
+    const result = await addComment("p1", null, commentForm("  Ottima idea  "));
+    expect(result).toBeNull();
+    expect(tables.comments.insert).toHaveBeenCalledWith({
+      proposal_id: "p1",
+      author_id: "u1",
+      body: "Ottima idea",
+    });
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("returns a generic error when the insert fails", async () => {
+    insertResult.value = { error: { message: "boom" } };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await addComment("p1", null, commentForm("Ottima idea"));
+    expect(result).toEqual({ error: "Errore nel salvataggio. Riprova." });
+    expect(refresh).not.toHaveBeenCalled();
+  });
 });
 
 describe("updateProposalStatus", () => {

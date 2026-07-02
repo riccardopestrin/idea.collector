@@ -85,6 +85,45 @@ Area interattiva ≥40–44px (padding + margine negativo per non alterare il la
 #### Cronologia
 - 2026-07-02 — Flaggato durante review chain di `ideaAndEliminationArchitecture`, confermato dal `Review Reviewer`.
 
+### [A11Y-05] Controlli interattivi annidati dentro la card draggable (`role="button"`)
+
+**Status:** non fissato — flaggato il 2026-07-02 durante review della PR `step4ideaPanels`.
+
+#### Dove
+- `src/components/cards/ProposalCard.tsx` (Link del titolo + bottone "×")
+- `src/components/board/Board.tsx` (`DraggableCard`: spread di `{...attributes}` dnd-kit sulla `<li>`)
+
+#### Cosa c'è di sbagliato
+dnd-kit assegna `role="button"` e `tabIndex=0` alla `<li>` draggable; al suo interno ora vivono un `<a>` (apre il dettaglio) e un `<button>` (elimina). Controlli interattivi annidati dentro un altro controllo sono invalidi per gli screen reader, e gli `stopPropagation` su `onKeyDown` rendono ambiguo il comportamento da tastiera ("Enter qui apre o trascina?").
+
+#### Impatto user-visible
+Utenti screen-reader/tastiera non distinguono in modo affidabile "apri dettaglio" da "inizia drag" sulla card. Si somma a [A11Y-03]/[A11Y-04].
+
+#### Fix raccomandato
+Spostare listener/attributi dnd-kit su una **drag handle dedicata** dentro la card, lasciando la `<li>` non interattiva: titolo-link, bottone elimina e handle diventano tre controlli fratelli, non annidati. Risolve alla radice anche l'ambiguità tastiera di [A11Y-03].
+
+#### Cronologia
+- 2026-07-02 — Flaggato durante review chain di `step4ideaPanels`, confermato dal `Review Reviewer`.
+
+### [A11Y-06] `<dialog>` del pannello dettaglio senza nome accessibile
+
+**Status:** non fissato — flaggato il 2026-07-02 durante review della PR `step4ideaPanels`.
+
+#### Dove
+- `src/components/detail/DetailModal.tsx`
+
+#### Cosa c'è di sbagliato
+Il `<dialog>` del dettaglio proposta non ha `aria-labelledby`/`aria-label`: all'apertura lo screen reader annuncia un dialogo senza nome. Il resto è corretto (nativo `showModal()` → focus trap ed Esc gratis).
+
+#### Impatto user-visible
+Utenti screen-reader non sanno quale proposta si è aperta finché non esplorano il contenuto. Severità bassa/media.
+
+#### Fix raccomandato
+`aria-labelledby` sul `<dialog>` puntato all'`<h1>` del `ProposalPanel` (dare un id stabile al titolo, es. `proposal-title`).
+
+#### Cronologia
+- 2026-07-02 — Flaggato durante review chain di `step4ideaPanels`, confermato dal `Review Reviewer`.
+
 ## Issue risolti
 
 _Nessuna issue risolta._

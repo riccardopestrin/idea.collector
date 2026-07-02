@@ -58,6 +58,7 @@ Validare lo schema (solo `http`/`https`) e applicare un allow/deny sull'host pri
 
 ### Cronologia
 - 2026-06-28 — Flaggato durante review Step 2 (form nuova proposta). Deferito: campo inerte finché non arriva la feature AI.
+- 2026-07-02 — Trigger 2 (render come `<a href>`) mitigato in `step4ideaPanels`: `ProposalPanel` linka solo `http/https`, il resto è testo inerte (+ test di regressione). Resta aperto il trigger 1 (fetch lato AI: SSRF/prompt injection).
 
 ## `2026-07-01-pgnl` `listProposals` senza limite/paginazione
 
@@ -65,6 +66,7 @@ Validare lo schema (solo `http`/`https`) e applicare un allow/deny sull'host pri
 
 ### Dove
 - [src/lib/proposals.ts:30-33](../../src/lib/proposals.ts) — query sull'intera tabella senza `.limit()`/`.range()`
+- [src/lib/proposals.ts](../../src/lib/proposals.ts) — `getProposalDetail`: embed `comments` e `status_history` senza `.limit()` (flaggato 2026-07-02, review `step4ideaPanels`)
 
 ### Il problema potenziale
 La query è unbounded, ma PostgREST tronca di default a 1000 righe: superata quella soglia, le proposte oltre il limite spariscono silenziosamente dalla board — un bug di completezza mascherato, prima ancora che un problema di performance.
@@ -88,6 +90,7 @@ Aggiungere paginazione esplicita (`.range()`) o un `.limit()` consapevole con in
 
 ### Dove
 - [src/lib/proposals.ts:45-46](../../src/lib/proposals.ts) — destruttura solo `data`, `error` mai letto
+- [src/lib/proposals.ts](../../src/lib/proposals.ts) — `getProposalDetail`: stesso pattern, un errore DB transiente diventa `notFound()` nei due caller del dettaglio (flaggato 2026-07-02, review `step4ideaPanels`; risolvere insieme a `listProposals`)
 
 ### Il problema potenziale
 Un errore di query (RLS, rete, migrazione mancante) restituisce `[]`: la home mostra "Nessuna proposta ancora" — un outage mascherato da empty state, senza log.
