@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { NameForm } from "@/components/form/NameForm";
+import { BackLink } from "@/components/nav/BackLink";
 import { GithubRepoSection } from "@/components/profile/GithubRepoSection";
 import { type InstallationRepo, listInstallationRepos } from "@/lib/github/app";
 import { getGithubSettings } from "@/lib/github/settings";
@@ -57,6 +58,9 @@ export default async function ProfilePage({
 
   return (
     <main className="flex flex-1 flex-col items-center gap-8 p-6">
+      <div className="w-full max-w-lg">
+        <BackLink />
+      </div>
       <NameForm heading="Profilo" defaultName={profile?.name ?? undefined} />
       {github}
     </main>

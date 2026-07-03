@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { supabaseServer } from "@/lib/supabase/server";
@@ -27,5 +28,6 @@ export async function createProposal(
     .insert({ ...parsed.fields, proposer_id: user.id });
   if (error) return { error: "Errore nel salvataggio. Riprova." };
 
+  revalidatePath("/"); // altrimenti la board mostra la cache senza la nuova proposta
   redirect("/");
 }

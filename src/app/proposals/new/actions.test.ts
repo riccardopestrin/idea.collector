@@ -2,13 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createProposal } from "./actions";
 
-const { getUser, insert, from, redirect } = vi.hoisted(() => {
+const { getUser, insert, from, redirect, revalidatePath } = vi.hoisted(() => {
   const insert = vi.fn();
   return {
     getUser: vi.fn(),
     insert,
     from: vi.fn(() => ({ insert })),
     redirect: vi.fn(),
+    revalidatePath: vi.fn(),
   };
 });
 
@@ -16,6 +17,7 @@ vi.mock("@/lib/supabase/server", () => ({
   supabaseServer: async () => ({ auth: { getUser }, from }),
 }));
 vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("next/cache", () => ({ revalidatePath }));
 
 const formOf = (entries: Record<string, string>) => {
   const fd = new FormData();
@@ -28,6 +30,7 @@ describe("createProposal", () => {
     getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } } });
     insert.mockReset().mockResolvedValue({ error: null });
     redirect.mockReset();
+    revalidatePath.mockReset();
   });
 
   it("rejects an empty title without touching the database", async () => {
@@ -55,6 +58,7 @@ describe("createProposal", () => {
       links: ["https://a.test", "https://b.test"],
       proposer_id: "u1",
     });
+    expect(revalidatePath).toHaveBeenCalledWith("/");
     expect(redirect).toHaveBeenCalledWith("/");
   });
 

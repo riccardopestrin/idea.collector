@@ -47,9 +47,6 @@ export function ProposalCard({
       >
         {proposal.title}
       </Link>
-      {proposal.description && (
-        <p className="line-clamp-2 text-sm text-foreground/70">{proposal.description}</p>
-      )}
       <span className="flex items-center gap-2 text-xs text-foreground/50">
         di {personLabel(proposal.proposer)}
         <EvalStatusCue status={proposal.ai_eval_status} />

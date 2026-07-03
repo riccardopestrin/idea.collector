@@ -87,6 +87,22 @@ export function RichTextViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, anchorsKey]);
 
+  // Read-only: ProseMirror non collassa la sua selezione quando quella del DOM
+  // sparisce (click fuori dal viewer), quindi il BubbleMenu "Commenta" resterebbe
+  // appeso. La riallineiamo alla selezione reale del DOM.
+  useEffect(() => {
+    if (!editor || !onComment) return;
+    const sync = () => {
+      const sel = window.getSelection();
+      const inside = sel && !sel.isCollapsed && editor.view.dom.contains(sel.anchorNode);
+      if (!inside && !editor.state.selection.empty) {
+        editor.commands.setTextSelection(editor.state.selection.to);
+      }
+    };
+    document.addEventListener("selectionchange", sync);
+    return () => document.removeEventListener("selectionchange", sync);
+  }, [editor, onComment]);
+
   if (!editor) {
     return <div className="whitespace-pre-wrap text-sm text-foreground/80">{value}</div>;
   }
@@ -100,10 +116,14 @@ export function RichTextViewer({
         >
           <button
             type="button"
+            // preventDefault tiene ferma la selezione mentre il click prende il
+            // focus, così captureSelection la legge prima che il sync la collassi.
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
               const { from, to } = editor.state.selection;
               const captured = captureSelection(editor.state.doc, { from, to });
               if (captured) onComment(captured);
+              editor.commands.setTextSelection(to); // collassa → nasconde il bubble
             }}
             className="rounded-md border border-border bg-background px-2 py-1 text-xs shadow-sm"
           >

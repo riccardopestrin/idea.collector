@@ -41,3 +41,9 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Affordance di click: puntatore su bottoni attivi e select (i link <a> lo hanno già). */
+button:not(:disabled),
+select {
+  cursor: pointer;
+}

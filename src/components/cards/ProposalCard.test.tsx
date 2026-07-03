@@ -30,14 +30,13 @@ function renderCard(
 }
 
 describe("ProposalCard", () => {
-  it("shows title and description", () => {
+  it("shows the title", () => {
     renderCard();
     expect(screen.getByText("Mappa offline")).toBeInTheDocument();
-    expect(screen.getByText("Serve la mappa senza rete")).toBeInTheDocument();
   });
 
-  it("omits the description paragraph when there is none", () => {
-    renderCard({ description: null });
+  it("does not show the description in the card", () => {
+    renderCard();
     expect(screen.queryByText("Serve la mappa senza rete")).not.toBeInTheDocument();
   });
 
