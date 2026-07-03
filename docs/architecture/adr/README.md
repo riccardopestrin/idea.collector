@@ -12,3 +12,5 @@ Template: copia [`0000-template.md`](0000-template.md).
 |---|---|---|
 | [0001](0001-supabase-postgres-auth.md) | Supabase come database e autenticazione | Accepted |
 | [0002](0002-main-board-layout.md) | Layout della Main Board (board a colonne per stato) | Proposed |
+| [0003](0003-anthropic-ai-scoring-provider.md) | Anthropic (Claude) come provider di scoring AI | Proposed |
+| [0004](0004-github-app-repo-context.md) | Integrazione GitHub via GitHub App per contesto progetto | Proposed |
