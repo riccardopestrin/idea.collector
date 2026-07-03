@@ -70,6 +70,7 @@ export type ProposalComment = {
   id: string;
   body: string;
   created_at: string;
+  author_id: string;
   author: PersonRef;
   anchor_field: AnchorField | null;
   anchor_text: string | null;
@@ -144,8 +145,8 @@ export async function getProposalDetail(
        created_at, proposer_id,
        proposer:profiles(name, email),
        status_history(id, from_status, to_status, created_at, author:profiles(name, email)),
-       comments(id, body, created_at, anchor_field, anchor_text, anchor_occurrence,
-                author:profiles(name, email))`,
+       comments(id, body, created_at, author_id, anchor_field, anchor_text,
+                anchor_occurrence, author:profiles(name, email))`,
     )
     .eq("id", id)
     .order("created_at", { referencedTable: "status_history", ascending: true })

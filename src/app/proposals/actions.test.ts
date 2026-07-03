@@ -1,33 +1,43 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { addComment, deleteProposal, updateProposalStatus } from "./actions";
+import {
+  addComment,
+  deleteComment,
+  deleteProposal,
+  editComment,
+  updateProposalStatus,
+} from "./actions";
 
 // Builder finto per tabella: single() risolve la riga configurata; update/insert/
 // delete registrano le scritture. rpc pilota l'esito di move_proposal.
-const { getUser, rpc, tables, refresh, deleteResult, insertResult } = vi.hoisted(() => {
-  const deleteResult = { value: { error: null } as { error: unknown } };
-  const insertResult = { value: { error: null } as { error: unknown } };
-  const table = (row: unknown) => {
-    const builder = {
-      row,
-      select: vi.fn(() => builder),
-      eq: vi.fn(() => builder),
-      single: vi.fn(() => Promise.resolve({ data: builder.row })),
-      maybeSingle: vi.fn(() => Promise.resolve({ data: builder.row })),
-      insert: vi.fn(() => Promise.resolve(insertResult.value)),
-      delete: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve(deleteResult.value)) })),
+const { getUser, rpc, tables, refresh, deleteResult, insertResult, updateResult } =
+  vi.hoisted(() => {
+    const deleteResult = { value: { error: null } as { error: unknown } };
+    const insertResult = { value: { error: null } as { error: unknown } };
+    const updateResult = { value: { error: null } as { error: unknown } };
+    const table = (row: unknown) => {
+      const builder = {
+        row,
+        select: vi.fn(() => builder),
+        eq: vi.fn(() => builder),
+        single: vi.fn(() => Promise.resolve({ data: builder.row })),
+        maybeSingle: vi.fn(() => Promise.resolve({ data: builder.row })),
+        insert: vi.fn(() => Promise.resolve(insertResult.value)),
+        update: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve(updateResult.value)) })),
+        delete: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve(deleteResult.value)) })),
+      };
+      return builder;
     };
-    return builder;
-  };
-  return {
-    getUser: vi.fn(),
-    rpc: vi.fn(),
-    tables: { profiles: table(null), proposals: table(null), comments: table(null) },
-    refresh: vi.fn(),
-    deleteResult,
-    insertResult,
-  };
-});
+    return {
+      getUser: vi.fn(),
+      rpc: vi.fn(),
+      tables: { profiles: table(null), proposals: table(null), comments: table(null) },
+      refresh: vi.fn(),
+      deleteResult,
+      insertResult,
+      updateResult,
+    };
+  });
 
 vi.mock("@/lib/supabase/server", () => ({
   supabaseServer: async () => ({
@@ -49,8 +59,10 @@ beforeEach(() => {
     description: "Una proposta con del testo utile.",
     problem: null,
   };
+  tables.comments.row = { author_id: "u1", proposal_id: "p1" };
   deleteResult.value = { error: null };
   insertResult.value = { error: null };
+  updateResult.value = { error: null };
 });
 
 function commentForm(body: string) {
@@ -151,6 +163,108 @@ describe("addComment", () => {
       error: "Ancora del commento non valida.",
     });
     expect(tables.comments.insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("editComment", () => {
+  it("rejects an empty body without touching the database", async () => {
+    const result = await editComment("c1", null, commentForm("   "));
+    expect(result).toEqual({ error: "Il commento non può essere vuoto." });
+    expect(tables.comments.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a body over 4000 characters", async () => {
+    const result = await editComment("c1", null, commentForm("x".repeat(4001)));
+    expect(result).toEqual({ error: "Commento troppo lungo (max 4000 caratteri)." });
+    expect(tables.comments.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses to write when there is no authenticated user", async () => {
+    getUser.mockResolvedValue({ data: { user: null } });
+    const result = await editComment("c1", null, commentForm("Nuovo testo"));
+    expect(result).toEqual({ error: "Sessione scaduta. Rientra e riprova." });
+    expect(tables.comments.update).not.toHaveBeenCalled();
+  });
+
+  it("reports a missing comment without updating", async () => {
+    tables.comments.row = null;
+    const result = await editComment("c1", null, commentForm("Nuovo testo"));
+    expect(result).toEqual({ error: "Commento non trovato." });
+    expect(tables.comments.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a user who is not the comment author", async () => {
+    tables.comments.row = { author_id: "someone-else", proposal_id: "p1" };
+    const result = await editComment("c1", null, commentForm("Nuovo testo"));
+    expect(result).toEqual({ error: "Puoi modificare solo i tuoi commenti." });
+    expect(tables.comments.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses to edit a comment on a crystallized proposal", async () => {
+    tables.proposals.row = { ...tables.proposals.row, status: "approvata" };
+    const result = await editComment("c1", null, commentForm("Nuovo testo"));
+    expect(result).toEqual({ error: "La proposta non accetta più modifiche." });
+    expect(tables.comments.update).not.toHaveBeenCalled();
+  });
+
+  it("updates the trimmed body of the author's own comment and refreshes", async () => {
+    const result = await editComment("c1", null, commentForm("  Testo corretto  "));
+    expect(result).toBeNull();
+    expect(tables.comments.update).toHaveBeenCalledWith({ body: "Testo corretto" });
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("returns a generic error when the update fails", async () => {
+    updateResult.value = { error: { message: "boom" } };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await editComment("c1", null, commentForm("Testo corretto"));
+    expect(result).toEqual({ error: "Errore nel salvataggio. Riprova." });
+    expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteComment", () => {
+  it("refuses to delete when there is no authenticated user", async () => {
+    getUser.mockResolvedValue({ data: { user: null } });
+    const result = await deleteComment("c1");
+    expect(result).toEqual({ error: "Sessione scaduta. Rientra e riprova." });
+    expect(tables.comments.delete).not.toHaveBeenCalled();
+  });
+
+  it("reports a missing comment without deleting", async () => {
+    tables.comments.row = null;
+    const result = await deleteComment("c1");
+    expect(result).toEqual({ error: "Commento non trovato." });
+    expect(tables.comments.delete).not.toHaveBeenCalled();
+  });
+
+  it("refuses a user who is not the comment author", async () => {
+    tables.comments.row = { author_id: "someone-else", proposal_id: "p1" };
+    const result = await deleteComment("c1");
+    expect(result).toEqual({ error: "Puoi eliminare solo i tuoi commenti." });
+    expect(tables.comments.delete).not.toHaveBeenCalled();
+  });
+
+  it("refuses to delete a comment on a crystallized proposal", async () => {
+    tables.proposals.row = { ...tables.proposals.row, status: "approvata" };
+    const result = await deleteComment("c1");
+    expect(result).toEqual({ error: "La proposta non accetta più modifiche." });
+    expect(tables.comments.delete).not.toHaveBeenCalled();
+  });
+
+  it("lets the author delete their own comment and refreshes", async () => {
+    const result = await deleteComment("c1");
+    expect(result).toBeNull();
+    expect(tables.comments.delete).toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("returns a generic error when the delete fails", async () => {
+    deleteResult.value = { error: { message: "boom" } };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await deleteComment("c1");
+    expect(result).toEqual({ error: "Errore nell'eliminazione. Riprova." });
+    expect(refresh).not.toHaveBeenCalled();
   });
 });
 

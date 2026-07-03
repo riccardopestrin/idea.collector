@@ -5,8 +5,12 @@ import type { ProposalDetail } from "@/lib/proposals";
 
 import { ProposalPanel } from "./ProposalPanel";
 
-// La server action è irrilevante qui: il form commenti è testato via action test.
-vi.mock("@/app/proposals/actions", () => ({ addComment: vi.fn() }));
+// Le server action sono irrilevanti qui: i flussi sono testati via action test.
+vi.mock("@/app/proposals/actions", () => ({
+  addComment: vi.fn(),
+  editComment: vi.fn(),
+  deleteComment: vi.fn(),
+}));
 
 const base: ProposalDetail = {
   id: "p1",
@@ -41,7 +45,12 @@ const base: ProposalDetail = {
       id: "c1",
       body: "Serve anche sul mobile",
       created_at: "2026-07-02T10:00:00Z",
+      author_id: "u2",
       author: { name: "Gino", email: "gino@test.local" },
+      anchor_field: null,
+      anchor_text: null,
+      anchor_occurrence: null,
+      anchor_resolved: false,
     },
   ],
 };
@@ -100,6 +109,25 @@ describe("ProposalPanel", () => {
     expect(screen.getByText(/Gino ·/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Aggiungi un commento/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Commenta" })).toBeInTheDocument();
+  });
+
+  it("offers edit/delete only on the current user's own comment", () => {
+    // u3 non è né autore del commento c1 (u2) né proposer (u1): nessun controllo
+    const { rerender } = render(<ProposalPanel detail={base} currentUserId="u3" />);
+    expect(screen.queryByRole("button", { name: "Modifica" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Elimina" })).not.toBeInTheDocument();
+
+    rerender(<ProposalPanel detail={base} currentUserId="u2" />);
+    expect(screen.getByRole("button", { name: "Modifica" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Elimina" })).toBeInTheDocument();
+  });
+
+  it("hides edit/delete on a crystallized proposal even for the author", () => {
+    render(
+      <ProposalPanel detail={{ ...base, status: "approvata" }} currentUserId="u2" />,
+    );
+    expect(screen.queryByRole("button", { name: "Modifica" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Elimina" })).not.toBeInTheDocument();
   });
 
   it("shows empty states when there are no moves or comments", () => {

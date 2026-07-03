@@ -30,6 +30,7 @@ export function ProposalDiscussion({
   canEdit,
   canComment,
   comments,
+  currentUserId,
   header,
   children,
 }: {
@@ -38,11 +39,13 @@ export function ProposalDiscussion({
   canEdit: boolean;
   canComment: boolean;
   comments: ProposalComment[];
+  currentUserId?: string;
   header: ReactNode;
   children: ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   const [pendingAnchor, setPendingAnchor] = useState<PendingAnchor | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   if (editing) {
     return (
@@ -54,10 +57,13 @@ export function ProposalDiscussion({
     );
   }
 
+  // Il testo è normale finché non si passa sopra un commento: allora si evidenzia
+  // solo il passaggio citato da quel commento (se l'ancora risolve ancora).
+  const hovered = comments.find((c) => c.id === hoveredId);
   const anchorsFor = (field: AnchorField) =>
-    comments
-      .filter((c) => c.anchor_field === field && c.anchor_resolved)
-      .map((c) => ({ text: c.anchor_text!, occurrence: c.anchor_occurrence! }));
+    hovered && hovered.anchor_resolved && hovered.anchor_field === field
+      ? [{ text: hovered.anchor_text!, occurrence: hovered.anchor_occurrence! }]
+      : [];
 
   const onComment = (field: AnchorField) =>
     canComment
@@ -107,8 +113,10 @@ export function ProposalDiscussion({
           proposalId={proposalId}
           comments={comments}
           canComment={canComment}
+          currentUserId={currentUserId}
           pendingAnchor={pendingAnchor}
           onCancelAnchor={() => setPendingAnchor(null)}
+          onHoverComment={setHoveredId}
         />
       </div>
     </div>

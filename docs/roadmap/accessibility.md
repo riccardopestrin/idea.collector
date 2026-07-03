@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-02
+**Last updated:** 2026-07-03
 
 # Accessibility
 
@@ -123,6 +123,26 @@ Utenti screen-reader non sanno quale proposta si è aperta finché non esplorano
 
 #### Cronologia
 - 2026-07-02 — Flaggato durante review chain di `step4ideaPanels`, confermato dal `Review Reviewer`.
+
+### [A11Y-07] Highlight del testo citato attivabile solo col mouse (hover) sui commenti altrui
+
+**Status:** non fissato — flaggato il 2026-07-03 durante review della PR `commentPartImprovements`.
+
+#### Dove
+- `src/components/detail/CommentsSidebar.tsx` (`CommentItem`: `onMouseEnter`/`onMouseLeave` + `onFocus`/`onBlur` sulla `<li>` non interattiva)
+- `src/components/detail/ProposalDiscussion.tsx` (`hoveredId` → `anchorsFor` → highlight nel `RichTextViewer`)
+
+#### Cosa c'è di sbagliato
+L'evidenziazione del passaggio citato è pilotata dall'hover del mouse su una `<li>` non interattiva. `onFocus`/`onBlur` scattano solo quando un discendente focusabile riceve il focus, e gli unici discendenti focusabili (bottoni Modifica/Elimina) esistono soltanto sui commenti del proprio utente (`mine`). Per i commenti scritti da altri — il caso comune in una discussione — non c'è nulla di focusabile, quindi un utente da tastiera o screen-reader non può mai attivare l'highlight che il mouse ottiene.
+
+#### Impatto user-visible
+Una feature centrale del pannello (vedere quale passaggio cita un commento) è di fatto inaccessibile da tastiera/AT per la maggioranza dei commenti. Severità media.
+
+#### Fix raccomandato
+Quando `comment.anchor_text` è presente, rendere focusabile la `<li>` (o la `<blockquote>` della citazione) con `tabIndex={0}` + `role`/`aria-label` appropriati (es. "Evidenzia il passaggio citato"), così il focus raggiunge un elemento che emette `onFocus`/`onBlur` anche sui commenti altrui.
+
+#### Cronologia
+- 2026-07-03 — Flaggato durante review chain di `commentPartImprovements`, confermato dal `Review Reviewer` (finding [2]).
 
 ## Issue risolti
 

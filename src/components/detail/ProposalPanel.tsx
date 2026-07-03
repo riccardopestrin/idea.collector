@@ -58,6 +58,7 @@ export function ProposalPanel({
         canEdit={canEdit}
         canComment={isOpen}
         comments={detail.comments}
+        currentUserId={currentUserId}
         header={
           <header className="flex flex-col gap-1 pr-6">
             <h1 className="flex items-center gap-2 text-xl font-semibold">
