@@ -1,7 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { isProposalStatus, listProposals } from "./proposals";
+import {
+  computeRiceScore,
+  isProposalStatus,
+  listProposals,
+  type ScoreFields,
+} from "./proposals";
 
 describe("isProposalStatus", () => {
   it("accepts a value from the DB enum", () => {
@@ -14,6 +19,35 @@ describe("isProposalStatus", () => {
 
   it("rejects undefined", () => {
     expect(isProposalStatus(undefined)).toBe(false);
+  });
+});
+
+describe("computeRiceScore", () => {
+  const fields = (overrides: Partial<ScoreFields>): ScoreFields => ({
+    method: "rice",
+    reach: 100,
+    impact: 2,
+    confidence: 0.5,
+    effort: 4,
+    ...overrides,
+  });
+
+  it("computes RICE as (reach × impact × confidence) / effort", () => {
+    expect(computeRiceScore(fields({}))).toBe(25);
+  });
+
+  it("computes ICE as impact × confidence × effort (ease)", () => {
+    expect(
+      computeRiceScore(fields({ method: "ice", impact: 8, confidence: 7, effort: 6 })),
+    ).toBe(336);
+  });
+
+  it("returns null when a component is missing", () => {
+    expect(computeRiceScore(fields({ confidence: null }))).toBeNull();
+  });
+
+  it("returns null when RICE effort is zero (no division by zero)", () => {
+    expect(computeRiceScore(fields({ effort: 0 }))).toBeNull();
   });
 });
 

@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
 import { ProposalPanel } from "@/components/detail/ProposalPanel";
+import { getProfile } from "@/lib/profiles";
 import { getProposalDetail } from "@/lib/proposals";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -20,9 +21,11 @@ export default async function ProposalDetailPage({
   const detail = await getProposalDetail(supabase, (await params).id);
   if (!detail) notFound();
 
+  const isAdmin = (await getProfile(supabase, user.id))?.role === "admin";
+
   return (
     <main className="mx-auto w-full max-w-2xl flex-1">
-      <ProposalPanel detail={detail} />
+      <ProposalPanel detail={detail} isAdmin={isAdmin} />
     </main>
   );
 }

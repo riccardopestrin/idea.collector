@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-02
+**Last updated:** 2026-07-03
 
 # Be Careful — issue note consapevolmente rinviate
 
@@ -7,6 +7,55 @@ Registro durevole delle NICE-TO-HAVE consapevolmente rinviate: problemi che **no
 Ogni voce ha un ID stabile nel formato `YYYY-MM-DD-XXXX` (data del flag + 4 char di hash). **Gli ID non vengono mai riusati, rinumerati o riscritti**, nemmeno dopo la risoluzione.
 
 ---
+
+## `2026-07-03-adm1` Guard admin duplicato in azioni e route
+
+**Status:** non fissato — non si verifica nell'attuale use case.
+
+### Dove
+- [src/app/profile/actions.ts](../../src/app/profile/actions.ts) — helper `requireAdmin()` privato del modulo
+- [src/app/proposals/actions.ts](../../src/app/proposals/actions.ts) — `evaluateProposal`: stesso guard inline (getUser + getProfile role)
+- [src/app/auth/github/callback/route.ts](../../src/app/auth/github/callback/route.ts) — terza variante inline
+
+### Il problema potenziale
+La forma auth-resolve + role-check è ripetuta in 3+ punti: una futura modifica all'autorizzazione va applicata ovunque, e un punto dimenticato è un bug di sicurezza (mitigato dal backstop RLS/RPC a DB).
+
+### Perché oggi non è un problema
+Ogni call site fa il guard correttamente e il DB (RPC admin-only + RLS) rifiuta comunque le scritture non autorizzate.
+
+### Quando diventa un problema
+1. Quando cambia il modello dei ruoli (es. nuovi ruoli oltre admin/contributor).
+2. Quando si aggiungono nuove azioni admin-gated copiando il pattern.
+
+### Cosa fare se devi toccare quest'area
+Estrarre `requireAdmin` in `src/lib` (es. accanto a `getProfile` in `profiles.ts`) e usarlo da entrambe le action e dalla route callback.
+
+### Cronologia
+- 2026-07-03 — Flaggato durante review chain di `integrationLLM` (finding [6], DRY). Deferito: duplicazione piccola, backstop DB presente.
+
+## `2026-07-03-jwt1` JWT GitHub App e digest repo senza test
+
+**Status:** non fissato — non si verifica nell'attuale use case.
+
+### Dove
+- [src/lib/github/app.ts](../../src/lib/github/app.ts) — `appJwt` (RS256 hand-rolled su node:crypto), token cache
+- [src/lib/github/repoDigest.ts](../../src/lib/github/repoDigest.ts) — assemblaggio digest (troncamenti, base64, sezioni null-tolleranti)
+
+### Il problema potenziale
+Una regressione sottile nel JWT (claim window, base64url, firma) o nel digest emerge solo a runtime contro GitHub, come errore opaco tipo "GitHub: token installazione fallito (401)".
+
+### Perché oggi non è un problema
+Il seam è appena scritto e verificato a mano; la logica di scoring vera (`validateScores`, `computeRiceScore`) è coperta da unit test.
+
+### Quando diventa un problema
+1. Al primo refactor di `app.ts`/`repoDigest.ts` senza rete di sicurezza.
+2. Se GitHub cambia i requisiti dei claim e serve toccare `appJwt`.
+
+### Cosa fare se devi toccare quest'area
+Esportare/testare `appJwt` (keypair RSA generata nel test, verifica firma con `crypto.verify`, assert su iat/exp/iss) e un test del formato digest con fetch mockata (troncamenti, README/package.json assenti).
+
+### Cronologia
+- 2026-07-03 — Flaggato durante review chain di `integrationLLM` (finding [7], testing). Deferito: plumbing di integrazione, non business logic.
 
 ## `2026-06-28-pr0x` Il matcher del proxy non esclude `/api`
 

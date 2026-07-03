@@ -12,7 +12,7 @@ import {
 } from "@dnd-kit/core";
 import { type ReactNode, useOptimistic, useState, useTransition } from "react";
 
-import { deleteProposal, updateProposalStatus } from "@/app/proposals/actions";
+import { deleteProposal, evaluateProposal, updateProposalStatus } from "@/app/proposals/actions";
 import { Column } from "@/components/board/Column";
 import { DeleteProposalDialog } from "@/components/board/DeleteProposalDialog";
 import { ProposalCard } from "@/components/cards/ProposalCard";
@@ -47,7 +47,19 @@ export function Board({
     startTransition(async () => {
       moveOptimistic({ id: proposal.id, toStatus });
       const result = await updateProposalStatus(proposal.id, proposal.status, toStatus);
-      if (result) setError(result.error);
+      if (result) {
+        setError(result.error);
+        return;
+      }
+      // Auto-trigger RFC-003: il move di un admin in "in_valutazione" lancia la
+      // valutazione AI FUORI dalla transition: il move è già committato e la UI
+      // non resta pending per i ~30s della chiamata a Claude. L'esito arriva
+      // via ai_eval_status (refresh dell'azione); qui solo l'eventuale errore.
+      if (isAdmin && toStatus === "in_valutazione") {
+        void evaluateProposal(proposal.id).then((evalResult) => {
+          if (evalResult) setError(evalResult.error);
+        });
+      }
     });
   }
 
@@ -86,6 +98,7 @@ export function Board({
                 <DraggableCard
                   key={proposal.id}
                   proposal={proposal}
+                  canRetryEval={isAdmin}
                   onDelete={
                     isAdmin || proposal.proposer_id === userId
                       ? () => setPendingDelete(proposal)
@@ -135,9 +148,11 @@ function DroppableColumn({
 function DraggableCard({
   proposal,
   onDelete,
+  canRetryEval,
 }: {
   proposal: ProposalListItem;
   onDelete?: () => void;
+  canRetryEval?: boolean;
 }) {
   const { setNodeRef, attributes, listeners, transform, isDragging } = useDraggable({
     id: proposal.id,
@@ -154,7 +169,7 @@ function DraggableCard({
       }
       className={`cursor-grab ${isDragging ? "z-10 opacity-70" : ""}`}
     >
-      <ProposalCard proposal={proposal} onDelete={onDelete} />
+      <ProposalCard proposal={proposal} onDelete={onDelete} canRetryEval={canRetryEval} />
     </li>
   );
 }

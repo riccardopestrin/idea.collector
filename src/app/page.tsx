@@ -59,12 +59,15 @@ export default async function MainBoard({
       <main className="flex w-full flex-1 flex-col gap-6 p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">Proposte</h1>
-          <Link
+          {/* <a> e non <Link>: la nav soft verrebbe intercettata da
+              @modal/(.)proposals/[id] (id="new") → notFound. Hard nav = niente interception. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- hard nav intenzionale, vedi sopra */}
+          <a
             href="/proposals/new"
             className="rounded-md bg-foreground px-4 py-2 text-sm text-background"
           >
             Nuova proposta
-          </Link>
+          </a>
         </div>
 
         <ProposalFilters search={search} status={statusFilter} />

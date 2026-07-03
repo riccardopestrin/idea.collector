@@ -20,6 +20,8 @@ const base: ProposalDetail = {
   confidence: null,
   effort: null,
   ai_rationale: null,
+  ai_eval_status: "assente",
+  ai_eval_error: null,
   links: ["https://example.com/spec"],
   internal_notes: null,
   created_at: "2026-07-01T10:00:00Z",

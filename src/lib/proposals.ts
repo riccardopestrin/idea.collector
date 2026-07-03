@@ -8,11 +8,24 @@ export const PROPOSAL_STATUSES = [
 
 export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
 
-export type ProposalListItem = {
+// Stato della valutazione AI — mirror dell'enum `ai_eval_status` (migration 0010).
+export type AiEvalStatus = "assente" | "in_corso" | "completata" | "fallita";
+
+// Campi di scoring condivisi tra card e pannello: bastano per il voto composito.
+export type ScoreFields = {
+  method: "rice" | "ice";
+  reach: number | null;
+  impact: number | null;
+  confidence: number | null;
+  effort: number | null;
+};
+
+export type ProposalListItem = ScoreFields & {
   id: string;
   title: string;
   description: string | null;
   status: ProposalStatus;
+  ai_eval_status: AiEvalStatus;
   created_at: string;
   proposer_id: string;
   proposer: { name: string | null; email: string } | null;
@@ -27,17 +40,14 @@ export function personLabel(person: PersonRef): string {
 
 // Dettaglio completo di una proposta per il pannello (Step 4): tutti i campi,
 // cronologia stati e commenti, con gli autori embeddati.
-export type ProposalDetail = {
+export type ProposalDetail = ScoreFields & {
   id: string;
   title: string;
   description: string | null;
   problem: string | null;
   status: ProposalStatus;
-  method: "rice" | "ice";
-  reach: number | null;
-  impact: number | null;
-  confidence: number | null;
-  effort: number | null;
+  ai_eval_status: AiEvalStatus;
+  ai_eval_error: string | null;
   ai_rationale: string | null;
   links: string[];
   internal_notes: string | null;
@@ -63,6 +73,26 @@ export function isProposalStatus(value: string | undefined): value is ProposalSt
   return PROPOSAL_STATUSES.includes(value as ProposalStatus);
 }
 
+// Voto composito (RFC-003): RICE = (R × I × C) / E; ICE = I × C × E (E = Ease).
+// Calcolato in TS, non a DB: sempre coerente con i componenti. null se un
+// componente manca o se effort ≤ 0 (niente divisione per zero).
+export function computeRiceScore(scores: ScoreFields): number | null {
+  const { reach, impact, confidence, effort } = scores;
+  if (reach === null || impact === null || confidence === null || effort === null) {
+    return null;
+  }
+  if (scores.method === "ice") return impact * confidence * effort;
+  if (effort <= 0) return null;
+  return (reach * impact * confidence) / effort;
+}
+
+const scoreFormat = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 1 });
+
+// Formattazione unica dei numeri di scoring (voto totale e componenti).
+export function formatScore(value: number): string {
+  return scoreFormat.format(value);
+}
+
 // Data layer: legge le proposte con ricerca testo (titolo/descrizione) e filtro
 // stato opzionali. RLS resta il backstop sull'autorizzazione.
 export async function listProposals(
@@ -72,7 +102,8 @@ export async function listProposals(
   let query = supabase
     .from("proposals")
     .select(
-      "id, title, description, status, created_at, proposer_id, proposer:profiles(name, email)",
+      `id, title, description, status, ai_eval_status, method, reach, impact,
+       confidence, effort, created_at, proposer_id, proposer:profiles(name, email)`,
     )
     .order("created_at", { ascending: false });
 
@@ -100,7 +131,8 @@ export async function getProposalDetail(
     .from("proposals")
     .select(
       `id, title, description, problem, status, method, reach, impact, confidence,
-       effort, ai_rationale, links, internal_notes, created_at, proposer_id,
+       effort, ai_rationale, ai_eval_status, ai_eval_error, links, internal_notes,
+       created_at, proposer_id,
        proposer:profiles(name, email),
        status_history(id, from_status, to_status, created_at, author:profiles(name, email)),
        comments(id, body, created_at, author:profiles(name, email))`,

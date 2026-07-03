@@ -15,5 +15,9 @@ export default async function OnboardingPage() {
   const profile = await getProfile(supabase, user.id);
   if (profile?.name) redirect("/");
 
-  return <NameForm heading="Come ti chiami?" />;
+  return (
+    <main className="flex flex-1 justify-center p-6">
+      <NameForm heading="Come ti chiami?" />
+    </main>
+  );
 }

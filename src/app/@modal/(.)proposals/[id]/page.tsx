@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { DetailModal } from "@/components/detail/DetailModal";
 import { ProposalPanel } from "@/components/detail/ProposalPanel";
+import { getProfile } from "@/lib/profiles";
 import { getProposalDetail } from "@/lib/proposals";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -16,9 +17,16 @@ export default async function ProposalDetailModal({
   const detail = await getProposalDetail(supabase, (await params).id);
   if (!detail) notFound();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const isAdmin = user
+    ? (await getProfile(supabase, user.id))?.role === "admin"
+    : false;
+
   return (
     <DetailModal>
-      <ProposalPanel detail={detail} />
+      <ProposalPanel detail={detail} isAdmin={isAdmin} />
     </DetailModal>
   );
 }

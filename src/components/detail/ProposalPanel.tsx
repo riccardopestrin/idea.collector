@@ -1,5 +1,12 @@
+import { EvalStatusCue } from "@/components/evaluation/EvalStatusCue";
+import { RetryEvaluationButton } from "@/components/evaluation/RetryEvaluationButton";
 import { STATUS_LABELS } from "@/lib/board";
-import { personLabel, type ProposalDetail } from "@/lib/proposals";
+import {
+  computeRiceScore,
+  formatScore,
+  personLabel,
+  type ProposalDetail,
+} from "@/lib/proposals";
 
 import { CommentForm } from "./CommentForm";
 
@@ -18,14 +25,25 @@ function isHttpUrl(link: string): boolean {
 
 // Pannello di dettaglio proposta (Step 4): mostra tutto — campi, punteggi se
 // valutata, cronologia stati, commenti. Server Component condiviso dalla
-// pagina piena e dal modal; l'unica parte client è il form commenti.
-export function ProposalPanel({ detail }: { detail: ProposalDetail }) {
+// pagina piena e dal modal; le parti client sono form commenti e "Rilancia".
+// isAdmin abilita il rilancio della valutazione fallita.
+export function ProposalPanel({
+  detail,
+  isAdmin,
+}: {
+  detail: ProposalDetail;
+  isAdmin?: boolean;
+}) {
   const scores = SCORE_FIELDS.filter((f) => detail[f] !== null);
+  const totalScore = computeRiceScore(detail);
 
   return (
     <article className="flex flex-col gap-5 p-6">
       <header className="flex flex-col gap-1 pr-6">
-        <h1 className="text-xl font-semibold">{detail.title}</h1>
+        <h1 className="flex items-center gap-2 text-xl font-semibold">
+          {detail.title}
+          <EvalStatusCue status={detail.ai_eval_status} />
+        </h1>
         <p className="text-sm text-foreground/60">
           {STATUS_LABELS[detail.status]} · di {personLabel(detail.proposer)} ·{" "}
           {dateFormat.format(new Date(detail.created_at))}
@@ -59,14 +77,36 @@ export function ProposalPanel({ detail }: { detail: ProposalDetail }) {
         </section>
       )}
 
+      {/* Rilancia anche su in_corso: recupera valutazioni orfane di un crash (0011) */}
+      {detail.ai_eval_status === "fallita" && (
+        <section className="flex flex-col gap-2 rounded-lg border border-danger/40 p-3">
+          <p role="alert" className="text-sm text-danger">
+            Valutazione AI fallita{detail.ai_eval_error ? `: ${detail.ai_eval_error}` : "."}
+          </p>
+          {isAdmin && <RetryEvaluationButton proposalId={detail.id} />}
+        </section>
+      )}
+      {detail.ai_eval_status === "in_corso" && isAdmin && (
+        <section className="flex flex-col gap-2 rounded-lg border border-border p-3">
+          <p className="text-sm text-foreground/70">Valutazione AI in corso…</p>
+          <RetryEvaluationButton proposalId={detail.id} />
+        </section>
+      )}
+
       {scores.length > 0 && (
-        <section className="flex flex-col gap-1">
+        <section className="flex flex-col gap-2">
           <SectionTitle>Punteggio {detail.method.toUpperCase()}</SectionTitle>
-          <dl className="flex gap-6 text-sm">
+          <dl className="flex items-end gap-6 text-sm">
+            {totalScore !== null && (
+              <div>
+                <dt className="text-foreground/60">Voto totale</dt>
+                <dd className="text-2xl font-semibold">{formatScore(totalScore)}</dd>
+              </div>
+            )}
             {scores.map((field) => (
               <div key={field}>
                 <dt className="capitalize text-foreground/60">{field}</dt>
-                <dd className="font-medium">{detail[field]}</dd>
+                <dd className="font-medium">{formatScore(detail[field]!)}</dd>
               </div>
             ))}
           </dl>
