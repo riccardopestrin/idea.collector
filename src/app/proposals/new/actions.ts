@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { supabaseServer } from "@/lib/supabase/server";
+import { parseProposalFields } from "@/lib/validation/proposal";
 
 type CreateProposalState = { error: string } | null;
 
@@ -18,25 +19,12 @@ export async function createProposal(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
 
-  const title = String(formData.get("title") ?? "").trim();
-  if (!title) return { error: "Il titolo è obbligatorio." };
+  const parsed = parseProposalFields(formData);
+  if ("error" in parsed) return { error: parsed.error };
 
-  const optional = (name: string) => {
-    const value = String(formData.get(name) ?? "").trim();
-    return value === "" ? null : value;
-  };
-  const links = String(formData.get("links") ?? "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const { error } = await supabase.from("proposals").insert({
-    title,
-    description: optional("description"),
-    problem: optional("problem"),
-    links,
-    proposer_id: user.id,
-  });
+  const { error } = await supabase
+    .from("proposals")
+    .insert({ ...parsed.fields, proposer_id: user.id });
   if (error) return { error: "Errore nel salvataggio. Riprova." };
 
   redirect("/");

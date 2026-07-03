@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { type AnchorField, markdownToPlainText, resolveAnchor } from "@/lib/anchors";
+
 // Stati proposta — mirror dell'enum `proposal_status` in supabase/migrations/0001_init.sql.
 export const PROPOSAL_STATUSES = [
   "nuova", "in_valutazione", "approvata", "in_sviluppo",
@@ -61,12 +63,19 @@ export type ProposalDetail = ScoreFields & {
     created_at: string;
     author: PersonRef;
   }[];
-  comments: {
-    id: string;
-    body: string;
-    created_at: string;
-    author: PersonRef;
-  }[];
+  comments: ProposalComment[];
+};
+
+export type ProposalComment = {
+  id: string;
+  body: string;
+  created_at: string;
+  author: PersonRef;
+  anchor_field: AnchorField | null;
+  anchor_text: string | null;
+  anchor_occurrence: number | null;
+  // ancora presente ma quote non più nel testo → orfano ("testo modificato")
+  anchor_resolved: boolean;
 };
 
 export function isProposalStatus(value: string | undefined): value is ProposalStatus {
@@ -135,12 +144,36 @@ export async function getProposalDetail(
        created_at, proposer_id,
        proposer:profiles(name, email),
        status_history(id, from_status, to_status, created_at, author:profiles(name, email)),
-       comments(id, body, created_at, author:profiles(name, email))`,
+       comments(id, body, created_at, anchor_field, anchor_text, anchor_occurrence,
+                author:profiles(name, email))`,
     )
     .eq("id", id)
     .order("created_at", { referencedTable: "status_history", ascending: true })
     .order("created_at", { referencedTable: "comments", ascending: true })
     .maybeSingle()
-    .overrideTypes<ProposalDetail, { merge: false }>();
-  return data;
+    .overrideTypes<Omit<ProposalDetail, "comments"> & {
+      comments: Omit<ProposalComment, "anchor_resolved">[];
+    }, { merge: false }>();
+  if (!data) return null;
+
+  // Risoluzione ancore server-side (ADR-0005): N-esima occorrenza della quote
+  // nella proiezione plain-text del campo corrente; assente → orfano.
+  const plain = {
+    description: markdownToPlainText(data.description ?? ""),
+    problem: markdownToPlainText(data.problem ?? ""),
+  };
+  return {
+    ...data,
+    comments: data.comments.map((comment) => ({
+      ...comment,
+      anchor_resolved:
+        comment.anchor_field !== null &&
+        comment.anchor_text !== null &&
+        comment.anchor_occurrence !== null &&
+        resolveAnchor(plain[comment.anchor_field], {
+          text: comment.anchor_text,
+          occurrence: comment.anchor_occurrence,
+        }) !== null,
+    })),
+  };
 }

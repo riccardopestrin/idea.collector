@@ -26,7 +26,7 @@ export default async function ProposalDetailModal({
 
   return (
     <DetailModal>
-      <ProposalPanel detail={detail} isAdmin={isAdmin} />
+      <ProposalPanel detail={detail} isAdmin={isAdmin} currentUserId={user?.id} />
     </DetailModal>
   );
 }

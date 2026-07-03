@@ -2,10 +2,8 @@
 
 import { refresh } from "next/cache";
 
-import { anthropicClient } from "@/lib/ai/anthropic";
-import { evaluateWithClaude, stubScores } from "@/lib/ai/evaluateProposal";
-import { buildRepoDigest } from "@/lib/github/repoDigest";
-import { getGithubSettings } from "@/lib/github/settings";
+import { runEvaluation } from "@/lib/ai/runEvaluation";
+import { isAnchorField, markdownToPlainText, resolveAnchor } from "@/lib/anchors";
 import { getProfile } from "@/lib/profiles";
 import { isProposalStatus } from "@/lib/proposals";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -67,74 +65,13 @@ export async function evaluateProposal(
     return { error: "Solo un admin può lanciare la valutazione AI." };
   }
 
-  const { data: proposal } = await supabase
-    .from("proposals")
-    .select("title, description, problem, links, method, ai_generated, manually_edited")
-    .eq("id", proposalId)
-    .maybeSingle();
-  if (!proposal) return { error: "Proposta non trovata." };
-
-  // Idempotenza: se già valutata dall'AI e non toccata a mano, l'auto-trigger salta.
-  if (!force && proposal.ai_generated && !proposal.manually_edited) return null;
-
-  // force (Rilancia) bypassa anche il guard in-flight della RPC: recupera le
-  // valutazioni rimaste 'in_corso' per un crash tra begin e fail (migration 0011).
-  const { data: began, error: beginError } = await supabase.rpc("begin_ai_evaluation", {
-    p_id: proposalId,
-    p_force: force,
-  });
-  if (beginError) {
-    console.error("evaluateProposal begin:", beginError);
-    return { error: "Errore nell'avvio della valutazione. Riprova." };
-  }
-  if (!began) {
-    // senza force: già in corso, una sola valutazione in-flight. Con force può
-    // essere solo una proposta sparita nel frattempo.
-    return force ? { error: "Proposta non trovata." } : null;
-  }
-
-  // il refresh qui rende visibile 'in_corso' agli altri client; chi ha lanciato
-  // l'azione vede l'aggiornamento solo al ritorno dell'azione (limite di Next)
-  refresh();
-
-  try {
-    const settings = await getGithubSettings(supabase);
-    if (!settings?.github_installation_id || !settings.github_owner || !settings.github_repo) {
-      throw new Error("Collega GitHub e scegli la repo nel profilo.");
-    }
-    const digest = await buildRepoDigest(
-      settings.github_installation_id,
-      settings.github_owner,
-      settings.github_repo,
-    );
-    // ponytail: AI_EVAL_FAKE=1 salta Claude (demo senza crediti); il digest
-    // GitHub viene comunque costruito così il resto della pipeline è reale.
-    const scores =
-      process.env.AI_EVAL_FAKE === "1"
-        ? stubScores(proposal.method)
-        : await evaluateWithClaude(anthropicClient(), proposal, digest);
-    const { error: applyError } = await supabase.rpc("apply_ai_evaluation", {
-      p_id: proposalId,
-      p_reach: scores.reach,
-      p_impact: scores.impact,
-      p_confidence: scores.confidence,
-      p_effort: scores.effort,
-      p_rationale: scores.rationale,
-    });
-    if (applyError) throw new Error(applyError.message);
-    refresh();
-    return null;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "errore sconosciuto";
-    console.error("evaluateProposal:", err);
-    await supabase.rpc("fail_ai_evaluation", { p_id: proposalId, p_error: message });
-    refresh();
-    return { error: `Valutazione fallita: ${message}` };
-  }
+  return runEvaluation(supabase, proposalId, force);
 }
 
-// Aggiunge un commento a una proposta. Qualsiasi membro autenticato può
-// commentare; la policy "author insert" (0009) è il backstop sul chi.
+// Aggiunge un commento a una proposta, eventualmente ancorato a una selezione
+// (RFC-004). Qualsiasi membro autenticato può commentare finché la proposta è
+// in 'nuova'/'in_valutazione' (cristallizzazione, migration 0013 backstop);
+// la policy insert (0009/0013) è il backstop sul chi.
 // proposalId arriva via bind dal pannello; (prev, formData) da useActionState.
 export async function addComment(
   proposalId: string,
@@ -151,9 +88,53 @@ export async function addComment(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
 
+  const { data: proposal } = await supabase
+    .from("proposals")
+    .select("status, description, problem")
+    .eq("id", proposalId)
+    .maybeSingle();
+  if (!proposal) return { error: "Proposta non trovata." };
+  if (proposal.status !== "nuova" && proposal.status !== "in_valutazione") {
+    return { error: "La proposta non accetta più commenti." };
+  }
+
+  // Ancora opzionale: field ∈ enum, occurrence ≥ 1, e la quote deve risolversi
+  // nel testo corrente della proposta (business rule; il DB valida solo la forma).
+  let anchor: Record<string, unknown> = {};
+  const anchorField = String(formData.get("anchor_field") ?? "");
+  if (anchorField) {
+    // il transport del form può normalizzare i newline della quote in CRLF
+    const anchorText = String(formData.get("anchor_text") ?? "").replace(/\r\n/g, "\n");
+    const anchorOccurrence = Number(formData.get("anchor_occurrence"));
+    if (
+      !isAnchorField(anchorField) ||
+      !anchorText ||
+      anchorText.length > 2000 ||
+      !Number.isInteger(anchorOccurrence) ||
+      anchorOccurrence < 1
+    ) {
+      return { error: "Ancora del commento non valida." };
+    }
+    const fieldText = proposal[anchorField];
+    const resolved =
+      fieldText &&
+      resolveAnchor(markdownToPlainText(fieldText), {
+        text: anchorText,
+        occurrence: anchorOccurrence,
+      });
+    if (!resolved) {
+      return { error: "Il testo selezionato non corrisponde più alla proposta. Ricarica la pagina." };
+    }
+    anchor = {
+      anchor_field: anchorField,
+      anchor_text: anchorText,
+      anchor_occurrence: anchorOccurrence,
+    };
+  }
+
   const { error } = await supabase
     .from("comments")
-    .insert({ proposal_id: proposalId, author_id: user.id, body });
+    .insert({ proposal_id: proposalId, author_id: user.id, body, ...anchor });
   if (error) {
     console.error("addComment:", error);
     return { error: "Errore nel salvataggio. Riprova." };

@@ -13,6 +13,7 @@ const { getUser, rpc, tables, refresh, deleteResult, insertResult } = vi.hoisted
       select: vi.fn(() => builder),
       eq: vi.fn(() => builder),
       single: vi.fn(() => Promise.resolve({ data: builder.row })),
+      maybeSingle: vi.fn(() => Promise.resolve({ data: builder.row })),
       insert: vi.fn(() => Promise.resolve(insertResult.value)),
       delete: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve(deleteResult.value)) })),
     };
@@ -42,7 +43,12 @@ beforeEach(() => {
   getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
   rpc.mockResolvedValue({ data: true, error: null });
   tables.profiles.row = { role: "contributor" };
-  tables.proposals.row = { proposer_id: "u1" };
+  tables.proposals.row = {
+    proposer_id: "u1",
+    status: "nuova",
+    description: "Una proposta con del testo utile.",
+    problem: null,
+  };
   deleteResult.value = { error: null };
   insertResult.value = { error: null };
 });
@@ -90,6 +96,61 @@ describe("addComment", () => {
     const result = await addComment("p1", null, commentForm("Ottima idea"));
     expect(result).toEqual({ error: "Errore nel salvataggio. Riprova." });
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("rejects a comment on a crystallized proposal", async () => {
+    tables.proposals.row = { ...tables.proposals.row, status: "approvata" };
+    const result = await addComment("p1", null, commentForm("Ottima idea"));
+    expect(result).toEqual({ error: "La proposta non accetta più commenti." });
+    expect(tables.comments.insert).not.toHaveBeenCalled();
+  });
+
+  it("inserts the anchor fields when the quote resolves in the current text", async () => {
+    const form = commentForm("Concordo");
+    form.set("anchor_field", "description");
+    form.set("anchor_text", "testo utile");
+    form.set("anchor_occurrence", "1");
+    const result = await addComment("p1", null, form);
+    expect(result).toBeNull();
+    expect(tables.comments.insert).toHaveBeenCalledWith({
+      proposal_id: "p1",
+      author_id: "u1",
+      body: "Concordo",
+      anchor_field: "description",
+      anchor_text: "testo utile",
+      anchor_occurrence: 1,
+    });
+  });
+
+  it("rejects an anchor whose quote no longer resolves", async () => {
+    const form = commentForm("Concordo");
+    form.set("anchor_field", "description");
+    form.set("anchor_text", "testo sparito");
+    form.set("anchor_occurrence", "1");
+    const result = await addComment("p1", null, form);
+    expect(result).toEqual({
+      error: "Il testo selezionato non corrisponde più alla proposta. Ricarica la pagina.",
+    });
+    expect(tables.comments.insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed anchor (bad field or occurrence)", async () => {
+    const form = commentForm("Concordo");
+    form.set("anchor_field", "internal_notes");
+    form.set("anchor_text", "x");
+    form.set("anchor_occurrence", "1");
+    expect(await addComment("p1", null, form)).toEqual({
+      error: "Ancora del commento non valida.",
+    });
+
+    const form2 = commentForm("Concordo");
+    form2.set("anchor_field", "description");
+    form2.set("anchor_text", "testo utile");
+    form2.set("anchor_occurrence", "0");
+    expect(await addComment("p1", null, form2)).toEqual({
+      error: "Ancora del commento non valida.",
+    });
+    expect(tables.comments.insert).not.toHaveBeenCalled();
   });
 });
 

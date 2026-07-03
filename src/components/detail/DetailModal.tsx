@@ -17,7 +17,7 @@ export function DetailModal({ children }: { children: ReactNode }) {
       onClick={(e) => {
         if (e.target === ref.current) ref.current.close();
       }}
-      className="m-auto max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-background p-0 backdrop:bg-black/40"
+      className="m-auto max-h-[85vh] w-[calc(100vw-2rem)] max-w-6xl overflow-y-auto rounded-lg border border-border bg-background p-0 backdrop:bg-black/40"
     >
       <button
         type="button"
