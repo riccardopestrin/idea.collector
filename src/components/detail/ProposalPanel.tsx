@@ -146,12 +146,17 @@ export function ProposalPanel({
           </section>
         )}
 
-        <section className="flex flex-col gap-1">
-          <SectionTitle>Cronologia stati</SectionTitle>
+        <details className="group flex flex-col gap-1">
+          <summary className="flex cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden">
+            <span aria-hidden className="text-foreground/50 transition-transform group-open:rotate-90">
+              ▸
+            </span>
+            <SectionTitle>Cronologia stati</SectionTitle>
+          </summary>
           {detail.status_history.length === 0 ? (
-            <p className="text-sm text-foreground/60">Nessuno spostamento ancora.</p>
+            <p className="mt-1 text-sm text-foreground/60">Nessuno spostamento ancora.</p>
           ) : (
-            <ul className="flex flex-col gap-1 text-sm">
+            <ul className="mt-1 flex flex-col gap-1 text-sm">
               {detail.status_history.map((entry) => (
                 <li key={entry.id} className="text-foreground/80">
                   {entry.from_status ? `${STATUS_LABELS[entry.from_status]} → ` : ""}
@@ -164,7 +169,7 @@ export function ProposalPanel({
               ))}
             </ul>
           )}
-        </section>
+        </details>
       </ProposalDiscussion>
     </article>
   );
