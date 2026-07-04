@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 
 import { Board } from "@/components/board/Board";
 import { ProposalFilters } from "@/components/filters/ProposalFilters";
+import { AppHeader } from "@/components/nav/AppHeader";
 import { getProfile } from "@/lib/profiles";
-import { isProposalStatus, listProposals } from "@/lib/proposals";
+import { listProposals } from "@/lib/proposals";
 import { supabaseServer } from "@/lib/supabase/server";
 
 // Home autenticata. Il proxy già blocca i non loggati; ricontrolliamo qui vicino
@@ -12,7 +13,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 export default async function MainBoard({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
   const supabase = await supabaseServer();
   const {
@@ -20,41 +21,19 @@ export default async function MainBoard({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { q, status } = await searchParams;
+  const { q } = await searchParams;
   const search = (q ?? "").trim();
-  const statusFilter = isProposalStatus(status) ? status : undefined;
 
+  // Niente filtro stato in board: le colonne per stato sono già il filtro visivo.
   const [proposals, profile] = await Promise.all([
-    listProposals(supabase, { search, status: statusFilter }),
+    listProposals(supabase, { search }),
     getProfile(supabase, user.id),
   ]);
   if (profile && !profile.name) redirect("/onboarding");
 
-  async function logout() {
-    "use server";
-    const supabase = await supabaseServer();
-    await supabase.auth.signOut();
-    redirect("/login");
-  }
-
   return (
     <>
-      <header className="flex items-center justify-between border-b border-border px-6 py-4">
-        <span className="font-semibold">Proposte feature</span>
-        <div className="flex items-center gap-4 text-sm">
-          <Link href="/profile" className="text-foreground/70 underline-offset-2 hover:underline">
-            {profile?.name ?? user.email}
-          </Link>
-          <form action={logout}>
-            <button
-              type="submit"
-              className="rounded-md border border-border px-3 py-1.5"
-            >
-              Esci
-            </button>
-          </form>
-        </div>
-      </header>
+      <AppHeader profileLabel={profile?.name ?? user.email} />
 
       <main className="flex w-full flex-1 flex-col gap-6 p-6">
         <div className="flex items-center justify-between">
@@ -67,11 +46,11 @@ export default async function MainBoard({
           </Link>
         </div>
 
-        <ProposalFilters search={search} status={statusFilter} />
+        <ProposalFilters search={search} showStatus={false} />
 
         {proposals.length === 0 && (
           <p className="text-sm text-foreground/70">
-            {search || statusFilter
+            {search
               ? "Nessuna proposta corrisponde ai filtri."
               : "Nessuna proposta ancora. Crea la prima."}
           </p>

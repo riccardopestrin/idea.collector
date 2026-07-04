@@ -103,6 +103,20 @@ export function formatScore(value: number): string {
   return scoreFormat.format(value);
 }
 
+// Classifica per voto composito decrescente; le proposte senza voto (componenti
+// mancanti) vanno in coda. Il voto è calcolato una volta per proposta; sort
+// stabile (ES2019+) → a parità di voto e tra le non votate resta l'ordine d'arrivo.
+export function rankProposalsByScore(items: ProposalListItem[]): ProposalListItem[] {
+  return items
+    .map((item) => ({ item, score: computeRiceScore(item) }))
+    .sort((a, b) => {
+      if (a.score === null) return b.score === null ? 0 : 1;
+      if (b.score === null) return -1;
+      return b.score - a.score;
+    })
+    .map((entry) => entry.item);
+}
+
 // Data layer: legge le proposte con ricerca testo (titolo/descrizione) e filtro
 // stato opzionali. RLS resta il backstop sull'autorizzazione.
 export async function listProposals(

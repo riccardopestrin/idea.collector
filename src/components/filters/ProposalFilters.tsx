@@ -7,14 +7,19 @@ import { controlClass } from "@/components/form/Field";
 import { STATUS_LABELS } from "@/lib/board";
 import { PROPOSAL_STATUSES, type ProposalStatus } from "@/lib/proposals";
 
-// Form filtri lista (GET): la home legge q/status dai searchParams. Client per
-// gestire la × che pulisce il campo; "Azzera" torna alla board piena via /.
+// Form filtri lista (GET): la pagina legge q/status dai searchParams. Client per
+// gestire la × che pulisce il campo; "Azzera" torna alla lista piena via resetHref.
+// showStatus=false nella board (la suddivisione in colonne è già il filtro stato).
 export function ProposalFilters({
   search,
   status,
+  showStatus = true,
+  resetHref = "/",
 }: {
   search: string;
-  status: ProposalStatus | undefined;
+  status?: ProposalStatus;
+  showStatus?: boolean;
+  resetHref?: string;
 }) {
   const [q, setQ] = useState(search);
   const hasFilters = Boolean(search || status);
@@ -41,23 +46,25 @@ export function ProposalFilters({
           </button>
         )}
       </div>
-      <select
-        name="status"
-        defaultValue={status ?? ""}
-        className={controlClass}
-      >
-        <option value="">Tutti gli stati</option>
-        {PROPOSAL_STATUSES.map((s) => (
-          <option key={s} value={s}>
-            {STATUS_LABELS[s]}
-          </option>
-        ))}
-      </select>
+      {showStatus && (
+        <select
+          name="status"
+          defaultValue={status ?? ""}
+          className={controlClass}
+        >
+          <option value="">Tutti gli stati</option>
+          {PROPOSAL_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {STATUS_LABELS[s]}
+            </option>
+          ))}
+        </select>
+      )}
       <button type="submit" className="rounded-md border border-border px-4 py-2">
         Filtra
       </button>
       {hasFilters && (
-        <Link href="/" className="rounded-md px-3 py-2 text-foreground/70 hover:text-foreground">
+        <Link href={resetHref} className="rounded-md px-3 py-2 text-foreground/70 hover:text-foreground">
           Azzera
         </Link>
       )}

@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { STATUS_LABELS } from "@/lib/board";
 import type { ProposalListItem } from "@/lib/proposals";
 
 import { ProposalCard } from "./ProposalCard";
@@ -25,8 +26,11 @@ const base: ProposalListItem = {
 function renderCard(
   overrides: Partial<ProposalListItem> = {},
   onDelete?: () => void,
+  showStatus?: boolean,
 ) {
-  render(<ProposalCard proposal={{ ...base, ...overrides }} onDelete={onDelete} />);
+  render(
+    <ProposalCard proposal={{ ...base, ...overrides }} onDelete={onDelete} showStatus={showStatus} />,
+  );
 }
 
 describe("ProposalCard", () => {
@@ -65,5 +69,15 @@ describe("ProposalCard", () => {
   it("has no delete button for who cannot delete", () => {
     renderCard();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("shows the board status label when showStatus is set", () => {
+    renderCard({ status: "in_valutazione" }, undefined, true);
+    expect(screen.getByText(STATUS_LABELS.in_valutazione)).toBeInTheDocument();
+  });
+
+  it("hides the board status label by default", () => {
+    renderCard({ status: "in_valutazione" });
+    expect(screen.queryByText(STATUS_LABELS.in_valutazione)).not.toBeInTheDocument();
   });
 });

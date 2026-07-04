@@ -5,6 +5,8 @@ import {
   computeRiceScore,
   isProposalStatus,
   listProposals,
+  type ProposalListItem,
+  rankProposalsByScore,
   type ScoreFields,
 } from "./proposals";
 
@@ -48,6 +50,51 @@ describe("computeRiceScore", () => {
 
   it("returns null when RICE effort is zero (no division by zero)", () => {
     expect(computeRiceScore(fields({ effort: 0 }))).toBeNull();
+  });
+});
+
+describe("rankProposalsByScore", () => {
+  // Fabbrica di righe: id per identità, più i soli campi di scoring che contano.
+  const item = (id: string, scores: Partial<ScoreFields>): ProposalListItem =>
+    ({
+      id,
+      method: "rice",
+      reach: null,
+      impact: null,
+      confidence: null,
+      effort: null,
+      ...scores,
+    }) as ProposalListItem;
+
+  const ids = (items: ProposalListItem[]) => items.map((p) => p.id);
+
+  it("orders by composite score descending, mixing RICE and ICE", () => {
+    const low = item("low", { reach: 10, impact: 1, confidence: 1, effort: 10 }); // RICE 1
+    // ICE ignora reach nel calcolo, ma computeRiceScore lo pretende non-null.
+    const high = item("high", { method: "ice", reach: 1, impact: 8, confidence: 7, effort: 6 }); // ICE 336
+    const mid = item("mid", { reach: 100, impact: 2, confidence: 0.5, effort: 4 }); // RICE 25
+    expect(ids(rankProposalsByScore([low, high, mid]))).toEqual(["high", "mid", "low"]);
+  });
+
+  it("pushes unscored proposals to the end", () => {
+    const scored = item("scored", { reach: 100, impact: 2, confidence: 0.5, effort: 4 });
+    const unscored = item("unscored", { confidence: null });
+    expect(ids(rankProposalsByScore([unscored, scored]))).toEqual(["scored", "unscored"]);
+  });
+
+  it("preserves input order among all-unscored proposals", () => {
+    const a = item("a", {});
+    const b = item("b", {});
+    expect(ids(rankProposalsByScore([a, b]))).toEqual(["a", "b"]);
+  });
+
+  it("does not mutate the input array", () => {
+    const input = [
+      item("x", { reach: 10, impact: 1, confidence: 1, effort: 10 }),
+      item("y", { reach: 100, impact: 2, confidence: 0.5, effort: 4 }),
+    ];
+    rankProposalsByScore(input);
+    expect(ids(input)).toEqual(["x", "y"]);
   });
 });
 
