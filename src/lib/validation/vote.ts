@@ -1,10 +1,9 @@
 import type { VoteComponents } from "@/lib/proposals";
 
-// Validazione di un voto RICE utente: ogni componente è uno slider 1–10 (intero).
-// reach non si vota nel metodo ICE (solo impact/confidence/ease).
+// Validazione di un voto RICE-10 utente (ADR-0006): i 4 fattori sono slider
+// interi 1–10, tutti obbligatori. effort = Ease (10 = facile).
 export function parseVoteFields(
   formData: FormData,
-  method: "rice" | "ice",
 ): { fields: VoteComponents } | { error: string } {
   const read = (name: string): number | null => {
     const raw = formData.get(name);
@@ -14,17 +13,13 @@ export function parseVoteFields(
   };
 
   const fields: VoteComponents = {
-    reach: method === "ice" ? null : read("reach"),
+    reach: read("reach"),
     impact: read("impact"),
     confidence: read("confidence"),
     effort: read("effort"),
   };
 
-  const required =
-    method === "ice"
-      ? (["impact", "confidence", "effort"] as const)
-      : (["reach", "impact", "confidence", "effort"] as const);
-  if (required.some((f) => fields[f] === null)) {
+  if (Object.values(fields).some((v) => v === null)) {
     return { error: "Assegna un valore da 1 a 10 a ogni parametro." };
   }
   return { fields };

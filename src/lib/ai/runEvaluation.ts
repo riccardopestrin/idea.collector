@@ -18,7 +18,7 @@ export async function runEvaluation(
 ): Promise<{ error: string } | null> {
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("title, description, problem, links, method, ai_generated, manually_edited")
+    .select("title, description, problem, links, ai_generated, manually_edited")
     .eq("id", proposalId)
     .maybeSingle();
   if (!proposal) return { error: "Proposta non trovata." };
@@ -60,7 +60,7 @@ export async function runEvaluation(
     // GitHub viene comunque costruito così il resto della pipeline è reale.
     const scores =
       process.env.AI_EVAL_FAKE === "1"
-        ? stubScores(proposal.method)
+        ? stubScores()
         : await evaluateWithClaude(anthropicClient(), proposal, digest);
     const { error: applyError } = await supabase.rpc("apply_ai_evaluation", {
       p_id: proposalId,

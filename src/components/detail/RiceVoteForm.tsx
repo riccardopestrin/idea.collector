@@ -6,20 +6,13 @@ import { submitRiceVote } from "@/app/proposals/[id]/actions";
 import { SubmitButton } from "@/components/form/SubmitButton";
 import { SectionTitle } from "@/components/detail/SectionTitle";
 
-// Parametri votabili per metodo: RICE ha reach, ICE no (l'effort è la "facilità").
-const PARAMS: Record<"rice" | "ice", { name: string; label: string }[]> = {
-  rice: [
-    { name: "reach", label: "Reach" },
-    { name: "impact", label: "Impact" },
-    { name: "confidence", label: "Confidence" },
-    { name: "effort", label: "Effort" },
-  ],
-  ice: [
-    { name: "impact", label: "Impact" },
-    { name: "confidence", label: "Confidence" },
-    { name: "effort", label: "Ease" },
-  ],
-};
+// I 4 fattori RICE-10 (ADR-0006), stessa scala per tutti. effort è "Ease".
+const PARAMS = [
+  { name: "reach", label: "Reach" },
+  { name: "impact", label: "Impact" },
+  { name: "confidence", label: "Confidence" },
+  { name: "effort", label: "Ease" },
+] as const;
 
 function Slider({ name, label }: { name: string; label: string }) {
   const [value, setValue] = useState(5);
@@ -43,15 +36,9 @@ function Slider({ name, label }: { name: string; label: string }) {
   );
 }
 
-// Form di voto RICE utente. Slider 1–10 per ogni parametro; un solo voto,
+// Form di voto RICE-10 utente. Slider 1–10 per ogni fattore; un solo voto,
 // immutabile (l'idoneità è decisa dal pannello, il service/RLS è il backstop).
-export function RiceVoteForm({
-  proposalId,
-  method,
-}: {
-  proposalId: string;
-  method: "rice" | "ice";
-}) {
+export function RiceVoteForm({ proposalId }: { proposalId: string }) {
   const [state, action, pending] = useActionState(
     submitRiceVote.bind(null, proposalId),
     null,
@@ -59,10 +46,10 @@ export function RiceVoteForm({
 
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border p-4">
-      <SectionTitle>Il tuo voto {method.toUpperCase()}</SectionTitle>
+      <SectionTitle>Il tuo voto RICE-10</SectionTitle>
       <form action={action} className="flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-          {PARAMS[method].map((p) => (
+          {PARAMS.map((p) => (
             <Slider key={p.name} name={p.name} label={p.label} />
           ))}
         </div>

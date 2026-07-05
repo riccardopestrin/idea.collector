@@ -65,7 +65,7 @@ export function ProposalCard({
         {score !== null && (
           <span
             className="ml-auto rounded-full border border-border px-2 py-0.5 font-medium text-foreground/80"
-            title={`Voto ${proposal.method.toUpperCase()} · Claude + utenti`}
+            title="Voto RICE-10 · Claude + utenti"
           >
             {formatScore(score)}
           </span>

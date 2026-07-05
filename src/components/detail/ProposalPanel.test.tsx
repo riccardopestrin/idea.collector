@@ -18,7 +18,6 @@ const base: ProposalDetail = {
   description: "Tema scuro per la dashboard",
   problem: "Affatica la vista di notte",
   status: "in_valutazione",
-  method: "rice",
   reach: null,
   impact: null,
   confidence: null,
@@ -86,23 +85,25 @@ describe("ProposalPanel", () => {
     expect(screen.queryByText(/Voto totale/)).not.toBeInTheDocument();
   });
 
-  it("shows Claude's normalized total and rationale when evaluated, without the raw weights", () => {
+  it("shows Claude's RICE-10 total and rationale when evaluated", () => {
     render(
       <ProposalPanel
         detail={{
           ...base,
-          reach: 100,
-          impact: 2,
-          confidence: 0.8,
-          effort: 3,
+          reach: 8,
+          impact: 6,
+          confidence: 4,
+          effort: 5,
           ai_rationale: "Alto impatto, sforzo contenuto",
         }}
       />,
     );
     expect(screen.getByText("Voto di Claude")).toBeInTheDocument();
     expect(screen.getByText("Alto impatto, sforzo contenuto")).toBeInTheDocument();
-    // niente più il breakdown grezzo dei pesi (reach = 100, ecc.)
-    expect(screen.queryByText("100")).not.toBeInTheDocument();
+    // media geometrica (8·6·4·5)^(1/4) ≈ 5,6 — mostrata come totale e come voto Claude
+    expect(screen.getAllByText("5,6").length).toBeGreaterThan(0);
+    // i fattori sono su scala 1–10 (Ease = effort invertito)
+    expect(screen.getByText("Ease")).toBeInTheDocument();
   });
 
   it("shows the vote form only to a non-proposer who has not voted, in valutazione", () => {
@@ -119,7 +120,7 @@ describe("ProposalPanel", () => {
     expect(screen.queryByRole("button", { name: "Invia voto" })).not.toBeInTheDocument();
   });
 
-  it("hides the vote form and lists a user's own vote with its 0–10 score", () => {
+  it("hides the vote form and lists a user's own vote with its 1–10 score", () => {
     const detail = {
       ...base,
       votes: [
@@ -129,7 +130,7 @@ describe("ProposalPanel", () => {
           reach: 10,
           impact: 10,
           confidence: 10,
-          effort: 1,
+          effort: 10,
           created_at: "2026-07-03T10:00:00Z",
           voter: { name: "Gino", email: "gino@test.local" },
         },
@@ -140,7 +141,7 @@ describe("ProposalPanel", () => {
     expect(screen.queryByRole("button", { name: "Invia voto" })).not.toBeInTheDocument();
     expect(screen.getByText("Voti utenti (1)")).toBeInTheDocument();
     expect(screen.getByText("Gino")).toBeInTheDocument();
-    // voto massimo → 10 (compare sia nel totale composito sia nella riga utente)
+    // voto massimo (tutti 10) → 10 (compare nel totale composito e nella riga utente)
     expect(screen.getAllByText("10").length).toBeGreaterThan(0);
   });
 

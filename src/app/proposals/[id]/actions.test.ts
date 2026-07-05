@@ -151,7 +151,7 @@ describe("submitRiceVote", () => {
   // votante diverso dal proposer (u1), proposta in valutazione: caso idoneo di base
   beforeEach(() => {
     getUser.mockResolvedValue({ data: { user: { id: "u2" } } });
-    tables.proposals.row = { proposer_id: "u1", status: "in_valutazione", method: "rice" };
+    tables.proposals.row = { proposer_id: "u1", status: "in_valutazione" };
   });
 
   it("refuses to write when there is no authenticated user", async () => {
@@ -169,7 +169,7 @@ describe("submitRiceVote", () => {
   });
 
   it("rejects a vote when the proposal is not in valutazione", async () => {
-    tables.proposals.row = { proposer_id: "u1", status: "approvata", method: "rice" };
+    tables.proposals.row = { proposer_id: "u1", status: "approvata" };
     expect(await submitRiceVote("p1", null, voteForm())).toEqual({
       error: "Puoi votare solo le proposte in valutazione.",
     });
@@ -177,7 +177,7 @@ describe("submitRiceVote", () => {
   });
 
   it("forbids the proposer from voting their own idea", async () => {
-    tables.proposals.row = { proposer_id: "u2", status: "in_valutazione", method: "rice" };
+    tables.proposals.row = { proposer_id: "u2", status: "in_valutazione" };
     expect(await submitRiceVote("p1", null, voteForm())).toEqual({
       error: "Non puoi votare la tua stessa proposta.",
     });

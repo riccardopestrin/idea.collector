@@ -9,7 +9,6 @@ const proposal = (id: string, status: ProposalListItem["status"]): ProposalListI
   title: `p${id}`,
   description: null,
   status,
-  method: "rice",
   reach: null,
   impact: null,
   confidence: null,

@@ -13,17 +13,9 @@ export type ProposalStatus = (typeof PROPOSAL_STATUSES)[number];
 // Stato della valutazione AI — mirror dell'enum `ai_eval_status` (migration 0010).
 export type AiEvalStatus = "assente" | "in_corso" | "completata" | "fallita";
 
-// Campi di scoring condivisi tra card e pannello: bastano per il voto composito.
-export type ScoreFields = {
-  method: "rice" | "ice";
-  reach: number | null;
-  impact: number | null;
-  confidence: number | null;
-  effort: number | null;
-};
-
-// Componenti di un voto RICE (Claude o utente): stessa forma di ScoreFields
-// meno il method, che è fissato dalla proposta.
+// Componenti di uno scoring RICE-10 (valutazione di Claude o voto utente):
+// 4 fattori interi 1–10 sulla stessa scala/rubriche (ADR-0006). `effort` è Ease
+// (10 = facile). null finché non valutato/votato.
 export type VoteComponents = {
   reach: number | null;
   impact: number | null;
@@ -31,7 +23,7 @@ export type VoteComponents = {
   effort: number | null;
 };
 
-// Voto RICE di un utente su una proposta (migration 0015). Ogni componente su
+// Voto RICE-10 di un utente su una proposta (migration 0015). Ogni componente su
 // slider 1–10; un voto per utente, immutabile. `voter` embeddato per la lista.
 export type RiceVote = VoteComponents & {
   id: string;
@@ -40,7 +32,7 @@ export type RiceVote = VoteComponents & {
   voter: { name: string | null; email: string } | null;
 };
 
-export type ProposalListItem = ScoreFields & {
+export type ProposalListItem = VoteComponents & {
   id: string;
   title: string;
   description: string | null;
@@ -61,7 +53,7 @@ export function personLabel(person: PersonRef): string {
 
 // Dettaglio completo di una proposta per il pannello (Step 4): tutti i campi,
 // cronologia stati e commenti, con gli autori embeddati.
-export type ProposalDetail = ScoreFields & {
+export type ProposalDetail = VoteComponents & {
   id: string;
   title: string;
   description: string | null;
@@ -103,105 +95,50 @@ export function isProposalStatus(value: string | undefined): value is ProposalSt
   return PROPOSAL_STATUSES.includes(value as ProposalStatus);
 }
 
-// --- Voto composito normalizzato (Claude + utenti) ---
+// --- Punteggio RICE-10 (Claude + utenti) — ADR-0006 ---
 //
-// Claude vota con le scale native RICE (reach/effort illimitati); gli utenti con
-// slider 1–10. Per confrontarli portiamo ogni componente in [0,1] e calcoliamo
-// un punteggio-prodotto 0–10 uguale per tutti:
-//   RICE: 10 · reach · impact · confidence · (1 − effort)   (effort = costo)
-//   ICE:  10 · impact · confidence · ease                   (ease positivo)
-// Il totale composito è la media dei punteggi (Claude + ogni utente); i componenti
-// medi sono le medie dei valori normalizzati (×10). Tutto in TS, coerente col DB.
+// Tutti i rater (Claude e utenti) votano i 4 fattori sulla stessa scala 1–10
+// ancorata a rubriche; `effort` è Ease, già positivo. Il punteggio individuale
+// è la media geometrica (R·I·C·E)^(1/4) ∈ [1,10]: un fattore debole affossa il
+// totale (non compensativa), ma la scala resta leggibile. Il composito è la
+// media aritmetica dei punteggi individuali; i componenti medi sono le medie
+// aritmetiche dei fattori.
 
-// ponytail: reach/effort che mappano a 0.5 nella normalizzazione di Claude.
-// Sono manopole di taratura — alzale se le reach/effort tipiche crescono.
-export const RICE_REACH_MIDPOINT = 100;
-export const RICE_EFFORT_MIDPOINT = 3;
-
-type NormComponents = VoteComponents;
-
-const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
-const fromSlider = (v: number | null): number | null => (v === null ? null : clamp01((v - 1) / 9));
-
-// Componenti di Claude → [0,1]. Per ICE i valori sono già 1–10 (come gli utenti).
-function normalizeClaude(scores: ScoreFields): NormComponents {
-  if (scores.method === "ice") {
-    return {
-      reach: null,
-      impact: fromSlider(scores.impact),
-      confidence: fromSlider(scores.confidence),
-      effort: fromSlider(scores.effort),
-    };
-  }
-  return {
-    reach: scores.reach === null ? null : scores.reach / (scores.reach + RICE_REACH_MIDPOINT),
-    impact: scores.impact === null ? null : clamp01((scores.impact - 0.25) / 2.75),
-    confidence: scores.confidence === null ? null : clamp01(scores.confidence),
-    effort: scores.effort === null ? null : scores.effort / (scores.effort + RICE_EFFORT_MIDPOINT),
-  };
-}
-
-function normalizeVote(vote: VoteComponents): NormComponents {
-  return {
-    reach: fromSlider(vote.reach),
-    impact: fromSlider(vote.impact),
-    confidence: fromSlider(vote.confidence),
-    effort: fromSlider(vote.effort),
-  };
-}
-
-// Punteggio-prodotto 0–10 dai componenti normalizzati. null se manca un
-// componente richiesto dal metodo.
-function productScore(n: NormComponents, method: "rice" | "ice"): number | null {
-  if (method === "ice") {
-    if (n.impact === null || n.confidence === null || n.effort === null) return null;
-    return 10 * n.impact * n.confidence * n.effort;
-  }
-  if (n.reach === null || n.impact === null || n.confidence === null || n.effort === null) {
+// Media geometrica dei 4 fattori 1–10; null se un fattore manca.
+function individualScore(c: VoteComponents): number | null {
+  if (c.reach === null || c.impact === null || c.confidence === null || c.effort === null) {
     return null;
   }
-  return 10 * n.reach * n.impact * n.confidence * (1 - n.effort);
+  return (c.reach * c.impact * c.confidence * c.effort) ** (1 / 4);
 }
 
 const mean = (values: number[]): number | null =>
   values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 
-// Punteggio 0–10 di un singolo voto utente (per la lista votanti).
-export function computeVoteScore(vote: VoteComponents, method: "rice" | "ice"): number | null {
-  return productScore(normalizeVote(vote), method);
-}
-
-// Punteggio 0–10 della sola valutazione di Claude (sezione dedicata).
-export function computeClaudeScore(scores: ScoreFields): number | null {
-  return productScore(normalizeClaude(scores), scores.method);
+// Punteggio 1–10 di un singolo rater (voto utente o valutazione di Claude).
+export function computeVoteScore(vote: VoteComponents): number | null {
+  return individualScore(vote);
 }
 
 export type CompositeScore = {
-  // media dei punteggi (Claude + utenti); null se nessuno ha un punteggio valido
+  // media dei punteggi individuali (Claude + utenti); null se nessuno è valido
   total: number | null;
   claudeTotal: number | null;
-  // medie 0–10 dei componenti normalizzati (Claude + utenti); null se assenti
+  // medie 1–10 dei componenti (Claude + utenti); null se assenti
   components: VoteComponents;
 };
 
 export function computeCompositeScore(
-  proposal: ScoreFields,
+  proposal: VoteComponents,
   votes: VoteComponents[],
 ): CompositeScore {
-  const norms = [normalizeClaude(proposal), ...votes.map(normalizeVote)];
-  const totals = norms
-    .map((n) => productScore(n, proposal.method))
-    .filter((v): v is number => v !== null);
-  const avgComponent = (field: keyof VoteComponents): number | null => {
-    const scaled = norms
-      .map((n) => n[field])
-      .filter((v): v is number => v !== null)
-      .map((v) => v * 10);
-    return mean(scaled);
-  };
+  const raters = [proposal, ...votes];
+  const totals = raters.map(individualScore).filter((v): v is number => v !== null);
+  const avgComponent = (field: keyof VoteComponents): number | null =>
+    mean(raters.map((r) => r[field]).filter((v): v is number => v !== null));
   return {
     total: mean(totals),
-    claudeTotal: computeClaudeScore(proposal),
+    claudeTotal: individualScore(proposal),
     components: {
       reach: avgComponent("reach"),
       impact: avgComponent("impact"),
@@ -241,7 +178,7 @@ export async function listProposals(
   let query = supabase
     .from("proposals")
     .select(
-      `id, title, description, status, ai_eval_status, method, reach, impact,
+      `id, title, description, status, ai_eval_status, reach, impact,
        confidence, effort, created_at, proposer_id, proposer:profiles(name, email),
        votes:rice_votes(reach, impact, confidence, effort)`,
     )
@@ -270,7 +207,7 @@ export async function getProposalDetail(
   const { data } = await supabase
     .from("proposals")
     .select(
-      `id, title, description, problem, status, method, reach, impact, confidence,
+      `id, title, description, problem, status, reach, impact, confidence,
        effort, ai_rationale, ai_eval_status, ai_eval_error, links, internal_notes,
        created_at, proposer_id,
        proposer:profiles(name, email),

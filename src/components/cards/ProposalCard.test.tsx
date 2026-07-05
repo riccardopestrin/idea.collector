@@ -12,7 +12,6 @@ const base: ProposalListItem = {
   title: "Mappa offline",
   description: "Serve la mappa senza rete",
   status: "nuova",
-  method: "rice",
   reach: null,
   impact: null,
   confidence: null,

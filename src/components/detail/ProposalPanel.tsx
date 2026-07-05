@@ -18,18 +18,13 @@ const dateFormat = new Intl.DateTimeFormat("it-IT", {
   timeStyle: "short",
 });
 
+// Ordine e label dei fattori RICE-10 mostrati come medie in alto (effort = Ease).
 const COMPONENT_LABELS = {
   reach: "Reach",
   impact: "Impact",
   confidence: "Confidence",
-  effort: "Effort",
+  effort: "Ease",
 } as const;
-
-// Ordine e label dei componenti mostrati come medie in alto (ICE non ha reach e
-// chiama "Ease" l'effort).
-function componentLabel(field: keyof VoteComponents, method: "rice" | "ice"): string {
-  return method === "ice" && field === "effort" ? "Ease" : COMPONENT_LABELS[field];
-}
 
 // I link sono input utente salvato verbatim (be-careful 2026-06-28-lnk1):
 // solo http/https diventano anchor, il resto è testo inerte.
@@ -99,7 +94,7 @@ export function ProposalPanel({
           <section className="flex flex-col gap-2 rounded-lg border border-border p-4">
             <div className="flex flex-col gap-0.5">
               <span className="text-sm text-foreground/60">
-                Voto totale {detail.method.toUpperCase()} ·{" "}
+                Voto totale RICE-10 ·{" "}
                 {claudeTotal !== null ? "Claude + utenti" : "utenti"}
               </span>
               <span className="text-4xl font-semibold">{formatScore(composite.total)}</span>
@@ -109,9 +104,7 @@ export function ProposalPanel({
               <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
                 {componentAverages.map(({ field, value }) => (
                   <div key={field} className="flex flex-col">
-                    <dt className="text-foreground/50">
-                      {componentLabel(field, detail.method)}
-                    </dt>
+                    <dt className="text-foreground/50">{COMPONENT_LABELS[field]}</dt>
                     <dd className="font-medium text-foreground/80">{formatScore(value)}</dd>
                   </div>
                 ))}
@@ -120,7 +113,7 @@ export function ProposalPanel({
           </section>
         )}
 
-        {canVote && <RiceVoteForm proposalId={detail.id} method={detail.method} />}
+        {canVote && <RiceVoteForm proposalId={detail.id} />}
 
         {detail.links.length > 0 && (
           <section className="flex flex-col gap-1">
@@ -182,7 +175,7 @@ export function ProposalPanel({
             <SectionTitle>Voti utenti ({detail.votes.length})</SectionTitle>
             <ul className="flex flex-col gap-1 text-sm">
               {detail.votes.map((vote) => {
-                const voteScore = computeVoteScore(vote, detail.method);
+                const voteScore = computeVoteScore(vote);
                 return (
                   <li key={vote.id} className="flex items-center justify-between gap-4">
                     <span className="text-foreground/80">{personLabel(vote.voter)}</span>

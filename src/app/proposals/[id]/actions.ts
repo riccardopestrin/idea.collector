@@ -86,7 +86,7 @@ export async function submitRiceVote(
 
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("proposer_id, status, method")
+    .select("proposer_id, status")
     .eq("id", proposalId)
     .maybeSingle();
   if (!proposal) return { error: "Proposta non trovata." };
@@ -97,7 +97,7 @@ export async function submitRiceVote(
     return { error: "Non puoi votare la tua stessa proposta." };
   }
 
-  const parsed = parseVoteFields(formData, proposal.method);
+  const parsed = parseVoteFields(formData);
   if ("error" in parsed) return { error: parsed.error };
 
   const { error } = await supabase

@@ -24,7 +24,6 @@ const proposal = (
   title,
   description: null,
   status,
-  method: "rice",
   reach: null,
   impact: null,
   confidence: null,
