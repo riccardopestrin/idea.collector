@@ -1,13 +1,16 @@
 import { ProposalDiscussion } from "@/components/detail/ProposalDiscussion";
+import { RiceVoteForm } from "@/components/detail/RiceVoteForm";
 import { SectionTitle } from "@/components/detail/SectionTitle";
 import { EvalStatusCue } from "@/components/evaluation/EvalStatusCue";
 import { RetryEvaluationButton } from "@/components/evaluation/RetryEvaluationButton";
 import { STATUS_LABELS } from "@/lib/board";
 import {
-  computeRiceScore,
+  computeCompositeScore,
+  computeVoteScore,
   formatScore,
   personLabel,
   type ProposalDetail,
+  type VoteComponents,
 } from "@/lib/proposals";
 
 const dateFormat = new Intl.DateTimeFormat("it-IT", {
@@ -15,7 +18,18 @@ const dateFormat = new Intl.DateTimeFormat("it-IT", {
   timeStyle: "short",
 });
 
-const SCORE_FIELDS = ["reach", "impact", "confidence", "effort"] as const;
+const COMPONENT_LABELS = {
+  reach: "Reach",
+  impact: "Impact",
+  confidence: "Confidence",
+  effort: "Effort",
+} as const;
+
+// Ordine e label dei componenti mostrati come medie in alto (ICE non ha reach e
+// chiama "Ease" l'effort).
+function componentLabel(field: keyof VoteComponents, method: "rice" | "ice"): string {
+  return method === "ice" && field === "effort" ? "Ease" : COMPONENT_LABELS[field];
+}
 
 // I link sono input utente salvato verbatim (be-careful 2026-06-28-lnk1):
 // solo http/https diventano anchor, il resto è testo inerte.
@@ -40,10 +54,19 @@ export function ProposalPanel({
   isAdmin?: boolean;
   currentUserId?: string;
 }) {
-  const scores = SCORE_FIELDS.filter((f) => detail[f] !== null);
-  const totalScore = computeRiceScore(detail);
+  const composite = computeCompositeScore(detail, detail.votes);
+  const claudeTotal = composite.claudeTotal;
+  const componentAverages = (Object.keys(COMPONENT_LABELS) as (keyof VoteComponents)[])
+    .map((field) => ({ field, value: composite.components[field] }))
+    .filter((c): c is { field: keyof VoteComponents; value: number } => c.value !== null);
   const isOpen = OPEN_STATUSES.includes(detail.status);
   const canEdit = isOpen && (isAdmin === true || currentUserId === detail.proposer_id);
+  const hasVoted = detail.votes.some((vote) => vote.voter_id === currentUserId);
+  const canVote =
+    detail.status === "in_valutazione" &&
+    currentUserId !== undefined &&
+    currentUserId !== detail.proposer_id &&
+    !hasVoted;
 
   return (
     <article className="p-6">
@@ -72,6 +95,33 @@ export function ProposalPanel({
           </header>
         }
       >
+        {composite.total !== null && (
+          <section className="flex flex-col gap-2 rounded-lg border border-border p-4">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm text-foreground/60">
+                Voto totale {detail.method.toUpperCase()} ·{" "}
+                {claudeTotal !== null ? "Claude + utenti" : "utenti"}
+              </span>
+              <span className="text-4xl font-semibold">{formatScore(composite.total)}</span>
+              <span className="text-xs text-foreground/50">su 10</span>
+            </div>
+            {componentAverages.length > 0 && (
+              <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
+                {componentAverages.map(({ field, value }) => (
+                  <div key={field} className="flex flex-col">
+                    <dt className="text-foreground/50">
+                      {componentLabel(field, detail.method)}
+                    </dt>
+                    <dd className="font-medium text-foreground/80">{formatScore(value)}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </section>
+        )}
+
+        {canVote && <RiceVoteForm proposalId={detail.id} method={detail.method} />}
+
         {detail.links.length > 0 && (
           <section className="flex flex-col gap-1">
             <SectionTitle>Link</SectionTitle>
@@ -112,28 +162,40 @@ export function ProposalPanel({
           </section>
         )}
 
-        {scores.length > 0 && (
+        {claudeTotal !== null && (
           <section className="flex flex-col gap-2">
-            <SectionTitle>Punteggio {detail.method.toUpperCase()}</SectionTitle>
-            <dl className="flex items-end gap-6 text-sm">
-              {totalScore !== null && (
-                <div>
-                  <dt className="text-foreground/60">Voto totale</dt>
-                  <dd className="text-2xl font-semibold">{formatScore(totalScore)}</dd>
-                </div>
-              )}
-              {scores.map((field) => (
-                <div key={field}>
-                  <dt className="capitalize text-foreground/60">{field}</dt>
-                  <dd className="font-medium">{formatScore(detail[field]!)}</dd>
-                </div>
-              ))}
-            </dl>
+            <SectionTitle>Voto di Claude</SectionTitle>
+            <div>
+              <span className="text-2xl font-semibold">{formatScore(claudeTotal)}</span>
+              <span className="text-sm text-foreground/50"> su 10</span>
+            </div>
             {detail.ai_rationale && (
               <p className="whitespace-pre-wrap text-sm text-foreground/70">
                 {detail.ai_rationale}
               </p>
             )}
+          </section>
+        )}
+
+        {detail.votes.length > 0 && (
+          <section className="flex flex-col gap-2">
+            <SectionTitle>Voti utenti ({detail.votes.length})</SectionTitle>
+            <ul className="flex flex-col gap-1 text-sm">
+              {detail.votes.map((vote) => {
+                const voteScore = computeVoteScore(vote, detail.method);
+                return (
+                  <li key={vote.id} className="flex items-center justify-between gap-4">
+                    <span className="text-foreground/80">{personLabel(vote.voter)}</span>
+                    {voteScore !== null && (
+                      <span className="font-medium text-foreground">
+                        {formatScore(voteScore)}
+                        <span className="text-xs text-foreground/50"> / 10</span>
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           </section>
         )}
 

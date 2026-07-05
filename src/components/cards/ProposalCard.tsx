@@ -6,7 +6,7 @@ import { EvalStatusCue } from "@/components/evaluation/EvalStatusCue";
 import { RetryEvaluationButton } from "@/components/evaluation/RetryEvaluationButton";
 import { STATUS_LABELS } from "@/lib/board";
 import {
-  computeRiceScore,
+  computeCompositeScore,
   formatScore,
   personLabel,
   type ProposalListItem,
@@ -29,7 +29,7 @@ export function ProposalCard({
   canRetryEval?: boolean;
   showStatus?: boolean;
 }) {
-  const score = computeRiceScore(proposal);
+  const score = computeCompositeScore(proposal, proposal.votes).total;
   return (
     <div className="relative flex flex-col gap-1 rounded-lg border border-border bg-background p-4">
       {onDelete && (
@@ -65,7 +65,7 @@ export function ProposalCard({
         {score !== null && (
           <span
             className="ml-auto rounded-full border border-border px-2 py-0.5 font-medium text-foreground/80"
-            title={`Voto ${proposal.method.toUpperCase()}`}
+            title={`Voto ${proposal.method.toUpperCase()} · Claude + utenti`}
           >
             {formatScore(score)}
           </span>

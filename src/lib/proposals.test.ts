@@ -2,7 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  computeRiceScore,
+  computeClaudeScore,
+  computeCompositeScore,
+  computeVoteScore,
   isProposalStatus,
   listProposals,
   type ProposalListItem,
@@ -24,37 +26,70 @@ describe("isProposalStatus", () => {
   });
 });
 
-describe("computeRiceScore", () => {
-  const fields = (overrides: Partial<ScoreFields>): ScoreFields => ({
-    method: "rice",
-    reach: 100,
-    impact: 2,
-    confidence: 0.5,
-    effort: 4,
-    ...overrides,
+// Punteggio normalizzato di Claude: scale native RICE → 0–10.
+// reach 100→0.5, impact 3→1, confidence 1→1, effort 3→0.5 ⇒ 10·0.5·1·1·(1−0.5)=2.5
+const CLAUDE_25: ScoreFields = { method: "rice", reach: 100, impact: 3, confidence: 1, effort: 3 };
+
+describe("computeClaudeScore", () => {
+  it("normalizes Claude's native RICE scales to a 0–10 score", () => {
+    expect(computeClaudeScore(CLAUDE_25)).toBeCloseTo(2.5);
   });
 
-  it("computes RICE as (reach × impact × confidence) / effort", () => {
-    expect(computeRiceScore(fields({}))).toBe(25);
-  });
-
-  it("computes ICE as impact × confidence × effort (ease)", () => {
+  it("returns null before Claude has scored", () => {
     expect(
-      computeRiceScore(fields({ method: "ice", impact: 8, confidence: 7, effort: 6 })),
-    ).toBe(336);
+      computeClaudeScore({ method: "rice", reach: null, impact: null, confidence: null, effort: null }),
+    ).toBeNull();
+  });
+});
+
+describe("computeVoteScore", () => {
+  it("maps a max RICE vote (reach/impact/confidence 10, effort 1) to 10", () => {
+    expect(computeVoteScore({ reach: 10, impact: 10, confidence: 10, effort: 1 }, "rice")).toBeCloseTo(10);
   });
 
-  it("returns null when a component is missing", () => {
-    expect(computeRiceScore(fields({ confidence: null }))).toBeNull();
+  it("maps a min RICE vote to 0", () => {
+    expect(computeVoteScore({ reach: 1, impact: 1, confidence: 1, effort: 1 }, "rice")).toBe(0);
   });
 
-  it("returns null when RICE effort is zero (no division by zero)", () => {
-    expect(computeRiceScore(fields({ effort: 0 }))).toBeNull();
+  it("treats ICE effort as ease (higher is better) and ignores reach", () => {
+    expect(computeVoteScore({ reach: null, impact: 10, confidence: 10, effort: 10 }, "ice")).toBeCloseTo(10);
+  });
+
+  it("returns null when a required RICE component is missing", () => {
+    expect(computeVoteScore({ reach: null, impact: 5, confidence: 5, effort: 5 }, "rice")).toBeNull();
+  });
+});
+
+describe("computeCompositeScore", () => {
+  const maxVote = { reach: 10, impact: 10, confidence: 10, effort: 1 }; // 10
+
+  it("averages Claude and each user vote", () => {
+    const c = computeCompositeScore(CLAUDE_25, [maxVote]);
+    expect(c.claudeTotal).toBeCloseTo(2.5);
+    expect(c.total).toBeCloseTo((2.5 + 10) / 2);
+  });
+
+  it("falls back to Claude only when there are no votes", () => {
+    expect(computeCompositeScore(CLAUDE_25, []).total).toBeCloseTo(2.5);
+  });
+
+  it("uses user votes only when Claude has not scored", () => {
+    const unscored: ScoreFields = { method: "rice", reach: null, impact: null, confidence: null, effort: null };
+    const c = computeCompositeScore(unscored, [maxVote]);
+    expect(c.claudeTotal).toBeNull();
+    expect(c.total).toBeCloseTo(10);
+  });
+
+  it("averages each component (0–10) across Claude and users", () => {
+    // reach: Claude 0.5→5, user slider 10→10 ⇒ media 7.5
+    const c = computeCompositeScore(CLAUDE_25, [{ reach: 10, impact: 1, confidence: 1, effort: 1 }]);
+    expect(c.components.reach).toBeCloseTo(7.5);
   });
 });
 
 describe("rankProposalsByScore", () => {
   // Fabbrica di righe: id per identità, più i soli campi di scoring che contano.
+  // votes vuoto → il voto composito coincide col punteggio normalizzato di Claude.
   const item = (id: string, scores: Partial<ScoreFields>): ProposalListItem =>
     ({
       id,
@@ -63,16 +98,17 @@ describe("rankProposalsByScore", () => {
       impact: null,
       confidence: null,
       effort: null,
+      votes: [],
       ...scores,
-    }) as ProposalListItem;
+    }) as unknown as ProposalListItem;
 
   const ids = (items: ProposalListItem[]) => items.map((p) => p.id);
 
   it("orders by composite score descending, mixing RICE and ICE", () => {
-    const low = item("low", { reach: 10, impact: 1, confidence: 1, effort: 10 }); // RICE 1
-    // ICE ignora reach nel calcolo, ma computeRiceScore lo pretende non-null.
-    const high = item("high", { method: "ice", reach: 1, impact: 8, confidence: 7, effort: 6 }); // ICE 336
-    const mid = item("mid", { reach: 100, impact: 2, confidence: 0.5, effort: 4 }); // RICE 25
+    const low = item("low", { reach: 10, impact: 1, confidence: 1, effort: 10 }); // ~0.06
+    // ICE ignora reach nel calcolo del voto normalizzato.
+    const high = item("high", { method: "ice", reach: null, impact: 8, confidence: 7, effort: 6 }); // ~2.88
+    const mid = item("mid", { reach: 100, impact: 2, confidence: 0.5, effort: 4 }); // ~0.68
     expect(ids(rankProposalsByScore([low, high, mid]))).toEqual(["high", "mid", "low"]);
   });
 

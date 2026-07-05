@@ -53,6 +53,7 @@ const base: ProposalDetail = {
       anchor_resolved: false,
     },
   ],
+  votes: [],
 };
 
 describe("ProposalPanel", () => {
@@ -77,14 +78,15 @@ describe("ProposalPanel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders the status history with transition, author and hides the score section when unscored", () => {
+  it("renders the status history with transition, author and hides the score sections when unscored", () => {
     render(<ProposalPanel detail={base} />);
     expect(screen.getByText(/Nuova → In Valutazione/)).toBeInTheDocument();
     expect(screen.getByText(/gino@test\.local/)).toBeInTheDocument();
-    expect(screen.queryByText(/Punteggio/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Voto di Claude")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Voto totale/)).not.toBeInTheDocument();
   });
 
-  it("shows the RICE score and rationale when evaluated", () => {
+  it("shows Claude's normalized total and rationale when evaluated, without the raw weights", () => {
     render(
       <ProposalPanel
         detail={{
@@ -97,10 +99,49 @@ describe("ProposalPanel", () => {
         }}
       />,
     );
-    expect(screen.getByText("Punteggio RICE")).toBeInTheDocument();
-    expect(screen.getByText("reach")).toBeInTheDocument();
-    expect(screen.getByText("100")).toBeInTheDocument();
+    expect(screen.getByText("Voto di Claude")).toBeInTheDocument();
     expect(screen.getByText("Alto impatto, sforzo contenuto")).toBeInTheDocument();
+    // niente più il breakdown grezzo dei pesi (reach = 100, ecc.)
+    expect(screen.queryByText("100")).not.toBeInTheDocument();
+  });
+
+  it("shows the vote form only to a non-proposer who has not voted, in valutazione", () => {
+    // proposer (u1): mai il form
+    const { rerender } = render(<ProposalPanel detail={base} currentUserId="u1" />);
+    expect(screen.queryByRole("button", { name: "Invia voto" })).not.toBeInTheDocument();
+
+    // altro utente che non ha votato: form presente
+    rerender(<ProposalPanel detail={base} currentUserId="u2" />);
+    expect(screen.getByRole("button", { name: "Invia voto" })).toBeInTheDocument();
+
+    // fuori da 'in_valutazione': mai il form
+    rerender(<ProposalPanel detail={{ ...base, status: "approvata" }} currentUserId="u2" />);
+    expect(screen.queryByRole("button", { name: "Invia voto" })).not.toBeInTheDocument();
+  });
+
+  it("hides the vote form and lists a user's own vote with its 0–10 score", () => {
+    const detail = {
+      ...base,
+      votes: [
+        {
+          id: "v1",
+          voter_id: "u2",
+          reach: 10,
+          impact: 10,
+          confidence: 10,
+          effort: 1,
+          created_at: "2026-07-03T10:00:00Z",
+          voter: { name: "Gino", email: "gino@test.local" },
+        },
+      ],
+    };
+    render(<ProposalPanel detail={detail} currentUserId="u2" />);
+    // ha già votato → niente form
+    expect(screen.queryByRole("button", { name: "Invia voto" })).not.toBeInTheDocument();
+    expect(screen.getByText("Voti utenti (1)")).toBeInTheDocument();
+    expect(screen.getByText("Gino")).toBeInTheDocument();
+    // voto massimo → 10 (compare sia nel totale composito sia nella riga utente)
+    expect(screen.getAllByText("10").length).toBeGreaterThan(0);
   });
 
   it("lists comments with their author and offers the comment form", () => {

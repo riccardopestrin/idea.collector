@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-03
+**Last updated:** 2026-07-05
 
 # Accessibility
 
@@ -143,6 +143,25 @@ Quando `comment.anchor_text` è presente, rendere focusabile la `<li>` (o la `<b
 
 #### Cronologia
 - 2026-07-03 — Flaggato durante review chain di `commentPartImprovements`, confermato dal `Review Reviewer` (finding [2]).
+
+### [A11Y-08] Slider di voto RICE senza nome accessibile né valore annunciato
+
+**Status:** non fissato — flaggato il 2026-07-05 durante review della PR `riceForAllUsers`.
+
+#### Dove
+- `src/components/detail/RiceVoteForm.tsx:32-41` (`Slider`)
+
+#### Cosa c'è di sbagliato
+Ogni `<input type="range">` è avvolto da una `<label>` che contiene sia il testo del parametro sia il valore corrente in una `<span>` separata. L'associazione nome è implicita ma il valore numerico live non è legato al controllo: non c'è `aria-valuetext` (né un `aria-label` che includa il valore), quindi uno screen reader annuncia solo la posizione grezza dello slider senza il contesto del parametro/valore mostrato visivamente.
+
+#### Impatto user-visible
+Utenti screen-reader che compilano il voto non sentono in modo affidabile quale parametro stanno regolando e a quale valore; i range input sono inoltre faticosi da operare con alcune AT. Severità media (percorso di input, non solo lettura).
+
+#### Fix raccomandato
+Dare a ogni `<input type="range">` un `aria-label` esplicito col nome del parametro e aggiornare `aria-valuetext` col valore corrente (es. `aria-label="Impact"`, `aria-valuetext={String(value)}`). Valutare anche input numerici alternativi per chi non usa il mouse.
+
+#### Cronologia
+- 2026-07-05 — Flaggato durante review chain di `riceForAllUsers` (Software Reviewer).
 
 ## Issue risolti
 

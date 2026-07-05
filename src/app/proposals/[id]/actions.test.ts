@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { updateProposal } from "./actions";
+import { submitRiceVote, updateProposal } from "./actions";
 
-const { getUser, tables, refresh, runEvaluation, updateResult } = vi.hoisted(() => {
+const { getUser, tables, refresh, runEvaluation, updateResult, insertResult } = vi.hoisted(() => {
   const updateResult = { value: { error: null } as { error: unknown } };
+  const insertResult = { value: { error: null } as { error: unknown } };
   const table = (row: unknown) => {
     const builder = {
       row,
@@ -12,15 +13,17 @@ const { getUser, tables, refresh, runEvaluation, updateResult } = vi.hoisted(() 
       single: vi.fn(() => Promise.resolve({ data: builder.row })),
       maybeSingle: vi.fn(() => Promise.resolve({ data: builder.row })),
       update: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve(updateResult.value)) })),
+      insert: vi.fn(() => Promise.resolve(insertResult.value)),
     };
     return builder;
   };
   return {
     getUser: vi.fn(),
-    tables: { profiles: table(null), proposals: table(null) },
+    tables: { profiles: table(null), proposals: table(null), rice_votes: table(null) },
     refresh: vi.fn(),
     runEvaluation: vi.fn(),
     updateResult,
+    insertResult,
   };
 });
 
@@ -56,6 +59,7 @@ beforeEach(() => {
     problem: null,
   };
   updateResult.value = { error: null };
+  insertResult.value = { error: null };
 });
 
 describe("updateProposal", () => {
@@ -130,5 +134,89 @@ describe("updateProposal", () => {
     const result = await updateProposal("p1", null, proposalForm());
     expect(result).toEqual({ error: "Errore nel salvataggio. Riprova." });
     expect(runEvaluation).not.toHaveBeenCalled();
+  });
+});
+
+function voteForm(overrides: Record<string, string> = {}) {
+  const form = new FormData();
+  form.set("reach", "5");
+  form.set("impact", "7");
+  form.set("confidence", "6");
+  form.set("effort", "3");
+  Object.entries(overrides).forEach(([k, v]) => form.set(k, v));
+  return form;
+}
+
+describe("submitRiceVote", () => {
+  // votante diverso dal proposer (u1), proposta in valutazione: caso idoneo di base
+  beforeEach(() => {
+    getUser.mockResolvedValue({ data: { user: { id: "u2" } } });
+    tables.proposals.row = { proposer_id: "u1", status: "in_valutazione", method: "rice" };
+  });
+
+  it("refuses to write when there is no authenticated user", async () => {
+    getUser.mockResolvedValue({ data: { user: null } });
+    expect(await submitRiceVote("p1", null, voteForm())).toEqual({
+      error: "Sessione scaduta. Rientra e riprova.",
+    });
+    expect(tables.rice_votes.insert).not.toHaveBeenCalled();
+  });
+
+  it("returns not-found when the proposal does not exist", async () => {
+    tables.proposals.row = null;
+    expect(await submitRiceVote("p1", null, voteForm())).toEqual({ error: "Proposta non trovata." });
+    expect(tables.rice_votes.insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects a vote when the proposal is not in valutazione", async () => {
+    tables.proposals.row = { proposer_id: "u1", status: "approvata", method: "rice" };
+    expect(await submitRiceVote("p1", null, voteForm())).toEqual({
+      error: "Puoi votare solo le proposte in valutazione.",
+    });
+    expect(tables.rice_votes.insert).not.toHaveBeenCalled();
+  });
+
+  it("forbids the proposer from voting their own idea", async () => {
+    tables.proposals.row = { proposer_id: "u2", status: "in_valutazione", method: "rice" };
+    expect(await submitRiceVote("p1", null, voteForm())).toEqual({
+      error: "Non puoi votare la tua stessa proposta.",
+    });
+    expect(tables.rice_votes.insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects an incomplete vote before hitting the database", async () => {
+    expect(await submitRiceVote("p1", null, voteForm({ impact: "" }))).toEqual({
+      error: "Assegna un valore da 1 a 10 a ogni parametro.",
+    });
+    expect(tables.rice_votes.insert).not.toHaveBeenCalled();
+  });
+
+  it("inserts a valid vote and refreshes", async () => {
+    expect(await submitRiceVote("p1", null, voteForm())).toBeNull();
+    expect(tables.rice_votes.insert).toHaveBeenCalledWith({
+      proposal_id: "p1",
+      voter_id: "u2",
+      reach: 5,
+      impact: 7,
+      confidence: 6,
+      effort: 3,
+    });
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("maps a unique-violation to a friendly 'already voted' error", async () => {
+    insertResult.value = { error: { code: "23505" } };
+    expect(await submitRiceVote("p1", null, voteForm())).toEqual({
+      error: "Hai già votato questa proposta.",
+    });
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("returns a generic error on any other insert failure", async () => {
+    insertResult.value = { error: { code: "12345", message: "boom" } };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await submitRiceVote("p1", null, voteForm())).toEqual({
+      error: "Errore nel salvataggio. Riprova.",
+    });
   });
 });

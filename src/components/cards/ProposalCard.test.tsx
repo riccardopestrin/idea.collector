@@ -21,6 +21,7 @@ const base: ProposalListItem = {
   created_at: "2026-01-01",
   proposer_id: "u1",
   proposer: { name: "Ada", email: "ada@hint.app" },
+  votes: [],
 };
 
 function renderCard(

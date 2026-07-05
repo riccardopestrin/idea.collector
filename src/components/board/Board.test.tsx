@@ -33,6 +33,7 @@ const proposal = (
   created_at: "2026-01-01",
   proposer_id: proposerId,
   proposer: null,
+  votes: [],
 });
 
 describe("Board", () => {

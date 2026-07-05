@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-03
+**Last updated:** 2026-07-05
 
 # Be Careful — issue note consapevolmente rinviate
 
@@ -116,6 +116,7 @@ Validare lo schema (solo `http`/`https`) e applicare un allow/deny sull'host pri
 ### Dove
 - [src/lib/proposals.ts:30-33](../../src/lib/proposals.ts) — query sull'intera tabella senza `.limit()`/`.range()`
 - [src/lib/proposals.ts](../../src/lib/proposals.ts) — `getProposalDetail`: embed `comments` e `status_history` senza `.limit()` (flaggato 2026-07-02, review `step4ideaPanels`)
+- [src/lib/proposals.ts](../../src/lib/proposals.ts) — `listProposals` e `getProposalDetail`: nuovo embed `votes:rice_votes(...)` senza `.limit()` (flaggato 2026-07-05, review `riceForAllUsers`). Se i voti per proposta superassero il default limit di PostgREST, il voto composito (media Claude + utenti) e il ranking verrebbero calcolati su un sottoinsieme troncato — punteggio sbagliato, non solo lento.
 
 ### Il problema potenziale
 La query è unbounded, ma PostgREST tronca di default a 1000 righe: superata quella soglia, le proposte oltre il limite spariscono silenziosamente dalla board — un bug di completezza mascherato, prima ancora che un problema di performance.
@@ -132,6 +133,30 @@ Aggiungere paginazione esplicita (`.range()`) o un `.limit()` consapevole con in
 
 ### Cronologia
 - 2026-07-01 — Flaggato durante review completa del codebase (`Bugfixes001`). Deferito: dataset attuale minuscolo.
+
+## `2026-07-05-58f8` `rice_votes` accetta componenti non interi (backstop DB più debole del service)
+
+**Status:** non fissato — migration owner-locked, in attesa di review dell'owner.
+
+### Dove
+- [supabase/migrations/0015_rice_votes.sql:14-17](../../supabase/migrations/0015_rice_votes.sql) — colonne `numeric check (… between 1 and 10)`
+- [src/lib/validation/vote.ts](../../src/lib/validation/vote.ts) — `parseVoteFields` impone `Number.isInteger`
+
+### Il problema potenziale
+Il service e lo slider trattano i componenti del voto come interi 1–10, ma il vincolo DB è `numeric between 1 and 10`: un insert diretto di `7.5` (bypassando la Server Action, es. client anon sotto RLS) supera il check. Non rompe la matematica di normalizzazione (tollera qualunque reale nel range), ma il DB accetta dati che l'app considera invalidi — service e backstop non concordano sul dominio.
+
+### Perché oggi non è un problema
+L'unico writer è `submitRiceVote`, che valida gli interi prima dell'insert; lo slider emette solo step interi. Nessun altro percorso scrive `rice_votes`.
+
+### Quando diventa un problema
+1. Se nasce un secondo writer (script di import, seed, altra action) che non passa da `parseVoteFields`.
+2. Se si inizia a fare affidamento sull'integer-ness dei componenti a valle (es. istogrammi per valore discreto).
+
+### Cosa fare se devi toccare quest'area
+Stringere il dominio nella migration a `smallint not null check (… between 1 and 10)` per reach/impact/confidence/effort, così il vincolo DB rispecchia l'invariante del service. Owner-locked: proporlo a Riccardo, non modificare la migration già applicata (semmai una nuova migration).
+
+### Cronologia
+- 2026-07-05 — Flaggato durante review `riceForAllUsers` (Software Reviewer). Downgrade a NICE-TO-HAVE: unico writer valida gli interi, migration owner-locked.
 
 ## `2026-07-01-dber` `listProposals` inghiotte gli errori DB
 

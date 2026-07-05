@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-04
+**Last updated:** 2026-07-05
 
 # Security Review
 
@@ -54,6 +54,16 @@ _SEC-2 e SEC-3 (RLS su `profiles`/`proposals`) risolte il 2026-07-01 da `0003_lo
 **Impact:** Low. Tool interno, utenti fidati; il contenuto è JSX-escaped (no XSS) e troncato a 500 char. Il rischio residuo è disclosure di dettagli interni (endpoint, request-id, stato config) a ruoli che non ne hanno bisogno.
 
 **Fix when touched:** In `evaluateProposal`, mappare gli errori a categorie stabili user-safe (es. "errore GitHub", "errore modello", "configurazione mancante") prima di chiamare `fail_ai_evaluation`, e/o mostrare `ai_eval_error` nel pannello solo quando `isAdmin`.
+
+### SEC-7 — Voter email exposed via `rice_votes` voter embed (LOW)
+
+**Where:** [`src/lib/proposals.ts`](../../src/lib/proposals.ts) `getProposalDetail` (`votes:rice_votes(... voter:profiles(name, email))`), [`src/components/detail/ProposalPanel.tsx`](../../src/components/detail/ProposalPanel.tsx) (`personLabel(vote.voter)` in the "Voti utenti" list), migration [`0015_rice_votes.sql`](../../supabase/migrations/0015_rice_votes.sql) (`"auth read" ... using (true)`).
+
+**Issue:** The user-vote list embeds each voter's `profiles(name, email)` and renders `personLabel`, which falls back to the raw **email** when `name` is null. Combined with the per-voter score, this makes voting **non-anonymous**: any authenticated member sees who voted and their individual RICE score. The email fallback is the same `name ?? email` pattern already used across the app for `proposer`, comment `author`, and `status_history.author`, so this is not a new exposure *class* — it applies the existing pattern to a new relation.
+
+**Impact:** Low. Invite-only internal tool where members already see each other's proposer/author emails on every card and comment; the RLS `select` is intentionally open to all authenticated members ("la lista votanti è visibile nel pannello"). Non-anonymous voting is a deliberate product decision, not a leak. Residual risk is only that individual voters and their scores are attributable — which could bias voting or be undesirable if votes are ever meant to be private.
+
+**Fix when touched:** If votes should be anonymous, stop embedding `voter:profiles` in `getProposalDetail` and render aggregate/anonymous rows only (the composite average already needs no per-voter identity). If attribution stays but email should not, embed `name` only and label unnamed voters generically. No change needed while non-anonymous voting is intended.
 
 ### SEC-4 — Vulnerable transitive `postcss` via `next` (LOW)
 
