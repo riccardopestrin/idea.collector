@@ -15,3 +15,4 @@ Template: copia [`0000-template.md`](0000-template.md).
 | [0003](0003-anthropic-ai-scoring-provider.md) | Anthropic (Claude) come provider di scoring AI | Proposed |
 | [0004](0004-github-app-repo-context.md) | Integrazione GitHub via GitHub App per contesto progetto | Proposed |
 | [0005](0005-tiptap-editor-anchored-comments.md) | Tiptap editor rich-text, storage markdown, anchoring commenti | Proposed |
+| [0006](0006-rice10-geometric-scoring.md) | Scoring RICE-10: scale 1–10 a rubriche, media geometrica | Proposed |
