@@ -42,6 +42,9 @@ export type ProposalListItem = VoteComponents & {
   proposer_id: string;
   proposer: { name: string | null; email: string } | null;
   votes: VoteComponents[];
+  // co-autori: autori dei commenti promossi a contributo (dedupe, ordine di
+  // creazione del primo contributo — non esiste accepted_at)
+  contributors: PersonRef[];
 };
 
 type PersonRef = { name: string | null; email: string } | null;
@@ -78,12 +81,17 @@ export type ProposalDetail = VoteComponents & {
   votes: RiceVote[];
 };
 
+// Stato di promozione di un commento (migration 0016): 'pending' = candidato
+// dall'autore, 'accepted' = contributo che è parte dell'idea (testo live).
+export type PromotionStatus = "none" | "pending" | "accepted";
+
 export type ProposalComment = {
   id: string;
   body: string;
   created_at: string;
   author_id: string;
   author: PersonRef;
+  promotion_status: PromotionStatus;
   anchor_field: AnchorField | null;
   anchor_text: string | null;
   anchor_occurrence: number | null;
@@ -91,8 +99,26 @@ export type ProposalComment = {
   anchor_resolved: boolean;
 };
 
+// Autori con almeno un contributo accepted: co-autori dell'idea. I loro voti
+// RICE sono "sospesi" (esclusi dal composito) finché restano contributori —
+// derivato a lettura, il voto a DB non viene mai toccato (reintegro automatico
+// al revoke della promozione).
+export function acceptedContributorIds(
+  comments: { author_id: string; promotion_status: PromotionStatus }[],
+): Set<string> {
+  return new Set(
+    comments.filter((c) => c.promotion_status === "accepted").map((c) => c.author_id),
+  );
+}
+
 export function isProposalStatus(value: string | undefined): value is ProposalStatus {
   return PROPOSAL_STATUSES.includes(value as ProposalStatus);
+}
+
+// Proposta "aperta" = modificabile/commentabile/promuovibile; da 'approvata' in
+// poi è cristallizzata (migration 0013).
+export function isOpenProposalStatus(status: ProposalStatus): boolean {
+  return status === "nuova" || status === "in_valutazione";
 }
 
 // --- Punteggio RICE-10 (Claude + utenti) — ADR-0006 ---
@@ -180,8 +206,13 @@ export async function listProposals(
     .select(
       `id, title, description, status, ai_eval_status, reach, impact,
        confidence, effort, created_at, proposer_id, proposer:profiles(name, email),
-       votes:rice_votes(reach, impact, confidence, effort)`,
+       votes:rice_votes(voter_id, reach, impact, confidence, effort),
+       contributors:comments(author_id, promotion_status, created_at,
+                             author:profiles(name, email))`,
     )
+    // filtro sull'embed (path con l'alias, NON `comments.`): tiene solo i
+    // contributi accepted senza escludere le proposte che non ne hanno
+    .eq("contributors.promotion_status", "accepted")
     .order("created_at", { ascending: false });
 
   if (search) {
@@ -194,8 +225,33 @@ export async function listProposals(
 
   // proposer è un embed to-one: PostgREST lo restituisce come oggetto singolo,
   // ma supabase-js senza tipi generati lo inferisce come array — corretto qui.
-  const { data } = await query.overrideTypes<ProposalListItem[], { merge: false }>();
-  return data ?? [];
+  const { data } = await query.overrideTypes<
+    (Omit<ProposalListItem, "votes" | "contributors"> & {
+      votes: (VoteComponents & { voter_id: string })[];
+      contributors: {
+        author_id: string;
+        promotion_status: PromotionStatus;
+        created_at: string;
+        author: PersonRef;
+      }[];
+    })[],
+    { merge: false }
+  >();
+
+  return (data ?? []).map((row) => {
+    const contributorIds = acceptedContributorIds(row.contributors);
+    // dedupe per autore (più contributi = una voce), ordine di primo contributo
+    const byAuthor = new Map<string, PersonRef>();
+    for (const c of row.contributors.sort((a, b) => a.created_at.localeCompare(b.created_at))) {
+      if (!byAuthor.has(c.author_id)) byAuthor.set(c.author_id, c.author);
+    }
+    return {
+      ...row,
+      // sospensione derivata: i voti dei contributori accepted escono dal composito
+      votes: row.votes.filter((vote) => !contributorIds.has(vote.voter_id)),
+      contributors: [...byAuthor.values()],
+    };
+  });
 }
 
 // Data layer: legge il dettaglio completo (proposta + history + commenti) in
@@ -212,8 +268,8 @@ export async function getProposalDetail(
        created_at, proposer_id,
        proposer:profiles(name, email),
        status_history(id, from_status, to_status, created_at, author:profiles(name, email)),
-       comments(id, body, created_at, author_id, anchor_field, anchor_text,
-                anchor_occurrence, author:profiles(name, email)),
+       comments(id, body, created_at, author_id, promotion_status, anchor_field,
+                anchor_text, anchor_occurrence, author:profiles(name, email)),
        votes:rice_votes(id, voter_id, reach, impact, confidence, effort, created_at,
                 voter:profiles(name, email))`,
     )
@@ -233,8 +289,12 @@ export async function getProposalDetail(
     description: markdownToPlainText(data.description ?? ""),
     problem: markdownToPlainText(data.problem ?? ""),
   };
+  // sospensione derivata: i voti dei contributori accepted escono dal pannello
+  // e dal composito (migration 0016 — reintegro automatico al revoke)
+  const contributorIds = acceptedContributorIds(data.comments);
   return {
     ...data,
+    votes: data.votes.filter((vote) => !contributorIds.has(vote.voter_id)),
     comments: data.comments.map((comment) => ({
       ...comment,
       anchor_resolved:

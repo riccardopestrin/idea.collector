@@ -10,6 +10,7 @@ const { getUser, tables, refresh, runEvaluation, updateResult, insertResult } = 
       row,
       select: vi.fn(() => builder),
       eq: vi.fn(() => builder),
+      limit: vi.fn(() => builder),
       single: vi.fn(() => Promise.resolve({ data: builder.row })),
       maybeSingle: vi.fn(() => Promise.resolve({ data: builder.row })),
       update: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve(updateResult.value)) })),
@@ -19,7 +20,12 @@ const { getUser, tables, refresh, runEvaluation, updateResult, insertResult } = 
   };
   return {
     getUser: vi.fn(),
-    tables: { profiles: table(null), proposals: table(null), rice_votes: table(null) },
+    tables: {
+      profiles: table(null),
+      proposals: table(null),
+      rice_votes: table(null),
+      comments: table(null),
+    },
     refresh: vi.fn(),
     runEvaluation: vi.fn(),
     updateResult,
@@ -58,6 +64,7 @@ beforeEach(() => {
     description: "Descrizione vecchia",
     problem: null,
   };
+  tables.comments.row = null;
   updateResult.value = { error: null };
   insertResult.value = { error: null };
 });
@@ -180,6 +187,14 @@ describe("submitRiceVote", () => {
     tables.proposals.row = { proposer_id: "u2", status: "in_valutazione" };
     expect(await submitRiceVote("p1", null, voteForm())).toEqual({
       error: "Non puoi votare la tua stessa proposta.",
+    });
+    expect(tables.rice_votes.insert).not.toHaveBeenCalled();
+  });
+
+  it("forbids an accepted contributor (now a co-author) from voting", async () => {
+    tables.comments.row = { id: "c1" };
+    expect(await submitRiceVote("p1", null, voteForm())).toEqual({
+      error: "Come contributore accettato sei co-autore: non puoi votare.",
     });
     expect(tables.rice_votes.insert).not.toHaveBeenCalled();
   });

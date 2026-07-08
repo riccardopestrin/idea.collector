@@ -17,6 +17,8 @@ export type ProposalInput = {
   description: string | null;
   problem: string | null;
   links: string[];
+  // commenti promossi a contributo (migration 0016): parte dell'idea da valutare
+  contributions: { author: string | null; body: string }[];
 };
 
 const OUTPUT_SCHEMA = {
@@ -94,12 +96,17 @@ export async function evaluateWithClaude(
   proposal: ProposalInput,
   repoDigest: string,
 ): Promise<RiceScores> {
+  // I contributi stanno DENTRO <proposta>: il system prompt marca come non
+  // fidato solo ciò che è nei tag, e i body sono free text dei membri.
   const proposalText = [
     `<proposta>`,
     `Titolo: ${proposal.title}`,
     proposal.description ? `Descrizione: ${proposal.description}` : null,
     proposal.problem ? `Problema / motivazione: ${proposal.problem}` : null,
     proposal.links.length ? `Link: ${proposal.links.join(" ")}` : null,
+    ...proposal.contributions.map(
+      (c) => `Contributo di ${c.author ?? "un membro"}: ${c.body}`,
+    ),
     "</proposta>",
   ]
     .filter(Boolean)

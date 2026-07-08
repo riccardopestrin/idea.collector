@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-05
+**Last updated:** 2026-07-08
 
 # Be Careful — issue note consapevolmente rinviate
 
@@ -16,6 +16,7 @@ Ogni voce ha un ID stabile nel formato `YYYY-MM-DD-XXXX` (data del flag + 4 char
 - [src/app/profile/actions.ts](../../src/app/profile/actions.ts) — helper `requireAdmin()` privato del modulo
 - [src/app/proposals/actions.ts](../../src/app/proposals/actions.ts) — `evaluateProposal`: stesso guard inline (getUser + getProfile role)
 - [src/app/auth/github/callback/route.ts](../../src/app/auth/github/callback/route.ts) — terza variante inline
+- [src/app/proposals/actions.ts](../../src/app/proposals/actions.ts) — `resolveCommentPromotion` e `revokeCommentPromotion` (branch `commentPromotion`, 2026-07-08): variante **proposer-or-admin** — un'estrazione di un semplice `requireAdmin` non coprirebbe questa forma; l'eventuale helper deve accettare anche la condizione di ownership
 
 ### Il problema potenziale
 La forma auth-resolve + role-check è ripetuta in 3+ punti: una futura modifica all'autorizzazione va applicata ovunque, e un punto dimenticato è un bug di sicurezza (mitigato dal backstop RLS/RPC a DB).

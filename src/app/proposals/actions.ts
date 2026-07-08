@@ -6,7 +6,12 @@ import { refresh } from "next/cache";
 import { runEvaluation } from "@/lib/ai/runEvaluation";
 import { isAnchorField, markdownToPlainText, resolveAnchor } from "@/lib/anchors";
 import { getProfile } from "@/lib/profiles";
-import { isProposalStatus } from "@/lib/proposals";
+import {
+  isOpenProposalStatus,
+  isProposalStatus,
+  type PromotionStatus,
+  type ProposalStatus,
+} from "@/lib/proposals";
 import { supabaseServer } from "@/lib/supabase/server";
 
 type ActionResult = { error: string } | null;
@@ -145,32 +150,54 @@ export async function addComment(
   return null;
 }
 
+// Contesto per le mutazioni su un commento: la coppia commento + proposta che
+// serve ai guard applicativi e alle decisioni di re-eval. RLS/RPC è il backstop.
+type CommentContext = {
+  comment: {
+    author_id: string;
+    proposal_id: string;
+    body: string;
+    promotion_status: PromotionStatus;
+  };
+  proposal: { status: ProposalStatus; proposer_id: string };
+};
+
+async function commentContext(
+  supabase: SupabaseClient,
+  commentId: string,
+): Promise<{ error: string } | CommentContext> {
+  const { data: comment } = await supabase
+    .from("comments")
+    .select("author_id, proposal_id, body, promotion_status")
+    .eq("id", commentId)
+    .maybeSingle();
+  if (!comment) return { error: "Commento non trovato." };
+
+  const { data: proposal } = await supabase
+    .from("proposals")
+    .select("status, proposer_id")
+    .eq("id", comment.proposal_id)
+    .maybeSingle();
+  if (!proposal) return { error: "Proposta non trovata." };
+  return { comment, proposal };
+}
+
 // Autorizza una mutazione su un commento: solo il creatore, e solo finché la
 // proposta è aperta (cristallizzazione, coerente con addComment). notOwnerError
-// tiene distinto il messaggio tra modifica ed eliminazione. RLS è il backstop.
+// tiene distinto il messaggio tra modifica ed eliminazione.
 async function authorizeCommentMutation(
   supabase: SupabaseClient,
   commentId: string,
   userId: string,
   notOwnerError: string,
-): Promise<ActionResult> {
-  const { data: comment } = await supabase
-    .from("comments")
-    .select("author_id, proposal_id")
-    .eq("id", commentId)
-    .maybeSingle();
-  if (!comment) return { error: "Commento non trovato." };
-  if (comment.author_id !== userId) return { error: notOwnerError };
-
-  const { data: proposal } = await supabase
-    .from("proposals")
-    .select("status")
-    .eq("id", comment.proposal_id)
-    .maybeSingle();
-  if (!proposal || (proposal.status !== "nuova" && proposal.status !== "in_valutazione")) {
+): Promise<{ error: string } | CommentContext> {
+  const ctx = await commentContext(supabase, commentId);
+  if ("error" in ctx) return ctx;
+  if (ctx.comment.author_id !== userId) return { error: notOwnerError };
+  if (!isOpenProposalStatus(ctx.proposal.status)) {
     return { error: "La proposta non accetta più modifiche." };
   }
-  return null;
+  return ctx;
 }
 
 // Modifica il testo di un commento. L'ancora resta invariata (il grant di
@@ -190,13 +217,13 @@ export async function editComment(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
 
-  const denied = await authorizeCommentMutation(
+  const ctx = await authorizeCommentMutation(
     supabase,
     commentId,
     user.id,
     "Puoi modificare solo i tuoi commenti.",
   );
-  if (denied) return denied;
+  if ("error" in ctx) return ctx;
 
   const { error } = await supabase.from("comments").update({ body }).eq("id", commentId);
   if (error) {
@@ -205,6 +232,17 @@ export async function editComment(
   }
 
   refresh();
+
+  // Il testo di un contributo accepted è parte dell'idea (live): un edit vero
+  // rilancia l'eval, come updateProposal. can_run_ai_evaluation (0016) autorizza
+  // l'autore di un contributo accepted.
+  if (
+    ctx.comment.promotion_status === "accepted" &&
+    ctx.proposal.status === "in_valutazione" &&
+    body !== ctx.comment.body
+  ) {
+    await runEvaluation(supabase, ctx.comment.proposal_id, true);
+  }
   return null;
 }
 
@@ -216,13 +254,17 @@ export async function deleteComment(commentId: string): Promise<ActionResult> {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
 
-  const denied = await authorizeCommentMutation(
+  const ctx = await authorizeCommentMutation(
     supabase,
     commentId,
     user.id,
     "Puoi eliminare solo i tuoi commenti.",
   );
-  if (denied) return denied;
+  if ("error" in ctx) return ctx;
+  // un contributo accepted non si elimina: prima il revoke (policy 0016 backstop)
+  if (ctx.comment.promotion_status === "accepted") {
+    return { error: "Revoca la partecipazione prima di eliminare il contributo." };
+  }
 
   const { error } = await supabase.from("comments").delete().eq("id", commentId);
   if (error) {
@@ -231,6 +273,132 @@ export async function deleteComment(commentId: string): Promise<ActionResult> {
   }
 
   refresh();
+  return null;
+}
+
+// --- Promozione commento → contributo (migration 0016) ---
+//
+// Le transizioni di promotion_status passano solo dalle RPC security definer
+// (CAS: false = stato cambiato nel frattempo). Il guard applicativo qui replica
+// l'autorizzazione della RPC per dare messaggi puntuali; la RPC è il backstop.
+
+const STALE_PROMOTION = "Lo stato del commento è cambiato nel frattempo. Ricarica la pagina.";
+
+// Esito comune delle RPC di promozione: null = transizione avvenuta (con
+// refresh); false dal CAS = stato cambiato sotto i piedi.
+async function callPromotionRpc(
+  supabase: SupabaseClient,
+  fn:
+    | "request_comment_promotion"
+    | "resolve_comment_promotion"
+    | "revoke_comment_promotion",
+  args: Record<string, unknown>,
+): Promise<ActionResult> {
+  const { data: done, error } = await supabase.rpc(fn, args);
+  if (error) {
+    console.error(`${fn}:`, error);
+    return { error: "Errore nel salvataggio. Riprova." };
+  }
+  if (!done) return { error: STALE_PROMOTION };
+  refresh();
+  return null;
+}
+
+// Candidatura: solo l'autore del proprio commento, mai il proposer dell'idea.
+export async function requestCommentPromotion(commentId: string): Promise<ActionResult> {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+
+  const ctx = await commentContext(supabase, commentId);
+  if ("error" in ctx) return ctx;
+  if (ctx.comment.author_id !== user.id) {
+    return { error: "Puoi proporre solo i tuoi commenti." };
+  }
+  if (ctx.proposal.proposer_id === user.id) {
+    return { error: "I tuoi commenti sulla tua proposta non sono promuovibili." };
+  }
+  if (!isOpenProposalStatus(ctx.proposal.status)) {
+    return { error: "La proposta non accetta più promozioni." };
+  }
+
+  return callPromotionRpc(supabase, "request_comment_promotion", {
+    p_comment_id: commentId,
+  });
+}
+
+// Accetta o rifiuta una candidatura: proposer o admin. L'accettazione cambia il
+// contenuto dell'idea → re-eval AI (non bloccante, come updateProposal). Il
+// rifiuto riporta a 'none' (ri-candidabile) e non ricalcola nulla.
+export async function resolveCommentPromotion(
+  commentId: string,
+  accept: boolean,
+): Promise<ActionResult> {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+
+  const ctx = await commentContext(supabase, commentId);
+  if ("error" in ctx) return ctx;
+  if (
+    ctx.proposal.proposer_id !== user.id &&
+    (await getProfile(supabase, user.id))?.role !== "admin"
+  ) {
+    return { error: "Solo il proposer o un admin decide sulla promozione." };
+  }
+  if (!isOpenProposalStatus(ctx.proposal.status)) {
+    return { error: "La proposta non accetta più promozioni." };
+  }
+
+  const result = await callPromotionRpc(supabase, "resolve_comment_promotion", {
+    p_comment_id: commentId,
+    p_accept: accept,
+  });
+  if (result) return result;
+
+  if (accept && ctx.proposal.status === "in_valutazione") {
+    await runEvaluation(supabase, ctx.comment.proposal_id, true);
+  }
+  return null;
+}
+
+// Downgrade di un contributo a commento normale: autore, proposer o admin. Il
+// voto RICE dell'autore torna a contare da solo (sospensione derivata a lettura).
+// Re-eval solo se a revocare è proposer/admin: la pipeline eval gira con la
+// sessione del caller e l'autore, appena revocato, non è più autorizzato
+// (scelta owner, header migration 0016) — proposer/admin hanno il "Rilancia".
+export async function revokeCommentPromotion(commentId: string): Promise<ActionResult> {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+
+  const ctx = await commentContext(supabase, commentId);
+  if ("error" in ctx) return ctx;
+  const isAuthor = ctx.comment.author_id === user.id;
+  const isProposer = ctx.proposal.proposer_id === user.id;
+  const isAdmin =
+    !isAuthor && !isProposer && (await getProfile(supabase, user.id))?.role === "admin";
+  if (!isAuthor && !isProposer && !isAdmin) {
+    return { error: "Solo l'autore, il proposer o un admin può revocare il contributo." };
+  }
+  if (!isOpenProposalStatus(ctx.proposal.status)) {
+    return { error: "La proposta non accetta più modifiche ai contributi." };
+  }
+
+  const result = await callPromotionRpc(supabase, "revoke_comment_promotion", {
+    p_comment_id: commentId,
+  });
+  if (result) return result;
+
+  if (ctx.proposal.status === "in_valutazione" && (isProposer || isAdmin)) {
+    await runEvaluation(supabase, ctx.comment.proposal_id, true);
+  }
   return null;
 }
 

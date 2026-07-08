@@ -46,6 +46,7 @@ const base: ProposalDetail = {
       created_at: "2026-07-02T10:00:00Z",
       author_id: "u2",
       author: { name: "Gino", email: "gino@test.local" },
+      promotion_status: "none",
       anchor_field: null,
       anchor_text: null,
       anchor_occurrence: null,
@@ -176,5 +177,98 @@ describe("ProposalPanel", () => {
     render(<ProposalPanel detail={{ ...base, status_history: [], comments: [] }} />);
     expect(screen.getByText("Nessuno spostamento ancora.")).toBeInTheDocument();
     expect(screen.getByText("Nessun commento ancora.")).toBeInTheDocument();
+  });
+
+  // --- promozione commento → contributo (migration 0016) ---
+
+  const withPromotion = (promotion_status: "none" | "pending" | "accepted") => ({
+    ...base,
+    comments: [{ ...base.comments[0], promotion_status }],
+  });
+
+  it("offers 'Proponi come contributo' only to the comment author, never to the proposer", () => {
+    // u2 è l'autore del commento su una proposta di u1: bottone presente
+    const { rerender } = render(<ProposalPanel detail={base} currentUserId="u2" />);
+    expect(screen.getByRole("button", { name: "Proponi come contributo" })).toBeInTheDocument();
+
+    // u3 non è l'autore: niente bottone
+    rerender(<ProposalPanel detail={base} currentUserId="u3" />);
+    expect(
+      screen.queryByRole("button", { name: "Proponi come contributo" }),
+    ).not.toBeInTheDocument();
+
+    // il proposer u1 che commenta la propria proposta non può candidarsi
+    const ownComment = {
+      ...base,
+      comments: [{ ...base.comments[0], author_id: "u1" }],
+    };
+    rerender(<ProposalPanel detail={ownComment} currentUserId="u1" />);
+    expect(
+      screen.queryByRole("button", { name: "Proponi come contributo" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows Accetta/Rifiuta on a pending comment to proposer and admin only", () => {
+    const pending = withPromotion("pending");
+    // il proposer u1 decide
+    const { rerender } = render(<ProposalPanel detail={pending} currentUserId="u1" />);
+    expect(screen.getByText("candidato contributo")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Accetta" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Rifiuta" })).toBeInTheDocument();
+
+    // l'autore u2 no
+    rerender(<ProposalPanel detail={pending} currentUserId="u2" />);
+    expect(screen.queryByRole("button", { name: "Accetta" })).not.toBeInTheDocument();
+
+    // un admin non-proposer sì
+    rerender(<ProposalPanel detail={pending} currentUserId="u3" isAdmin />);
+    expect(screen.getByRole("button", { name: "Accetta" })).toBeInTheDocument();
+  });
+
+  it("renders an accepted contribution as an attributed paragraph and co-author in the header", () => {
+    render(<ProposalPanel detail={withPromotion("accepted")} currentUserId="u3" />);
+    expect(screen.getByText("Contributi")).toBeInTheDocument();
+    // il body compare sia come contributo che come commento a lato
+    expect(screen.getAllByText("Serve anche sul mobile").length).toBe(2);
+    expect(screen.getByText("— Gino")).toBeInTheDocument();
+    expect(screen.getByText(/di Fina · con Gino/)).toBeInTheDocument();
+    expect(screen.getByText("contributo")).toBeInTheDocument();
+  });
+
+  it("offers 'Revoca partecipazione' to author and proposer, hiding Elimina for the author", () => {
+    const accepted = withPromotion("accepted");
+    // autore u2: revoca sì, elimina no (prima serve la revoca), modifica resta
+    const { rerender } = render(<ProposalPanel detail={accepted} currentUserId="u2" />);
+    expect(screen.getByRole("button", { name: "Revoca partecipazione" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Elimina" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Modifica" })).toBeInTheDocument();
+
+    // proposer u1: revoca sì
+    rerender(<ProposalPanel detail={accepted} currentUserId="u1" />);
+    expect(screen.getByRole("button", { name: "Revoca partecipazione" })).toBeInTheDocument();
+
+    // estraneo u3: no
+    rerender(<ProposalPanel detail={accepted} currentUserId="u3" />);
+    expect(
+      screen.queryByRole("button", { name: "Revoca partecipazione" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides promotion actions on a crystallized proposal but keeps the badge", () => {
+    render(
+      <ProposalPanel
+        detail={{ ...withPromotion("accepted"), status: "approvata" }}
+        currentUserId="u2"
+      />,
+    );
+    expect(screen.getByText("contributo")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Revoca partecipazione" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides the vote form from an accepted contributor (now a co-author)", () => {
+    render(<ProposalPanel detail={withPromotion("accepted")} currentUserId="u2" />);
+    expect(screen.queryByRole("button", { name: "Invia voto" })).not.toBeInTheDocument();
   });
 });

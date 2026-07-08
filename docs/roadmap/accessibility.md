@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-05
+**Last updated:** 2026-07-08
 
 # Accessibility
 
@@ -162,6 +162,25 @@ Dare a ogni `<input type="range">` un `aria-label` esplicito col nome del parame
 
 #### Cronologia
 - 2026-07-05 — Flaggato durante review chain di `riceForAllUsers` (Software Reviewer).
+
+### [A11Y-09] Bottoni azione dei commenti senza nome accessibile per-commento
+
+**Status:** non fissato — flaggato il 2026-07-08 durante review della PR `commentPromotion`.
+
+#### Dove
+- `src/components/detail/CommentsSidebar.tsx` — bottoni "Proponi come contributo", "Accetta", "Rifiuta", "Revoca partecipazione" (`PromotionButton`) e i preesistenti "Modifica"/"Elimina" in `CommentItem`
+
+#### Cosa c'è di sbagliato
+Con più commenti pending/accepted nella sidebar, ogni bottone espone solo il testo nudo ("Accetta", "Rifiuta", …) senza indicare su quale commento agisce: uno screen reader che tabba tra i controlli sente etichette ripetute identiche.
+
+#### Impatto user-visible
+Proposer/admin che usano screen reader non possono distinguere in modo affidabile quale candidatura stanno accettando o rifiutando quando c'è più di un commento candidato. Severità media (percorso decisionale, non solo lettura). Nota: la PR mitiga parzialmente [A11Y-07] aggiungendo discendenti focusabili anche ai commenti non-`mine`, senza risolverla.
+
+#### Fix raccomandato
+`aria-label` contestualizzato su ogni bottone per-commento, es. `aria-label={"Accetta il contributo di " + personLabel(comment.author)}` — applicarlo anche ai preesistenti Modifica/Elimina.
+
+#### Cronologia
+- 2026-07-08 — Flaggato durante review chain di `commentPromotion` (Software Reviewer [5], confermato da Review Reviewer).
 
 ## Issue risolti
 

@@ -96,6 +96,19 @@ export async function submitRiceVote(
   if (proposal.proposer_id === user.id) {
     return { error: "Non puoi votare la tua stessa proposta." };
   }
+  // Un contributore accettato è co-autore (migration 0016): come per il
+  // proposer, niente voto. Guard nel service, policy insert come backstop.
+  const { data: contribution } = await supabase
+    .from("comments")
+    .select("id")
+    .eq("proposal_id", proposalId)
+    .eq("author_id", user.id)
+    .eq("promotion_status", "accepted")
+    .limit(1)
+    .maybeSingle();
+  if (contribution) {
+    return { error: "Come contributore accettato sei co-autore: non puoi votare." };
+  }
 
   const parsed = parseVoteFields(formData);
   if ("error" in parsed) return { error: parsed.error };

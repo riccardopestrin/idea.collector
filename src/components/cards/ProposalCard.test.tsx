@@ -21,6 +21,7 @@ const base: ProposalListItem = {
   proposer_id: "u1",
   proposer: { name: "Ada", email: "ada@hint.app" },
   votes: [],
+  contributors: [],
 };
 
 function renderCard(
@@ -42,6 +43,16 @@ describe("ProposalCard", () => {
   it("does not show the description in the card", () => {
     renderCard();
     expect(screen.queryByText("Serve la mappa senza rete")).not.toBeInTheDocument();
+  });
+
+  it("lists the accepted contributors as co-authors after the proposer", () => {
+    renderCard({
+      contributors: [
+        { name: "Marco Rossi", email: "marco@hint.app" },
+        { name: null, email: "bea@hint.app" },
+      ],
+    });
+    expect(screen.getByText(/di Ada, Marco Rossi, bea@hint\.app/)).toBeInTheDocument();
   });
 
   it("prefers the proposer name", () => {

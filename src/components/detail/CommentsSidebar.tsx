@@ -2,7 +2,13 @@
 
 import { useActionState, useState } from "react";
 
-import { deleteComment, editComment } from "@/app/proposals/actions";
+import {
+  deleteComment,
+  editComment,
+  requestCommentPromotion,
+  resolveCommentPromotion,
+  revokeCommentPromotion,
+} from "@/app/proposals/actions";
 import { SectionTitle } from "@/components/detail/SectionTitle";
 import { Field } from "@/components/form/Field";
 import { SubmitButton } from "@/components/form/SubmitButton";
@@ -25,6 +31,8 @@ export function CommentsSidebar({
   comments,
   canComment,
   currentUserId,
+  proposerId,
+  isAdmin,
   pendingAnchor,
   onCancelAnchor,
   onHoverComment,
@@ -33,10 +41,13 @@ export function CommentsSidebar({
   comments: ProposalComment[];
   canComment: boolean;
   currentUserId?: string;
+  proposerId: string;
+  isAdmin?: boolean;
   pendingAnchor: PendingAnchor | null;
   onCancelAnchor: () => void;
   onHoverComment: (commentId: string | null) => void;
 }) {
+  const decides = currentUserId === proposerId || isAdmin === true;
   return (
     <aside className="flex flex-col gap-3 lg:border-l lg:border-border lg:pl-5">
       <SectionTitle>Commenti e osservazioni</SectionTitle>
@@ -50,6 +61,14 @@ export function CommentsSidebar({
               comment={comment}
               // edit/delete solo al creatore e solo su proposta aperta (canComment)
               mine={canComment && comment.author_id === currentUserId}
+              // candidabile solo dal suo autore, mai dal proposer dell'idea
+              canPromote={
+                canComment &&
+                comment.author_id === currentUserId &&
+                currentUserId !== proposerId
+              }
+              // accetta/rifiuta: proposer o admin; revoca: anche l'autore
+              canResolve={canComment && decides}
               onHover={onHoverComment}
             />
           ))}
@@ -66,17 +85,31 @@ export function CommentsSidebar({
   );
 }
 
+// Label dei badge di promozione (nessun badge per 'none').
+const PROMOTION_BADGES = {
+  pending: "candidato contributo",
+  accepted: "contributo",
+} as const;
+
 function CommentItem({
   comment,
   mine,
+  canPromote,
+  canResolve,
   onHover,
 }: {
   comment: ProposalComment;
   mine: boolean;
+  canPromote: boolean;
+  canResolve: boolean;
   onHover: (commentId: string | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const accepted = comment.promotion_status === "accepted";
+  const promotable = canPromote && comment.promotion_status === "none";
+  const resolvable = canResolve && comment.promotion_status === "pending";
+  const revocable = accepted && (mine || canResolve);
 
   return (
     <li
@@ -87,9 +120,14 @@ function CommentItem({
       onFocus={() => onHover(comment.id)}
       onBlur={() => onHover(null)}
     >
-      <p className="text-xs text-foreground/50">
+      <p className="flex flex-wrap items-center gap-1.5 text-xs text-foreground/50">
         {personLabel(comment.author)} ·{" "}
         {dateFormat.format(new Date(comment.created_at))}
+        {comment.promotion_status !== "none" && (
+          <span className="rounded-full border border-border px-2 py-0.5 font-medium text-foreground/70">
+            {PROMOTION_BADGES[comment.promotion_status]}
+          </span>
+        )}
       </p>
       {comment.anchor_text && (
         <blockquote className="mt-1 border-l-2 border-foreground/30 pl-2 text-xs text-foreground/60">
@@ -108,40 +146,98 @@ function CommentItem({
       ) : (
         <>
           <p className="mt-1 whitespace-pre-wrap text-sm">{comment.body}</p>
-          {mine && (
-            <div className="mt-2 flex gap-3 text-xs text-foreground/50">
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="underline underline-offset-2"
-              >
-                Modifica
-              </button>
-              {confirmingDelete ? (
-                <>
-                  <DeleteCommentButton commentId={comment.id} />
-                  <button
-                    type="button"
-                    onClick={() => setConfirmingDelete(false)}
-                    className="underline underline-offset-2"
-                  >
-                    Annulla
-                  </button>
-                </>
-              ) : (
+          {(mine || promotable || resolvable || revocable) && (
+            <div className="mt-2 flex flex-wrap gap-3 text-xs text-foreground/50">
+              {mine && (
                 <button
                   type="button"
-                  onClick={() => setConfirmingDelete(true)}
-                  className="text-danger underline underline-offset-2"
+                  onClick={() => setEditing(true)}
+                  className="underline underline-offset-2"
                 >
-                  Elimina
+                  Modifica
                 </button>
+              )}
+              {/* un contributo accepted non si elimina: prima la revoca */}
+              {mine &&
+                !accepted &&
+                (confirmingDelete ? (
+                  <>
+                    <DeleteCommentButton commentId={comment.id} />
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingDelete(false)}
+                      className="underline underline-offset-2"
+                    >
+                      Annulla
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDelete(true)}
+                    className="text-danger underline underline-offset-2"
+                  >
+                    Elimina
+                  </button>
+                ))}
+              {promotable && (
+                <PromotionButton
+                  label="Proponi come contributo"
+                  action={() => requestCommentPromotion(comment.id)}
+                />
+              )}
+              {resolvable && (
+                <>
+                  <PromotionButton
+                    label="Accetta"
+                    action={() => resolveCommentPromotion(comment.id, true)}
+                  />
+                  <PromotionButton
+                    label="Rifiuta"
+                    action={() => resolveCommentPromotion(comment.id, false)}
+                  />
+                </>
+              )}
+              {revocable && (
+                <PromotionButton
+                  label="Revoca partecipazione"
+                  action={() => revokeCommentPromotion(comment.id)}
+                />
               )}
             </div>
           )}
         </>
       )}
     </li>
+  );
+}
+
+// Bottone-form per le transizioni di promozione: stessa meccanica di
+// DeleteCommentButton (useActionState + errore inline).
+function PromotionButton({
+  label,
+  action,
+}: {
+  label: string;
+  action: () => Promise<{ error: string } | null>;
+}) {
+  const [state, formAction, pending] = useActionState(async () => action(), null);
+
+  return (
+    <form action={formAction} className="inline">
+      <button
+        type="submit"
+        disabled={pending}
+        className="underline underline-offset-2 disabled:opacity-50"
+      >
+        {label}
+      </button>
+      {state?.error && (
+        <span role="alert" className="ml-2 text-danger">
+          {state.error}
+        </span>
+      )}
+    </form>
   );
 }
 

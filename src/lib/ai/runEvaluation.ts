@@ -18,9 +18,30 @@ export async function runEvaluation(
 ): Promise<{ error: string } | null> {
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("title, description, problem, links, ai_generated, manually_edited")
+    .select(
+      `title, description, problem, links, ai_generated, manually_edited,
+       contributions:comments(body, created_at, author:profiles(name))`,
+    )
     .eq("id", proposalId)
-    .maybeSingle();
+    // filtro sull'embed col path dell'alias: solo i commenti promossi a contributo
+    .eq("contributions.promotion_status", "accepted")
+    .maybeSingle()
+    .overrideTypes<
+      {
+        title: string;
+        description: string | null;
+        problem: string | null;
+        links: string[];
+        ai_generated: boolean;
+        manually_edited: boolean;
+        contributions: {
+          body: string;
+          created_at: string;
+          author: { name: string | null } | null;
+        }[];
+      },
+      { merge: false }
+    >();
   if (!proposal) return { error: "Proposta non trovata." };
 
   // Idempotenza: se già valutata dall'AI e non toccata a mano, l'auto-trigger salta.
@@ -56,12 +77,18 @@ export async function runEvaluation(
       settings.github_owner,
       settings.github_repo,
     );
+    const input = {
+      ...proposal,
+      contributions: proposal.contributions
+        .sort((a, b) => a.created_at.localeCompare(b.created_at))
+        .map((c) => ({ author: c.author?.name ?? null, body: c.body })),
+    };
     // ponytail: AI_EVAL_FAKE=1 salta Claude (demo senza crediti); il digest
     // GitHub viene comunque costruito così il resto della pipeline è reale.
     const scores =
       process.env.AI_EVAL_FAKE === "1"
         ? stubScores()
-        : await evaluateWithClaude(anthropicClient(), proposal, digest);
+        : await evaluateWithClaude(anthropicClient(), input, digest);
     const { error: applyError } = await supabase.rpc("apply_ai_evaluation", {
       p_id: proposalId,
       p_reach: scores.reach,

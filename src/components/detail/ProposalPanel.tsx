@@ -5,9 +5,11 @@ import { EvalStatusCue } from "@/components/evaluation/EvalStatusCue";
 import { RetryEvaluationButton } from "@/components/evaluation/RetryEvaluationButton";
 import { STATUS_LABELS } from "@/lib/board";
 import {
+  acceptedContributorIds,
   computeCompositeScore,
   computeVoteScore,
   formatScore,
+  isOpenProposalStatus,
   personLabel,
   type ProposalDetail,
   type VoteComponents,
@@ -32,10 +34,6 @@ function isHttpUrl(link: string): boolean {
   return /^https?:\/\//i.test(link);
 }
 
-// Stati in cui la proposta è ancora "aperta": edit e commenti consentiti.
-// Da 'approvata' in poi si cristallizza (RFC-004, backstop migration 0013).
-const OPEN_STATUSES = ["nuova", "in_valutazione"];
-
 // Pannello di dettaglio proposta: campi, punteggi se valutata, cronologia
 // stati, commenti a lato. Server Component condiviso dalla pagina piena e dal
 // modal; il layout a colonne, l'edit mode e i commenti ancorati vivono nel
@@ -54,13 +52,19 @@ export function ProposalPanel({
   const componentAverages = (Object.keys(COMPONENT_LABELS) as (keyof VoteComponents)[])
     .map((field) => ({ field, value: composite.components[field] }))
     .filter((c): c is { field: keyof VoteComponents; value: number } => c.value !== null);
-  const isOpen = OPEN_STATUSES.includes(detail.status);
+  const isOpen = isOpenProposalStatus(detail.status);
   const canEdit = isOpen && (isAdmin === true || currentUserId === detail.proposer_id);
+  // commenti promossi a contributo: parte dell'idea, resi sotto il body
+  const contributions = detail.comments.filter((c) => c.promotion_status === "accepted");
+  const contributorIds = acceptedContributorIds(detail.comments);
+  // hasVoted da solo non basta: il voto di un contributore accepted è sospeso
+  // (filtrato in getProposalDetail), ma da co-autore non deve rivotare.
   const hasVoted = detail.votes.some((vote) => vote.voter_id === currentUserId);
   const canVote =
     detail.status === "in_valutazione" &&
     currentUserId !== undefined &&
     currentUserId !== detail.proposer_id &&
+    !contributorIds.has(currentUserId) &&
     !hasVoted;
 
   return (
@@ -77,6 +81,8 @@ export function ProposalPanel({
         canComment={isOpen}
         comments={detail.comments}
         currentUserId={currentUserId}
+        proposerId={detail.proposer_id}
+        isAdmin={isAdmin}
         header={
           <header className="flex flex-col gap-1 pr-6">
             <h1 className="flex items-center gap-2 text-xl font-semibold">
@@ -84,12 +90,28 @@ export function ProposalPanel({
               <EvalStatusCue status={detail.ai_eval_status} />
             </h1>
             <p className="text-sm text-foreground/60">
-              {STATUS_LABELS[detail.status]} · di {personLabel(detail.proposer)} ·{" "}
-              {dateFormat.format(new Date(detail.created_at))}
+              {STATUS_LABELS[detail.status]} · di {personLabel(detail.proposer)}
+              {/* dedupe per author_id, non per label: due omonimi restano distinti */}
+              {contributions.length > 0 &&
+                ` · con ${[...new Map(contributions.map((c) => [c.author_id, c.author])).values()]
+                  .map(personLabel)
+                  .join(", ")}`}{" "}
+              · {dateFormat.format(new Date(detail.created_at))}
             </p>
           </header>
         }
       >
+        {contributions.length > 0 && (
+          <section className="flex flex-col gap-3">
+            <SectionTitle>Contributi</SectionTitle>
+            {contributions.map((c) => (
+              <div key={c.id} className="flex flex-col gap-1 border-l-2 border-border pl-3">
+                <p className="whitespace-pre-wrap text-sm">{c.body}</p>
+                <p className="text-xs text-foreground/50">— {personLabel(c.author)}</p>
+              </div>
+            ))}
+          </section>
+        )}
         {composite.total !== null && (
           <section className="flex flex-col gap-2 rounded-lg border border-border p-4">
             <div className="flex flex-col gap-0.5">

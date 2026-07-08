@@ -33,6 +33,7 @@ const proposal = (
   proposer_id: proposerId,
   proposer: null,
   votes: [],
+  contributors: [],
 });
 
 describe("Board", () => {

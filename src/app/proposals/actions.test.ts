@@ -5,6 +5,9 @@ import {
   deleteComment,
   deleteProposal,
   editComment,
+  requestCommentPromotion,
+  resolveCommentPromotion,
+  revokeCommentPromotion,
   updateProposalStatus,
 } from "./actions";
 
@@ -48,10 +51,14 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("next/cache", () => ({ refresh }));
 
+const runEvaluation = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/ai/runEvaluation", () => ({ runEvaluation }));
+
 beforeEach(() => {
   vi.clearAllMocks();
   getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
   rpc.mockResolvedValue({ data: true, error: null });
+  runEvaluation.mockResolvedValue(null);
   tables.profiles.row = { role: "contributor" };
   tables.proposals.row = {
     proposer_id: "u1",
@@ -221,6 +228,34 @@ describe("editComment", () => {
     expect(result).toEqual({ error: "Errore nel salvataggio. Riprova." });
     expect(refresh).not.toHaveBeenCalled();
   });
+
+  it("re-runs the AI evaluation when an accepted contribution changes on a proposal in evaluation", async () => {
+    tables.proposals.row = { proposer_id: "u2", status: "in_valutazione" };
+    tables.comments.row = {
+      author_id: "u1", proposal_id: "p1", body: "vecchio", promotion_status: "accepted",
+    };
+    const result = await editComment("c1", null, commentForm("nuovo testo"));
+    expect(result).toBeNull();
+    expect(runEvaluation).toHaveBeenCalledWith(expect.anything(), "p1", true);
+  });
+
+  it("does not re-run the evaluation when the accepted contribution text is unchanged", async () => {
+    tables.proposals.row = { proposer_id: "u2", status: "in_valutazione" };
+    tables.comments.row = {
+      author_id: "u1", proposal_id: "p1", body: "stesso testo", promotion_status: "accepted",
+    };
+    await editComment("c1", null, commentForm("stesso testo"));
+    expect(runEvaluation).not.toHaveBeenCalled();
+  });
+
+  it("does not re-run the evaluation when editing a normal comment", async () => {
+    tables.proposals.row = { proposer_id: "u2", status: "in_valutazione" };
+    tables.comments.row = {
+      author_id: "u1", proposal_id: "p1", body: "vecchio", promotion_status: "none",
+    };
+    await editComment("c1", null, commentForm("nuovo testo"));
+    expect(runEvaluation).not.toHaveBeenCalled();
+  });
 });
 
 describe("deleteComment", () => {
@@ -259,12 +294,200 @@ describe("deleteComment", () => {
     expect(refresh).toHaveBeenCalled();
   });
 
+  it("refuses to delete an accepted contribution before it is revoked", async () => {
+    tables.comments.row = {
+      author_id: "u1", proposal_id: "p1", promotion_status: "accepted",
+    };
+    const result = await deleteComment("c1");
+    expect(result).toEqual({
+      error: "Revoca la partecipazione prima di eliminare il contributo.",
+    });
+    expect(tables.comments.delete).not.toHaveBeenCalled();
+  });
+
   it("returns a generic error when the delete fails", async () => {
     deleteResult.value = { error: { message: "boom" } };
     vi.spyOn(console, "error").mockImplementation(() => {});
     const result = await deleteComment("c1");
     expect(result).toEqual({ error: "Errore nell'eliminazione. Riprova." });
     expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("requestCommentPromotion", () => {
+  beforeEach(() => {
+    // commento di u1 su una proposta di u2, aperta
+    tables.proposals.row = { proposer_id: "u2", status: "nuova" };
+    tables.comments.row = {
+      author_id: "u1", proposal_id: "p1", body: "idea", promotion_status: "none",
+    };
+  });
+
+  it("refuses to promote when there is no authenticated user", async () => {
+    getUser.mockResolvedValue({ data: { user: null } });
+    const result = await requestCommentPromotion("c1");
+    expect(result).toEqual({ error: "Sessione scaduta. Rientra e riprova." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("refuses a user who is not the comment author", async () => {
+    tables.comments.row = { ...tables.comments.row, author_id: "u3" };
+    const result = await requestCommentPromotion("c1");
+    expect(result).toEqual({ error: "Puoi proporre solo i tuoi commenti." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("refuses the proposer's own comments", async () => {
+    tables.proposals.row = { proposer_id: "u1", status: "nuova" };
+    const result = await requestCommentPromotion("c1");
+    expect(result).toEqual({
+      error: "I tuoi commenti sulla tua proposta non sono promuovibili.",
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("refuses a promotion on a crystallized proposal", async () => {
+    tables.proposals.row = { proposer_id: "u2", status: "approvata" };
+    const result = await requestCommentPromotion("c1");
+    expect(result).toEqual({ error: "La proposta non accetta più promozioni." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("calls the RPC and refreshes, without re-running the evaluation", async () => {
+    const result = await requestCommentPromotion("c1");
+    expect(result).toBeNull();
+    expect(rpc).toHaveBeenCalledWith("request_comment_promotion", { p_comment_id: "c1" });
+    expect(refresh).toHaveBeenCalled();
+    expect(runEvaluation).not.toHaveBeenCalled();
+  });
+
+  it("reports a stale state when the RPC compare-and-set fails", async () => {
+    rpc.mockResolvedValue({ data: false, error: null });
+    const result = await requestCommentPromotion("c1");
+    expect(result).toEqual({
+      error: "Lo stato del commento è cambiato nel frattempo. Ricarica la pagina.",
+    });
+    expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveCommentPromotion", () => {
+  beforeEach(() => {
+    // u1 è il proposer che decide sul commento pending di u2
+    tables.proposals.row = { proposer_id: "u1", status: "in_valutazione" };
+    tables.comments.row = {
+      author_id: "u2", proposal_id: "p1", body: "idea", promotion_status: "pending",
+    };
+  });
+
+  it("refuses a user who is neither proposer nor admin", async () => {
+    tables.proposals.row = { ...tables.proposals.row, proposer_id: "u3" };
+    const result = await resolveCommentPromotion("c1", true);
+    expect(result).toEqual({ error: "Solo il proposer o un admin decide sulla promozione." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("lets an admin who is not the proposer decide", async () => {
+    tables.proposals.row = { ...tables.proposals.row, proposer_id: "u3" };
+    tables.profiles.row = { role: "admin" };
+    const result = await resolveCommentPromotion("c1", true);
+    expect(result).toBeNull();
+    expect(rpc).toHaveBeenCalledWith("resolve_comment_promotion", {
+      p_comment_id: "c1",
+      p_accept: true,
+    });
+  });
+
+  it("accepts and re-runs the evaluation when the proposal is in evaluation", async () => {
+    const result = await resolveCommentPromotion("c1", true);
+    expect(result).toBeNull();
+    expect(refresh).toHaveBeenCalled();
+    expect(runEvaluation).toHaveBeenCalledWith(expect.anything(), "p1", true);
+  });
+
+  it("accepts without re-running the evaluation when the proposal is still new", async () => {
+    tables.proposals.row = { ...tables.proposals.row, status: "nuova" };
+    const result = await resolveCommentPromotion("c1", true);
+    expect(result).toBeNull();
+    expect(runEvaluation).not.toHaveBeenCalled();
+  });
+
+  it("rejects without re-running the evaluation", async () => {
+    const result = await resolveCommentPromotion("c1", false);
+    expect(result).toBeNull();
+    expect(rpc).toHaveBeenCalledWith("resolve_comment_promotion", {
+      p_comment_id: "c1",
+      p_accept: false,
+    });
+    expect(runEvaluation).not.toHaveBeenCalled();
+  });
+
+  it("reports a stale state when the RPC compare-and-set fails", async () => {
+    rpc.mockResolvedValue({ data: false, error: null });
+    const result = await resolveCommentPromotion("c1", true);
+    expect(result).toEqual({
+      error: "Lo stato del commento è cambiato nel frattempo. Ricarica la pagina.",
+    });
+    expect(runEvaluation).not.toHaveBeenCalled();
+  });
+});
+
+describe("revokeCommentPromotion", () => {
+  beforeEach(() => {
+    // contributo accepted di u1 su proposta di u2, in valutazione
+    tables.proposals.row = { proposer_id: "u2", status: "in_valutazione" };
+    tables.comments.row = {
+      author_id: "u1", proposal_id: "p1", body: "idea", promotion_status: "accepted",
+    };
+  });
+
+  it("refuses a user who is neither author, proposer nor admin", async () => {
+    tables.comments.row = { ...tables.comments.row, author_id: "u3" };
+    const result = await revokeCommentPromotion("c1");
+    expect(result).toEqual({
+      error: "Solo l'autore, il proposer o un admin può revocare il contributo.",
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("refuses a revoke on a crystallized proposal", async () => {
+    tables.proposals.row = { ...tables.proposals.row, status: "approvata" };
+    const result = await revokeCommentPromotion("c1");
+    expect(result).toEqual({ error: "La proposta non accetta più modifiche ai contributi." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("lets the author revoke WITHOUT re-running the evaluation (decisione owner, 0016)", async () => {
+    const result = await revokeCommentPromotion("c1");
+    expect(result).toBeNull();
+    expect(rpc).toHaveBeenCalledWith("revoke_comment_promotion", { p_comment_id: "c1" });
+    expect(refresh).toHaveBeenCalled();
+    expect(runEvaluation).not.toHaveBeenCalled();
+  });
+
+  it("re-runs the evaluation when the proposer revokes on a proposal in evaluation", async () => {
+    tables.proposals.row = { proposer_id: "u1", status: "in_valutazione" };
+    tables.comments.row = { ...tables.comments.row, author_id: "u2" };
+    const result = await revokeCommentPromotion("c1");
+    expect(result).toBeNull();
+    expect(runEvaluation).toHaveBeenCalledWith(expect.anything(), "p1", true);
+  });
+
+  it("re-runs the evaluation when an admin revokes on a proposal in evaluation", async () => {
+    tables.comments.row = { ...tables.comments.row, author_id: "u3" };
+    tables.profiles.row = { role: "admin" };
+    const result = await revokeCommentPromotion("c1");
+    expect(result).toBeNull();
+    expect(runEvaluation).toHaveBeenCalledWith(expect.anything(), "p1", true);
+  });
+
+  it("reports a stale state when the RPC compare-and-set fails", async () => {
+    rpc.mockResolvedValue({ data: false, error: null });
+    const result = await revokeCommentPromotion("c1");
+    expect(result).toEqual({
+      error: "Lo stato del commento è cambiato nel frattempo. Ricarica la pagina.",
+    });
+    expect(runEvaluation).not.toHaveBeenCalled();
   });
 });
 

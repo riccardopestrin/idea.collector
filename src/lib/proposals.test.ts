@@ -149,7 +149,7 @@ function fakeBuilder(data: unknown) {
 describe("listProposals", () => {
   const row = {
     id: "1", title: "t", description: null, status: "nuova",
-    created_at: "2026-01-01", proposer: null,
+    created_at: "2026-01-01", proposer: null, votes: [], contributors: [],
   };
 
   beforeEach(() => vi.clearAllMocks());
@@ -169,7 +169,9 @@ describe("listProposals", () => {
     await listProposals(supabase, {});
 
     expect(or).not.toHaveBeenCalled();
-    expect(eq).not.toHaveBeenCalled();
+    // l'unico eq è il filtro sull'embed dei contributi, sempre presente (0016)
+    expect(eq).toHaveBeenCalledTimes(1);
+    expect(eq).toHaveBeenCalledWith("contributors.promotion_status", "accepted");
   });
 
   it("filters by status when given", async () => {
@@ -184,5 +186,41 @@ describe("listProposals", () => {
     const { supabase } = fakeBuilder(null);
 
     expect(await listProposals(supabase, {})).toEqual([]);
+  });
+
+  it("suspends the votes of accepted contributors and keeps the others", async () => {
+    const { supabase } = fakeBuilder([{
+      ...row,
+      votes: [
+        { voter_id: "u2", reach: 5, impact: 5, confidence: 5, effort: 5 },
+        { voter_id: "u3", reach: 8, impact: 8, confidence: 8, effort: 8 },
+      ],
+      contributors: [{
+        author_id: "u2", promotion_status: "accepted",
+        created_at: "2026-01-02", author: { name: "Ada", email: "ada@hint.app" },
+      }],
+    }]);
+
+    const [item] = await listProposals(supabase, {});
+    // il voto del contributore u2 è sospeso (derivato, la riga a DB resta)
+    expect(item.votes).toEqual([
+      { voter_id: "u3", reach: 8, impact: 8, confidence: 8, effort: 8 },
+    ]);
+  });
+
+  it("dedupes co-authors with multiple accepted contributions, ordered by first contribution", async () => {
+    const ada = { name: "Ada", email: "ada@hint.app" };
+    const bea = { name: "Bea", email: "bea@hint.app" };
+    const { supabase } = fakeBuilder([{
+      ...row,
+      contributors: [
+        { author_id: "u3", promotion_status: "accepted", created_at: "2026-01-05", author: bea },
+        { author_id: "u2", promotion_status: "accepted", created_at: "2026-01-02", author: ada },
+        { author_id: "u2", promotion_status: "accepted", created_at: "2026-01-03", author: ada },
+      ],
+    }]);
+
+    const [item] = await listProposals(supabase, {});
+    expect(item.contributors).toEqual([ada, bea]);
   });
 });

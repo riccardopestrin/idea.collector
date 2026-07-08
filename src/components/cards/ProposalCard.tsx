@@ -55,7 +55,8 @@ export function ProposalCard({
         {proposal.title}
       </Link>
       <span className="flex items-center gap-2 text-xs text-foreground/50">
-        di {personLabel(proposal.proposer)}
+        {/* co-autori: proposer + autori dei contributi accettati (migration 0016) */}
+        di {[proposal.proposer, ...proposal.contributors].map(personLabel).join(", ")}
         <EvalStatusCue status={proposal.ai_eval_status} />
         {showStatus && (
           <span className="rounded-full border border-border px-2 py-0.5 font-medium text-foreground/70">

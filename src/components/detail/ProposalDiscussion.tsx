@@ -31,6 +31,8 @@ export function ProposalDiscussion({
   canComment,
   comments,
   currentUserId,
+  proposerId,
+  isAdmin,
   header,
   children,
 }: {
@@ -40,6 +42,8 @@ export function ProposalDiscussion({
   canComment: boolean;
   comments: ProposalComment[];
   currentUserId?: string;
+  proposerId: string;
+  isAdmin?: boolean;
   header: ReactNode;
   children: ReactNode;
 }) {
@@ -114,6 +118,8 @@ export function ProposalDiscussion({
           comments={comments}
           canComment={canComment}
           currentUserId={currentUserId}
+          proposerId={proposerId}
+          isAdmin={isAdmin}
           pendingAnchor={pendingAnchor}
           onCancelAnchor={() => setPendingAnchor(null)}
           onHoverComment={setHoveredId}

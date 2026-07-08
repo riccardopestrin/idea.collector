@@ -6,6 +6,7 @@ import { BOARD_COLUMNS, groupByStatus, STATUS_LABELS } from "./board";
 
 const proposal = (id: string, status: ProposalListItem["status"]): ProposalListItem => ({
   id,
+  contributors: [],
   title: `p${id}`,
   description: null,
   status,

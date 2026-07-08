@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-05
+**Last updated:** 2026-07-08
 
 # Security Review
 
@@ -64,6 +64,16 @@ _SEC-2 e SEC-3 (RLS su `profiles`/`proposals`) risolte il 2026-07-01 da `0003_lo
 **Impact:** Low. Invite-only internal tool where members already see each other's proposer/author emails on every card and comment; the RLS `select` is intentionally open to all authenticated members ("la lista votanti è visibile nel pannello"). Non-anonymous voting is a deliberate product decision, not a leak. Residual risk is only that individual voters and their scores are attributable — which could bias voting or be undesirable if votes are ever meant to be private.
 
 **Fix when touched:** If votes should be anonymous, stop embedding `voter:profiles` in `getProposalDetail` and render aggregate/anonymous rows only (the composite average already needs no per-voter identity). If attribution stays but email should not, embed `name` only and label unnamed voters generically. No change needed while non-anonymous voting is intended.
+
+### SEC-8 — AI-score forging via `apply_ai_evaluation` diretta, senza validazione DB-side (LOW)
+
+**Where:** `supabase/migrations/0013_author_edit_reevaluation_crystallization.sql` (`apply_ai_evaluation` — parametri `numeric`/`text` senza validazione, colonne `proposals.reach/impact/confidence/effort` senza `CHECK`), `supabase/migrations/0016_comment_promotion.sql` (`can_run_ai_evaluation` allargata agli autori di contributi `accepted`), [`src/lib/ai/evaluateProposal.ts`](../../src/lib/ai/evaluateProposal.ts) (`validateScores` — clamp 1–10 e truncate rationale solo in TS).
+
+**Issue:** Le RPC `begin/apply/fail_ai_evaluation` sono granted a `authenticated` con `can_run_ai_evaluation` come unico gate. Dal 0013 il proposer di una proposta `in_valutazione`, e dal 0016 anche l'autore di un contributo `accepted` su di essa, possono chiamare `apply_ai_evaluation` direttamente via PostgREST con l'anon key: la RPC scrive `reach/impact/confidence/effort/ai_rationale` senza alcun range check (qualsiasi `numeric`, anche negativo o fuori scala — un valore enorme o un prodotto negativo corrompe la media geometrica e il ranking in board) e senza limite di lunghezza sulla rationale. Il clamp 1–10 intero e il truncate a 2000 char esistono solo nel service TS, che una chiamata diretta bypassa. Un co-autore può quindi forgiarsi il punteggio mostrato come "valutazione di Claude" sulla propria proposta. La prompt injection via body dei contributi (iniettati dentro `<proposta>` in `evaluateWithClaude`) è una via strettamente più debole aperta allo stesso identico insieme di attori, già mitigata da system prompt anti-injection + structured output + clamp TS.
+
+**Impact:** Low. Tool interno invite-only; l'allargamento della superficie è una scelta deliberata documentata negli header di 0013/0016 (l'alternativa scartata — allargare a qualsiasi commentatore — è stata correttamente evitata). Il danno possibile è solo l'integrità della prioritizzazione (score/rationale falsificati o fuori scala), nessuna escalation né disclosure; la rationale è resa JSX-escaped.
+
+**Fix when touched:** Spostare il backstop a DB: in `apply_ai_evaluation` rifiutare (o clampare) fattori fuori da 1–10 e applicare `left(p_rationale, 2000)`, oppure aggiungere `CHECK` sulle colonne score. Stessa classe del gap già registrato per `rice_votes` in [`be-careful.md`](be-careful.md) (`2026-07-05-58f8`) — conviene sanare entrambi nello stesso intervento.
 
 ### SEC-4 — Vulnerable transitive `postcss` via `next` (LOW)
 
