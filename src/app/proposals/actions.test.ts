@@ -5,6 +5,7 @@ import {
   deleteComment,
   deleteProposal,
   editComment,
+  evaluateProposal,
   requestCommentPromotion,
   resolveCommentPromotion,
   revokeCommentPromotion,
@@ -19,7 +20,7 @@ const { getUser, rpc, tables, refresh, deleteResult, insertResult, updateResult 
     const deleteResult = { value: { error: null } as { error: unknown } };
     const insertResult = { value: { error: null } as { error: unknown } };
     const updateResult = { value: { error: null } as { error: unknown } };
-    const table = (row: unknown) => {
+    const table = (row: Record<string, unknown> | null) => {
       const builder = {
         row,
         select: vi.fn(() => builder),
@@ -679,5 +680,29 @@ describe("deleteProposal", () => {
     const result = await deleteProposal("p1");
     expect(result).toEqual({ error: "Errore nell'eliminazione. Riprova." });
     expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("evaluateProposal", () => {
+  it("refuses to run when there is no authenticated user", async () => {
+    getUser.mockResolvedValue({ data: { user: null } });
+    expect(await evaluateProposal("p1")).toEqual({
+      error: "Sessione scaduta. Rientra e riprova.",
+    });
+    expect(runEvaluation).not.toHaveBeenCalled();
+  });
+
+  it("refuses a non-admin (the proposer included)", async () => {
+    tables.profiles.row = { role: "contributor" };
+    expect(await evaluateProposal("p1")).toEqual({
+      error: "Solo un admin può lanciare la valutazione AI.",
+    });
+    expect(runEvaluation).not.toHaveBeenCalled();
+  });
+
+  it("delegates to runEvaluation for an admin, forwarding force", async () => {
+    tables.profiles.row = { role: "admin" };
+    expect(await evaluateProposal("p1", true)).toBeNull();
+    expect(runEvaluation).toHaveBeenCalledWith(expect.anything(), "p1", true);
   });
 });

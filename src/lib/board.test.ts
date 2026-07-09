@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ProposalListItem } from "@/lib/proposals";
 
-import { ALLOWED_TRANSITIONS, BOARD_COLUMNS, canMoveTo, groupByStatus, STATUS_LABELS } from "./board";
+import { BOARD_COLUMNS, canMoveTo, groupByStatus, STATUS_LABELS } from "./board";
 
 const proposal = (id: string, status: ProposalListItem["status"]): ProposalListItem => ({
   id,
@@ -47,23 +47,22 @@ describe("groupByStatus", () => {
 });
 
 describe("STATUS_LABELS", () => {
-  it("has a human label for every board column", () => {
-    for (const status of BOARD_COLUMNS) {
-      expect(STATUS_LABELS[status]).toBeTruthy();
-      expect(STATUS_LABELS[status]).not.toBe(status);
-    }
+  // label pinnate per intero: un typo o uno swap (es. Approvata↔Rifiutata)
+  // cambierebbe cosa vede l'utente in board senza rompere nessun tipo
+  it("maps every status to its exact human label", () => {
+    expect(STATUS_LABELS).toEqual({
+      nuova: "Nuova",
+      in_valutazione: "In Valutazione",
+      approvata: "Approvata",
+      in_sviluppo: "In Sviluppo",
+      rilasciata: "Rilasciata",
+      rifiutata: "Rifiutata",
+      archiviata: "Archiviata",
+    });
   });
 });
 
 describe("canMoveTo", () => {
-  it("allows exactly the transitions the state machine declares", () => {
-    for (const from of BOARD_COLUMNS) {
-      for (const to of BOARD_COLUMNS) {
-        expect(canMoveTo(from, to)).toBe(ALLOWED_TRANSITIONS[from].includes(to));
-      }
-    }
-  });
-
   it("allows the forward flow steps", () => {
     expect(canMoveTo("nuova", "in_valutazione")).toBe(true);
     expect(canMoveTo("in_valutazione", "approvata")).toBe(true);

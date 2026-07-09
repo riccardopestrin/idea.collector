@@ -37,9 +37,12 @@ function renderCard(
 }
 
 describe("ProposalCard", () => {
-  it("shows the title", () => {
+  it("links the title to the proposal detail page", () => {
     renderCard();
-    expect(screen.getByText("Mappa offline")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Mappa offline" })).toHaveAttribute(
+      "href",
+      "/proposals/1",
+    );
   });
 
   it("does not show the description in the card", () => {

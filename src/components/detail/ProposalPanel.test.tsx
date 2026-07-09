@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ProposalDetail } from "@/lib/proposals";
@@ -111,8 +111,8 @@ describe("ProposalPanel", () => {
     );
     expect(screen.getByText("Voto di Claude")).toBeInTheDocument();
     expect(screen.getByText("Alto impatto, sforzo contenuto")).toBeInTheDocument();
-    // media geometrica (8·6·4·5)^(1/4) ≈ 5,6 — mostrata come totale e come voto Claude
-    expect(screen.getAllByText("5,6").length).toBeGreaterThan(0);
+    // media geometrica (8·6·4·5)^(1/4) ≈ 5,6 — mostrata come totale E come voto Claude
+    expect(screen.getAllByText("5,6")).toHaveLength(2);
     // i fattori sono su scala 1–10 (Ease = effort invertito)
     expect(screen.getByText("Ease")).toBeInTheDocument();
   });
@@ -151,9 +151,12 @@ describe("ProposalPanel", () => {
     // ha già votato → niente form
     expect(screen.queryByRole("button", { name: "Invia voto" })).not.toBeInTheDocument();
     expect(screen.getByText("Voti utenti (1)")).toBeInTheDocument();
-    expect(screen.getByText("Gino")).toBeInTheDocument();
-    // voto massimo (tutti 10) → 10 (compare nel totale composito e nella riga utente)
-    expect(screen.getAllByText("10").length).toBeGreaterThan(0);
+    // voto massimo (tutti 10) → 10 sia nella riga utente sia nel totale composito
+    const ginoRow = screen.getByText("Gino").closest("li");
+    expect(ginoRow).not.toBeNull();
+    expect(within(ginoRow as HTMLElement).getByText("10")).toBeInTheDocument();
+    const totale = screen.getByText(/Voto totale/).closest("section");
+    expect(totale).toHaveTextContent("10");
   });
 
   it("lists comments with their author and offers the comment form", () => {

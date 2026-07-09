@@ -5,7 +5,7 @@ import { submitRiceVote, updateProposal } from "./actions";
 const { getUser, tables, refresh, runEvaluation, runProposalScan, updateResult, insertResult } = vi.hoisted(() => {
   const updateResult = { value: { error: null } as { error: unknown } };
   const insertResult = { value: { error: null } as { error: unknown } };
-  const table = (row: unknown) => {
+  const table = (row: Record<string, unknown> | null) => {
     const builder = {
       row,
       select: vi.fn(() => builder),
@@ -212,6 +212,11 @@ describe("submitRiceVote", () => {
       error: "Come contributore accettato sei co-autore: non puoi votare.",
     });
     expect(tables.rice_votes.insert).not.toHaveBeenCalled();
+    // il guard vale solo se la query filtra proprio su questi tre criteri:
+    // senza promotion_status=accepted bloccherebbe qualsiasi commentatore
+    expect(tables.comments.eq).toHaveBeenCalledWith("proposal_id", "p1");
+    expect(tables.comments.eq).toHaveBeenCalledWith("author_id", "u2");
+    expect(tables.comments.eq).toHaveBeenCalledWith("promotion_status", "accepted");
   });
 
   it("rejects an incomplete vote before hitting the database", async () => {

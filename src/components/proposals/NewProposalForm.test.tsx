@@ -41,4 +41,20 @@ describe("NewProposalForm", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Errore nel salvataggio");
   });
+
+  it("submits the field values under the names the action parses", async () => {
+    const user = userEvent.setup();
+    render(<NewProposalForm />);
+
+    await user.type(screen.getByLabelText(/titolo/i), "Mappa offline");
+    await user.type(screen.getByLabelText(/link/i), "https://example.com");
+    await user.click(screen.getByRole("button", { name: /crea proposta/i }));
+
+    // un rename di un name= disallineerebbe form e parseProposalFields
+    const formData = createProposal.mock.calls[0][1] as FormData;
+    expect(formData.get("title")).toBe("Mappa offline");
+    expect(formData.get("links")).toBe("https://example.com");
+    expect(formData.has("description")).toBe(true);
+    expect(formData.has("problem")).toBe(true);
+  });
 });

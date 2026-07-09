@@ -1,5 +1,6 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BOARD_COLUMNS, STATUS_LABELS } from "@/lib/board";
@@ -7,12 +8,14 @@ import type { ProposalListItem } from "@/lib/proposals";
 
 import { Board } from "./Board";
 
+type ActionResult = { error: string } | null;
+
 const { updateProposalStatus, deleteProposal, evaluateProposal, runProposalScanAction } =
   vi.hoisted(() => ({
-    updateProposalStatus: vi.fn(async () => null),
-    deleteProposal: vi.fn(async () => null),
-    evaluateProposal: vi.fn(async () => null),
-    runProposalScanAction: vi.fn(async () => null),
+    updateProposalStatus: vi.fn(async (): Promise<ActionResult> => null),
+    deleteProposal: vi.fn(async (): Promise<ActionResult> => null),
+    evaluateProposal: vi.fn(async (): Promise<ActionResult> => null),
+    runProposalScanAction: vi.fn(async (): Promise<ActionResult> => null),
   }));
 vi.mock("@/app/proposals/actions", () => ({
   updateProposalStatus,
@@ -20,6 +23,52 @@ vi.mock("@/app/proposals/actions", () => ({
   evaluateProposal,
   runProposalScanAction,
 }));
+
+// Harness DnD: @dnd-kit è il confine di framework — qui si testa la logica
+// reale di Board (handleDragStart/handleDragEnd, gate canMoveTo, auto-eval),
+// invocando gli handler catturati come farebbe il DndContext vero.
+type DragStart = { active: { id: string } };
+type DragEnd = { active: { id: string }; over: { id: string } | null };
+const dnd = vi.hoisted(() => ({
+  onDragStart: undefined as ((e: DragStart) => void) | undefined,
+  onDragEnd: undefined as ((e: DragEnd) => void) | undefined,
+}));
+vi.mock("@dnd-kit/core", () => ({
+  DndContext: ({
+    children,
+    onDragStart,
+    onDragEnd,
+  }: {
+    children: ReactNode;
+    onDragStart?: (e: DragStart) => void;
+    onDragEnd?: (e: DragEnd) => void;
+  }) => {
+    dnd.onDragStart = onDragStart;
+    dnd.onDragEnd = onDragEnd;
+    return <>{children}</>;
+  },
+  useDraggable: () => ({
+    setNodeRef: () => {},
+    attributes: {},
+    listeners: {},
+    transform: null,
+    isDragging: false,
+  }),
+  useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
+  useSensor: () => null,
+  useSensors: () => [],
+  PointerSensor: class {},
+  KeyboardSensor: class {},
+}));
+
+// Simula un drag completo: pick-up della card e drop sulla colonna target.
+function drag(id: string, to: string | null) {
+  act(() => dnd.onDragStart?.({ active: { id } }));
+  act(() => dnd.onDragEnd?.({ active: { id }, over: to ? { id: to } : null }));
+}
+
+// Fa girare la transition async di move()/handleDelete fino a quiete.
+const flush = () => act(async () => {});
 
 const proposal = (
   id: string,
@@ -82,17 +131,75 @@ describe("Board", () => {
     expect(within(inSviluppo).queryByText("Mappa offline")).not.toBeInTheDocument();
   });
 
-  it("exposes every card as draggable, whoever the user is", () => {
+  it("moves a dropped card through updateProposalStatus when the transition is allowed", async () => {
     render(
-      <Board
-        proposals={[proposal("1", "nuova", "Mappa offline", "someone-else")]}
-        userId="u1"
-        isAdmin={false}
-      />,
+      <Board proposals={[proposal("1", "nuova", "Mia")]} userId="u1" isAdmin={false} />,
     );
-    const li = screen.getByText("Mappa offline").closest("li");
-    expect(li).toHaveAttribute("role", "button");
-    expect(li).not.toHaveAttribute("aria-disabled", "true");
+
+    drag("1", "in_valutazione");
+    await flush();
+
+    expect(updateProposalStatus).toHaveBeenCalledWith("1", "nuova", "in_valutazione");
+    // non-admin: il move non lancia la valutazione AI
+    expect(evaluateProposal).not.toHaveBeenCalled();
+  });
+
+  it("ignores a drop the state machine forbids, on the origin column, or outside", async () => {
+    render(
+      <Board proposals={[proposal("1", "nuova", "Mia")]} userId="u1" isAdmin={false} />,
+    );
+
+    drag("1", "approvata"); // nuova → approvata: transizione vietata
+    drag("1", "nuova"); // colonna d'origine
+    drag("1", null); // drop fuori da ogni colonna
+    await flush();
+
+    expect(updateProposalStatus).not.toHaveBeenCalled();
+  });
+
+  it("auto-triggers the AI evaluation when an admin drops into 'in_valutazione'", async () => {
+    render(<Board proposals={[proposal("1", "nuova", "Mia")]} userId="u1" isAdmin />);
+
+    drag("1", "in_valutazione");
+    await flush();
+
+    expect(updateProposalStatus).toHaveBeenCalledWith("1", "nuova", "in_valutazione");
+    expect(evaluateProposal).toHaveBeenCalledWith("1");
+  });
+
+  it("shows the move error in the alert region and skips the auto-eval", async () => {
+    updateProposalStatus.mockResolvedValueOnce({
+      error: "La proposta è stata spostata da qualcun altro. Ricarica la pagina.",
+    });
+    render(<Board proposals={[proposal("1", "nuova", "Mia")]} userId="u1" isAdmin />);
+
+    drag("1", "in_valutazione");
+    await flush();
+
+    expect(screen.getByRole("alert")).toHaveTextContent("spostata da qualcun altro");
+    expect(evaluateProposal).not.toHaveBeenCalled();
+  });
+
+  it("marks the target columns with a valid/invalid drop hint during a drag", () => {
+    render(
+      <Board proposals={[proposal("1", "nuova", "Mia")]} userId="u1" isAdmin={false} />,
+    );
+
+    act(() => dnd.onDragStart?.({ active: { id: "1" } }));
+    expect(screen.getByRole("region", { name: "In Valutazione" }).className).toContain(
+      "ring-green-500/60",
+    );
+    expect(screen.getByRole("region", { name: "Approvata" }).className).toContain(
+      "ring-red-500/60",
+    );
+    // colonna d'origine: nessun hint
+    expect(screen.getByRole("region", { name: "Nuova" }).className).not.toContain("ring-2");
+
+    // il drop (anche a vuoto) azzera gli hint
+    act(() => dnd.onDragEnd?.({ active: { id: "1" }, over: null }));
+    expect(
+      screen.getByRole("region", { name: "In Valutazione" }).className,
+    ).not.toContain("ring-2");
   });
 
   it("shows the delete button to a contributor only on their own proposals", () => {

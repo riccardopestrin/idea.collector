@@ -27,7 +27,7 @@ export async function updateName(
 
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "Il nome è obbligatorio." };
-  // Nessun CHECK a DB (owner-locked): il cap applicativo è l'unico limite.
+  // Backstop a DB: profiles_name_length_check (0008), stesso cap di 80.
   if (name.length > 80)
     return { error: "Il nome è troppo lungo (max 80 caratteri)." };
 

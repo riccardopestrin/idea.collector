@@ -25,6 +25,7 @@ describe("validateLocalScan", () => {
 
   it("clamps and rounds similarity into 0..100", () => {
     expect(validateLocalScan(raw({ similarity: 141 }), candidateIds).similarity).toBe(100);
+    expect(validateLocalScan(raw({ similarity: -3 }), candidateIds).similarity).toBe(0);
     expect(validateLocalScan(raw({ similarity: 86.6 }), candidateIds).similarity).toBe(87);
   });
 
