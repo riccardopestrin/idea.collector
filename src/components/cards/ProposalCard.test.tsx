@@ -17,6 +17,8 @@ const base: ProposalListItem = {
   confidence: null,
   effort: null,
   ai_eval_status: "assente",
+  dup_scan_status: "assente",
+  dup_flagged: false,
   created_at: "2026-01-01",
   proposer_id: "u1",
   proposer: { name: "Ada", email: "ada@hint.app" },
@@ -90,5 +92,15 @@ describe("ProposalCard", () => {
   it("hides the board status label by default", () => {
     renderCard({ status: "in_valutazione" });
     expect(screen.queryByText(STATUS_LABELS.in_valutazione)).not.toBeInTheDocument();
+  });
+
+  it("shows the duplicate badge only when the proposal is flagged", () => {
+    renderCard({ dup_flagged: true });
+    expect(screen.getByText("possibile duplicato")).toBeInTheDocument();
+  });
+
+  it("has no duplicate badge on an unflagged proposal", () => {
+    renderCard();
+    expect(screen.queryByText("possibile duplicato")).not.toBeInTheDocument();
   });
 });

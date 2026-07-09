@@ -2,12 +2,25 @@
 
 import { useState, useTransition } from "react";
 
-import { evaluateProposal } from "@/app/proposals/actions";
+import { evaluateProposal, runProposalScanAction } from "@/app/proposals/actions";
 import { controlClass } from "@/components/form/Field";
 
-// "Rilancia valutazione" (admin, su valutazione fallita): richiama la Server
-// Action con force. Usato sia sulla card piccola sia nel pannello.
-export function RetryEvaluationButton({ proposalId }: { proposalId: string }) {
+// "Rilancia" su un run AI fallito (o in_corso orfano di un crash, 0011):
+// richiama la Server Action con force. kind: 'eval' = valutazione RICE
+// (admin), 'scan' = scan duplicati (proposer o admin, RFC-006). Usato sia
+// sulla card piccola sia nel pannello.
+const KINDS = {
+  eval: { label: "Rilancia valutazione", action: evaluateProposal },
+  scan: { label: "Rilancia scansione", action: runProposalScanAction },
+} as const;
+
+export function RetryButton({
+  proposalId,
+  kind = "eval",
+}: {
+  proposalId: string;
+  kind?: keyof typeof KINDS;
+}) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -22,13 +35,13 @@ export function RetryEvaluationButton({ proposalId }: { proposalId: string }) {
         onClick={() =>
           startTransition(async () => {
             setError(null);
-            const result = await evaluateProposal(proposalId, true);
+            const result = await KINDS[kind].action(proposalId, true);
             if (result) setError(result.error);
           })
         }
         className={`${controlClass} w-fit text-xs disabled:opacity-50`}
       >
-        Rilancia valutazione
+        {KINDS[kind].label}
       </button>
       {error && (
         <span role="alert" className="text-xs text-danger">

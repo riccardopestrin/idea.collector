@@ -8,6 +8,7 @@ import {
   requestCommentPromotion,
   resolveCommentPromotion,
   revokeCommentPromotion,
+  runProposalScanAction,
   updateProposalStatus,
 } from "./actions";
 
@@ -54,17 +55,22 @@ vi.mock("next/cache", () => ({ refresh }));
 const runEvaluation = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/ai/runEvaluation", () => ({ runEvaluation }));
 
+const runProposalScan = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/ai/runProposalScan", () => ({ runProposalScan }));
+
 beforeEach(() => {
   vi.clearAllMocks();
   getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
   rpc.mockResolvedValue({ data: true, error: null });
   runEvaluation.mockResolvedValue(null);
+  runProposalScan.mockResolvedValue(null);
   tables.profiles.row = { role: "contributor" };
   tables.proposals.row = {
     proposer_id: "u1",
     status: "nuova",
     description: "Una proposta con del testo utile.",
     problem: null,
+    dup_flagged: false,
   };
   tables.comments.row = { author_id: "u1", proposal_id: "p1" };
   deleteResult.value = { error: null };
@@ -543,6 +549,89 @@ describe("updateProposalStatus", () => {
     const result = await updateProposalStatus("p1", "nuova", "approvata");
     expect(result).toEqual({ error: "Errore nel salvataggio. Riprova." });
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("blocks a duplicate-flagged proposal from leaving 'nuova'", async () => {
+    tables.proposals.row = { ...tables.proposals.row, dup_flagged: true };
+    const result = await updateProposalStatus("p1", "nuova", "in_valutazione");
+    expect(result).toEqual({
+      error:
+        "Possibile duplicato: modifica l'idea per differenziarla, oppure spostala in Rifiutata o eliminala.",
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("still lets a duplicate-flagged proposal move to 'rifiutata'", async () => {
+    tables.proposals.row = { ...tables.proposals.row, dup_flagged: true };
+    const result = await updateProposalStatus("p1", "nuova", "rifiutata");
+    expect(result).toBeNull();
+    expect(rpc).toHaveBeenCalledWith("move_proposal", {
+      p_id: "p1",
+      p_from: "nuova",
+      p_to: "rifiutata",
+    });
+  });
+
+  it("blocks a flagged proposal from any source status (no rifiutata round-trip)", async () => {
+    tables.proposals.row = { ...tables.proposals.row, dup_flagged: true };
+    const result = await updateProposalStatus("p1", "rifiutata", "in_valutazione");
+    expect(result).toEqual({
+      error:
+        "Possibile duplicato: modifica l'idea per differenziarla, oppure spostala in Rifiutata o eliminala.",
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("still lets a flagged proposal move back to 'nuova' (unblock path)", async () => {
+    tables.proposals.row = { ...tables.proposals.row, dup_flagged: true };
+    const result = await updateProposalStatus("p1", "rifiutata", "nuova");
+    expect(result).toBeNull();
+    expect(rpc).toHaveBeenCalled();
+  });
+});
+
+describe("runProposalScanAction", () => {
+  it("refuses to run when there is no authenticated user", async () => {
+    getUser.mockResolvedValue({ data: { user: null } });
+    const result = await runProposalScanAction("p1");
+    expect(result).toEqual({ error: "Sessione scaduta. Rientra e riprova." });
+    expect(runProposalScan).not.toHaveBeenCalled();
+  });
+
+  it("returns not-found when the proposal does not exist", async () => {
+    tables.proposals.row = null;
+    const result = await runProposalScanAction("p1");
+    expect(result).toEqual({ error: "Proposta non trovata." });
+    expect(runProposalScan).not.toHaveBeenCalled();
+  });
+
+  it("refuses a contributor who is not the author", async () => {
+    tables.proposals.row = { ...tables.proposals.row, proposer_id: "someone-else" };
+    const result = await runProposalScanAction("p1");
+    expect(result).toEqual({
+      error: "Solo l'autore o un admin può lanciare lo scan duplicati.",
+    });
+    expect(runProposalScan).not.toHaveBeenCalled();
+  });
+
+  it("lets the author run the scan and forwards the force flag", async () => {
+    const result = await runProposalScanAction("p1", true);
+    expect(result).toBeNull();
+    expect(runProposalScan).toHaveBeenCalledWith(expect.anything(), "p1", true);
+  });
+
+  it("lets an admin run the scan on someone else's proposal", async () => {
+    tables.proposals.row = { ...tables.proposals.row, proposer_id: "someone-else" };
+    tables.profiles.row = { role: "admin" };
+    const result = await runProposalScanAction("p1");
+    expect(result).toBeNull();
+    expect(runProposalScan).toHaveBeenCalledWith(expect.anything(), "p1", false);
+  });
+
+  it("surfaces the scan error to the caller", async () => {
+    runProposalScan.mockResolvedValue({ error: "Scan duplicati fallito: boom" });
+    const result = await runProposalScanAction("p1");
+    expect(result).toEqual({ error: "Scan duplicati fallito: boom" });
   });
 });
 

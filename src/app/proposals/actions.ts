@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { refresh } from "next/cache";
 
 import { runEvaluation } from "@/lib/ai/runEvaluation";
+import { runProposalScan } from "@/lib/ai/runProposalScan";
 import { isAnchorField, markdownToPlainText, resolveAnchor } from "@/lib/anchors";
 import { getProfile } from "@/lib/profiles";
 import {
@@ -36,6 +37,25 @@ export async function updateProposalStatus(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+
+  // RFC-006: una proposta flaggata come possibile duplicato non avanza —
+  // gate sullo stato del flag, qualunque sia lo stato di partenza (un gate su
+  // fromStatus sarebbe aggirabile via nuova → rifiutata → altrove). Liberi
+  // solo Rifiutata e il rientro in Nuova (sblocco/re-scan). Guard qui per il
+  // messaggio chiaro; move_proposal (migration 0017) è il backstop.
+  if (toStatus !== "rifiutata" && toStatus !== "nuova") {
+    const { data: proposal } = await supabase
+      .from("proposals")
+      .select("dup_flagged")
+      .eq("id", proposalId)
+      .maybeSingle();
+    if (proposal?.dup_flagged) {
+      return {
+        error:
+          "Possibile duplicato: modifica l'idea per differenziarla, oppure spostala in Rifiutata o eliminala.",
+      };
+    }
+  }
 
   const { data: moved, error } = await supabase.rpc("move_proposal", {
     p_id: proposalId,
@@ -72,6 +92,36 @@ export async function evaluateProposal(
   }
 
   return runEvaluation(supabase, proposalId, force);
+}
+
+// Scan anti-duplicato + competitor web (RFC-006). Proposer o admin; usata
+// dall'auto-trigger on-view (ProposalScanTrigger) e dal "Rilancia scansione".
+// Il fallimento non è mai bloccante: marca 'fallita' e ritorna l'errore.
+// force=true salta l'idempotenza (Rilancia, re-scan su edit).
+export async function runProposalScanAction(
+  proposalId: string,
+  force = false,
+): Promise<ActionResult> {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+
+  const { data: proposal } = await supabase
+    .from("proposals")
+    .select("proposer_id")
+    .eq("id", proposalId)
+    .maybeSingle();
+  if (!proposal) return { error: "Proposta non trovata." };
+  if (
+    proposal.proposer_id !== user.id &&
+    (await getProfile(supabase, user.id))?.role !== "admin"
+  ) {
+    return { error: "Solo l'autore o un admin può lanciare lo scan duplicati." };
+  }
+
+  return runProposalScan(supabase, proposalId, force);
 }
 
 // Aggiunge un commento a una proposta, eventualmente ancorato a una selezione

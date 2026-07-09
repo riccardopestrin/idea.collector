@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { submitRiceVote, updateProposal } from "./actions";
 
-const { getUser, tables, refresh, runEvaluation, updateResult, insertResult } = vi.hoisted(() => {
+const { getUser, tables, refresh, runEvaluation, runProposalScan, updateResult, insertResult } = vi.hoisted(() => {
   const updateResult = { value: { error: null } as { error: unknown } };
   const insertResult = { value: { error: null } as { error: unknown } };
   const table = (row: unknown) => {
@@ -28,6 +28,7 @@ const { getUser, tables, refresh, runEvaluation, updateResult, insertResult } = 
     },
     refresh: vi.fn(),
     runEvaluation: vi.fn(),
+    runProposalScan: vi.fn(),
     updateResult,
     insertResult,
   };
@@ -41,6 +42,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("next/cache", () => ({ refresh }));
 vi.mock("@/lib/ai/runEvaluation", () => ({ runEvaluation }));
+vi.mock("@/lib/ai/runProposalScan", () => ({ runProposalScan }));
 
 function proposalForm(overrides: Record<string, string> = {}) {
   const form = new FormData();
@@ -56,6 +58,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
   runEvaluation.mockResolvedValue(null);
+  runProposalScan.mockResolvedValue(null);
   tables.profiles.row = { role: "contributor" };
   tables.proposals.row = {
     proposer_id: "u1",
@@ -112,13 +115,19 @@ describe("updateProposal", () => {
     expect(refresh).toHaveBeenCalled();
   });
 
+  it("re-runs the duplicate scan on a text change in 'nuova'", async () => {
+    expect(await updateProposal("p1", null, proposalForm())).toBeNull();
+    expect(runProposalScan).toHaveBeenCalledWith(expect.anything(), "p1", true);
+  });
+
   it("re-runs the AI evaluation on a text change in 'in_valutazione'", async () => {
     tables.proposals.row = { ...tables.proposals.row, status: "in_valutazione" };
     expect(await updateProposal("p1", null, proposalForm())).toBeNull();
     expect(runEvaluation).toHaveBeenCalledWith(expect.anything(), "p1", true);
+    expect(runProposalScan).not.toHaveBeenCalled();
   });
 
-  it("skips the AI evaluation when the text did not change", async () => {
+  it("skips the AI re-runs when the text did not change", async () => {
     tables.proposals.row = { ...tables.proposals.row, status: "in_valutazione" };
     const unchanged = proposalForm({
       title: "Titolo vecchio",
@@ -127,11 +136,17 @@ describe("updateProposal", () => {
     });
     expect(await updateProposal("p1", null, unchanged)).toBeNull();
     expect(runEvaluation).not.toHaveBeenCalled();
+    expect(runProposalScan).not.toHaveBeenCalled();
   });
 
   it("does not fail the save when the evaluation fails", async () => {
     tables.proposals.row = { ...tables.proposals.row, status: "in_valutazione" };
     runEvaluation.mockResolvedValue({ error: "Valutazione fallita: boom" });
+    expect(await updateProposal("p1", null, proposalForm())).toBeNull();
+  });
+
+  it("does not fail the save when the duplicate scan fails", async () => {
+    runProposalScan.mockResolvedValue({ error: "Scan duplicati fallito: boom" });
     expect(await updateProposal("p1", null, proposalForm())).toBeNull();
   });
 

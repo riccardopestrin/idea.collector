@@ -17,6 +17,7 @@ Ogni voce ha un ID stabile nel formato `YYYY-MM-DD-XXXX` (data del flag + 4 char
 - [src/app/proposals/actions.ts](../../src/app/proposals/actions.ts) — `evaluateProposal`: stesso guard inline (getUser + getProfile role)
 - [src/app/auth/github/callback/route.ts](../../src/app/auth/github/callback/route.ts) — terza variante inline
 - [src/app/proposals/actions.ts](../../src/app/proposals/actions.ts) — `resolveCommentPromotion` e `revokeCommentPromotion` (branch `commentPromotion`, 2026-07-08): variante **proposer-or-admin** — un'estrazione di un semplice `requireAdmin` non coprirebbe questa forma; l'eventuale helper deve accettare anche la condizione di ownership
+- [src/app/proposals/actions.ts](../../src/app/proposals/actions.ts) — `runProposalScanAction` (branch `ideaChecker`, 2026-07-08): quarta istanza della variante proposer-or-admin (backstop DB: RPC `can_run_dup_scan`, migration 0017)
 
 ### Il problema potenziale
 La forma auth-resolve + role-check è ripetuta in 3+ punti: una futura modifica all'autorizzazione va applicata ovunque, e un punto dimenticato è un bug di sicurezza (mitigato dal backstop RLS/RPC a DB).
@@ -109,6 +110,7 @@ Validare lo schema (solo `http`/`https`) e applicare un allow/deny sull'host pri
 ### Cronologia
 - 2026-06-28 — Flaggato durante review Step 2 (form nuova proposta). Deferito: campo inerte finché non arriva la feature AI.
 - 2026-07-02 — Trigger 2 (render come `<a href>`) mitigato in `step4ideaPanels`: `ProposalPanel` linka solo `http/https`, il resto è testo inerte (+ test di regressione). Resta aperto il trigger 1 (fetch lato AI: SSRF/prompt injection).
+- 2026-07-08 — Superficie analoga in `ideaChecker` (RFC-006): il report dello scan duplicati (`dup_report`, prosa di Claude + URL delle fonti web) è reso da `ReportText` con la stessa mitigazione — linkifica solo `http/https`, il resto testo inerte (+ test di regressione). Lo scan NON fetcha i `links` della proposta: trigger 1 resta invariato.
 
 ## `2026-07-01-pgnl` `listProposals` senza limite/paginazione
 
@@ -263,7 +265,7 @@ Due fix candidati: compare-and-set senza migration (`.update({status: toStatus})
 
 ## `2026-07-01-alog` Errore Supabase non loggato in `createProposal`
 
-**Status:** non fissato — non si verifica nell'attuale use case.
+**Status:** ✅ risolto 2026-07-08 — branch `ideaChecker`: aggiunto `console.error("createProposal:", error)` prima del return generico (il refactor per il redirect al dettaglio, RFC-006, toccava la stessa riga).
 
 ### Dove
 - [src/app/proposals/new/actions.ts:40](../../src/app/proposals/new/actions.ts)
@@ -273,6 +275,54 @@ Il messaggio generico all'utente è giusto (niente leak), ma l'errore reale scom
 
 ### Cronologia
 - 2026-07-01 — Flaggato NICE-TO-HAVE durante review completa (`Bugfixes001`).
+
+## `2026-07-08-strd` Scan duplicati strandabile `in_corso` se la proposta esce da 'nuova' a metà scan
+
+**Status:** non fissato — non si verifica nell'attuale use case.
+
+### Dove
+- [src/lib/ai/runProposalScan.ts](../../src/lib/ai/runProposalScan.ts) — catch: l'errore di `fail_dup_scan` è solo loggato
+- `supabase/migrations/0017_duplicate_scan.sql` — `can_run_dup_scan` richiede `status = 'nuova'` per i non-admin
+
+### Il problema potenziale
+Mentre uno scan lanciato dal proposer è in volo, un altro membro può spostare la proposta (non flaggata) fuori da 'nuova'. A quel punto `apply_dup_scan`/`fail_dup_scan` falliscono l'autorizzazione per il proposer e `dup_scan_status` resta `in_corso` per sempre; fuori da 'nuova' il pannello non mostra il Rilancia (`canScan` è false) e `runProposalScan` è comunque no-op.
+
+### Perché oggi non è un problema
+Race a bassissima probabilità (finestra di secondi, team piccolo) e con recovery in-app: si riporta la proposta in 'nuova' (le mosse sono libere) e si usa "Rilancia scansione" con force — pattern degli scan orfani (0011). L'errore è loggato (`runProposalScan fail_dup_scan:`).
+
+### Quando diventa un problema
+1. Se il volume di proposte/membri rende la race frequente.
+2. Se il rientro in 'nuova' viene mai vincolato (il recovery path sparirebbe).
+
+### Cosa fare se devi toccare quest'area
+Allargare l'autorizzazione di `fail_dup_scan` a proposer-or-admin senza la condizione di stato (scrive solo un marker di fallimento) — nuova migration, owner-locked.
+
+### Cronologia
+- 2026-07-08 — Flaggato durante review chain di `ideaChecker` (finding [6]; il Review Reviewer ha corretto il recovery path: move back + Rilancia, non il Rilancia diretto).
+
+## `2026-07-08-scnl` Tetto di latenza dello scan duplicati nella Server Action
+
+**Status:** non fissato — non si verifica nell'attuale use case.
+
+### Dove
+- [src/lib/ai/runProposalScan.ts](../../src/lib/ai/runProposalScan.ts) — `Promise.all(judge locale 60s, ricerca web 120s × fino a 3 chiamate)`
+- [src/lib/ai/scanProposal.ts](../../src/lib/ai/scanProposal.ts) — `MAX_CONTINUATIONS = 2`, `max_uses: 3`, retry SDK ×2 su 429/5xx
+- [src/app/proposals/[id]/actions.ts](../../src/app/proposals/[id]/actions.ts) — `updateProposal` in 'nuova' attende l'intero re-scan nel round-trip del save
+
+### Il problema potenziale
+Il tetto teorico (timeout × continuazioni × retry) supera il `maxDuration` tipico delle piattaforme serverless: una function uccisa a metà lascia lo scan `in_corso` (recuperabile col Rilancia force, pattern 0011) e il save di un edit in 'nuova' può restare bloccato minuti. NON convertire il re-scan in fire-and-forget dentro la Server Action: il lavoro non atteso viene congelato/killato dopo la risposta su serverless e CAUSEREBBE lo stranding (vedi `2026-07-08-strd`), non lo eviterebbe.
+
+### Perché oggi non è un problema
+Nessun deploy in produzione; in locale non c'è `maxDuration`. Il caso realistico (1–2 ricerche web) chiude in decine di secondi; `MAX_CONTINUATIONS` è già stato abbassato a 2 in review.
+
+### Quando diventa un problema
+1. Al primo deploy su piattaforma serverless: verificare `maxDuration` della route rispetto al tetto realistico dello scan.
+
+### Cosa fare se devi toccare quest'area
+Impostare `maxDuration` adeguato sulla route (o un deadline complessivo ~90s che rotta su `fail_dup_scan`); solo se il blocco del save diventa un problema reale, spostare lo scan su un canale che sopravvive alla risposta (queue/cron), non un fire-and-forget in-action.
+
+### Cronologia
+- 2026-07-08 — Flaggato durante review chain di `ideaChecker` (finding [7]). Downgrade a NICE-TO-HAVE: nessun deploy, tetto realistico contenuto.
 
 ---
 

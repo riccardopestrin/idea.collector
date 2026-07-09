@@ -23,11 +23,17 @@ export async function createProposal(
   const parsed = parseProposalFields(formData);
   if ("error" in parsed) return { error: parsed.error };
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("proposals")
-    .insert({ ...parsed.fields, proposer_id: user.id });
-  if (error) return { error: "Errore nel salvataggio. Riprova." };
+    .insert({ ...parsed.fields, proposer_id: user.id })
+    .select("id")
+    .single();
+  if (error || !data) {
+    console.error("createProposal:", error);
+    return { error: "Errore nel salvataggio. Riprova." };
+  }
 
   revalidatePath("/"); // altrimenti la board mostra la cache senza la nuova proposta
-  redirect("/");
+  // RFC-006: si atterra sul dettaglio, dove ProposalScanTrigger avvia lo scan.
+  redirect(`/proposals/${data.id}`);
 }

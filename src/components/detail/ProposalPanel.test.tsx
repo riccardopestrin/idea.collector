@@ -6,10 +6,14 @@ import type { ProposalDetail } from "@/lib/proposals";
 import { ProposalPanel } from "./ProposalPanel";
 
 // Le server action sono irrilevanti qui: i flussi sono testati via action test.
+// runProposalScanAction è mockata anche per il trigger on-view (RFC-006).
+const runProposalScanAction = vi.fn();
 vi.mock("@/app/proposals/actions", () => ({
   addComment: vi.fn(),
   editComment: vi.fn(),
   deleteComment: vi.fn(),
+  evaluateProposal: vi.fn(),
+  runProposalScanAction: (...args: unknown[]) => runProposalScanAction(...args),
 }));
 
 const base: ProposalDetail = {
@@ -25,6 +29,12 @@ const base: ProposalDetail = {
   ai_rationale: null,
   ai_eval_status: "assente",
   ai_eval_error: null,
+  dup_scan_status: "assente",
+  dup_scan_error: null,
+  dup_flagged: false,
+  dup_similarity: null,
+  dup_report: null,
+  dup_match: null,
   links: ["https://example.com/spec"],
   internal_notes: null,
   created_at: "2026-07-01T10:00:00Z",
@@ -270,5 +280,109 @@ describe("ProposalPanel", () => {
   it("hides the vote form from an accepted contributor (now a co-author)", () => {
     render(<ProposalPanel detail={withPromotion("accepted")} currentUserId="u2" />);
     expect(screen.queryByRole("button", { name: "Invia voto" })).not.toBeInTheDocument();
+  });
+
+  // --- scan anti-duplicato + competitor (RFC-006) ---
+
+  const inNuova = { ...base, status: "nuova" as const };
+
+  it("auto-triggers the duplicate scan on view for the proposer, not for a stranger", () => {
+    const { unmount } = render(<ProposalPanel detail={inNuova} currentUserId="u1" />);
+    expect(runProposalScanAction).toHaveBeenCalledWith("p1");
+    unmount();
+
+    runProposalScanAction.mockClear();
+    render(<ProposalPanel detail={inNuova} currentUserId="u3" />);
+    expect(runProposalScanAction).not.toHaveBeenCalled();
+    // per chi non può lanciare lo scan nulla sta girando: niente "in corso"
+    expect(
+      screen.queryByText(/Scansione delle idee simili in corso/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not re-trigger the scan once it already ran", () => {
+    render(
+      <ProposalPanel
+        detail={{ ...inNuova, dup_scan_status: "completata" }}
+        currentUserId="u1"
+      />,
+    );
+    expect(runProposalScanAction).not.toHaveBeenCalled();
+  });
+
+  it("shows the duplicate warning with similarity, link to the matched idea and its author", () => {
+    render(
+      <ProposalPanel
+        detail={{
+          ...inNuova,
+          dup_scan_status: "completata",
+          dup_flagged: true,
+          dup_similarity: 91,
+          dup_match: {
+            id: "p0",
+            title: "Mappa offline",
+            proposer: { name: "Ada", email: "ada@test.local" },
+          },
+          dup_report: "Molto simile a «Mappa offline».",
+        }}
+        currentUserId="u1"
+      />,
+    );
+    expect(screen.getByText(/Possibile duplicato/)).toBeInTheDocument();
+    expect(screen.getByText(/91% simile/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "«Mappa offline»" })).toHaveAttribute(
+      "href",
+      "/proposals/p0",
+    );
+    expect(screen.getByText(/di Ada/)).toBeInTheDocument();
+    expect(screen.getByText(/Non può uscire da «Nuova»/)).toBeInTheDocument();
+    expect(screen.getByText("Molto simile a «Mappa offline».")).toBeInTheDocument();
+  });
+
+  it("linkifies only http(s) URLs inside the scan report", () => {
+    render(
+      <ProposalPanel
+        detail={{
+          ...inNuova,
+          dup_scan_status: "completata",
+          dup_report: "Fonte: https://trello.com/x e javascript:alert(1) restano.",
+        }}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "https://trello.com/x" })).toHaveAttribute(
+      "href",
+      "https://trello.com/x",
+    );
+    expect(screen.queryByRole("link", { name: /javascript/ })).not.toBeInTheDocument();
+  });
+
+  it("offers 'Rilancia scansione' on a failed scan to the proposer, not to a stranger", () => {
+    const failed = {
+      ...inNuova,
+      dup_scan_status: "fallita" as const,
+      dup_scan_error: "timeout",
+    };
+    const { rerender } = render(<ProposalPanel detail={failed} currentUserId="u1" />);
+    expect(screen.getByText(/Scansione fallita: timeout/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Rilancia scansione" })).toBeInTheDocument();
+
+    rerender(<ProposalPanel detail={failed} currentUserId="u3" />);
+    expect(
+      screen.queryByRole("button", { name: "Rilancia scansione" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the historical report visible after 'nuova' without the running cue", () => {
+    render(
+      <ProposalPanel
+        detail={{
+          ...base,
+          dup_scan_status: "completata",
+          dup_report: "Nessun riscontro simile trovato.",
+        }}
+      />,
+    );
+    expect(screen.getByText("Nessun riscontro simile trovato.")).toBeInTheDocument();
+    expect(screen.queryByText(/Scansione delle idee simili in corso/)).not.toBeInTheDocument();
   });
 });

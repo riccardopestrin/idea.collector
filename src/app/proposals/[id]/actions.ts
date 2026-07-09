@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 
 import { runEvaluation } from "@/lib/ai/runEvaluation";
+import { runProposalScan } from "@/lib/ai/runProposalScan";
 import { getProfile } from "@/lib/profiles";
 import { supabaseServer } from "@/lib/supabase/server";
 import { parseProposalFields } from "@/lib/validation/proposal";
@@ -58,13 +59,18 @@ export async function updateProposal(
 
   refresh();
 
-  // Re-eval solo se il testo è cambiato davvero: evita chiamate Claude inutili.
+  // Re-run AI solo se il testo è cambiato davvero: evita chiamate Claude inutili.
   const textChanged =
     fields.title !== proposal.title ||
     fields.description !== proposal.description ||
     fields.problem !== proposal.problem;
   if (proposal.status === "in_valutazione" && textChanged) {
     await runEvaluation(supabase, proposalId, true);
+  }
+  // RFC-006: in 'nuova' un edit ricalcola la similarità — se scende sotto
+  // soglia la proposta si sblocca. Non bloccante: l'esito arriva via cue.
+  if (proposal.status === "nuova" && textChanged) {
+    await runProposalScan(supabase, proposalId, true);
   }
 
   return null;

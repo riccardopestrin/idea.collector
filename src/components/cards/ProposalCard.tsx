@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { EvalStatusCue } from "@/components/evaluation/EvalStatusCue";
-import { RetryEvaluationButton } from "@/components/evaluation/RetryEvaluationButton";
+import { RetryButton } from "@/components/evaluation/RetryButton";
 import { STATUS_LABELS } from "@/lib/board";
 import {
   computeCompositeScore,
@@ -58,6 +58,12 @@ export function ProposalCard({
         {/* co-autori: proposer + autori dei contributi accettati (migration 0016) */}
         di {[proposal.proposer, ...proposal.contributors].map(personLabel).join(", ")}
         <EvalStatusCue status={proposal.ai_eval_status} />
+        {/* RFC-006: bloccata in 'nuova' finché non differenziata o rifiutata */}
+        {proposal.dup_flagged && (
+          <span className="rounded-full border border-danger/40 px-2 py-0.5 font-medium text-danger">
+            possibile duplicato
+          </span>
+        )}
         {showStatus && (
           <span className="rounded-full border border-border px-2 py-0.5 font-medium text-foreground/70">
             {STATUS_LABELS[proposal.status]}
@@ -74,7 +80,7 @@ export function ProposalCard({
       </span>
       {/* anche su in_corso: recupera valutazioni orfane di un crash (0011) */}
       {(proposal.ai_eval_status === "fallita" || proposal.ai_eval_status === "in_corso") &&
-        canRetryEval && <RetryEvaluationButton proposalId={proposal.id} />}
+        canRetryEval && <RetryButton proposalId={proposal.id} />}
     </div>
   );
 }

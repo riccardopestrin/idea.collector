@@ -1,8 +1,11 @@
+import Link from "next/link";
+
 import { ProposalDiscussion } from "@/components/detail/ProposalDiscussion";
+import { ProposalScanTrigger } from "@/components/detail/ProposalScanTrigger";
 import { RiceVoteForm } from "@/components/detail/RiceVoteForm";
 import { SectionTitle } from "@/components/detail/SectionTitle";
 import { EvalStatusCue } from "@/components/evaluation/EvalStatusCue";
-import { RetryEvaluationButton } from "@/components/evaluation/RetryEvaluationButton";
+import { RetryButton } from "@/components/evaluation/RetryButton";
 import { STATUS_LABELS } from "@/lib/board";
 import {
   acceptedContributorIds,
@@ -34,6 +37,31 @@ function isHttpUrl(link: string): boolean {
   return /^https?:\/\//i.test(link);
 }
 
+// Il report dello scan (RFC-006) è prosa non fidata con URL delle fonti web:
+// si linkifica SOLO ciò che matcha http/https, il resto resta testo inerte.
+function ReportText({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s)]+)/g);
+  return (
+    <p className="whitespace-pre-wrap text-sm text-foreground/70">
+      {parts.map((part, i) =>
+        isHttpUrl(part) ? (
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="break-all text-foreground/80 underline underline-offset-2"
+          >
+            {part}
+          </a>
+        ) : (
+          part
+        ),
+      )}
+    </p>
+  );
+}
+
 // Pannello di dettaglio proposta: campi, punteggi se valutata, cronologia
 // stati, commenti a lato. Server Component condiviso dalla pagina piena e dal
 // modal; il layout a colonne, l'edit mode e i commenti ancorati vivono nel
@@ -54,6 +82,9 @@ export function ProposalPanel({
     .filter((c): c is { field: keyof VoteComponents; value: number } => c.value !== null);
   const isOpen = isOpenProposalStatus(detail.status);
   const canEdit = isOpen && (isAdmin === true || currentUserId === detail.proposer_id);
+  // scan duplicati (RFC-006): trigger/rilancio del proposer o admin, solo in 'nuova'
+  const canScan =
+    detail.status === "nuova" && (isAdmin === true || currentUserId === detail.proposer_id);
   // commenti promossi a contributo: parte dell'idea, resi sotto il body
   const contributions = detail.comments.filter((c) => c.promotion_status === "accepted");
   const contributorIds = acceptedContributorIds(detail.comments);
@@ -167,13 +198,13 @@ export function ProposalPanel({
             <p role="alert" className="text-sm text-danger">
               Valutazione AI fallita{detail.ai_eval_error ? `: ${detail.ai_eval_error}` : "."}
             </p>
-            {isAdmin && <RetryEvaluationButton proposalId={detail.id} />}
+            {isAdmin && <RetryButton proposalId={detail.id} />}
           </section>
         )}
         {detail.ai_eval_status === "in_corso" && isAdmin && (
           <section className="flex flex-col gap-2 rounded-lg border border-border p-3">
             <p className="text-sm text-foreground/70">Valutazione AI in corso…</p>
-            <RetryEvaluationButton proposalId={detail.id} />
+            <RetryButton proposalId={detail.id} />
           </section>
         )}
 
@@ -247,6 +278,68 @@ export function ProposalPanel({
             </ul>
           )}
         </details>
+
+        {/* Scan anti-duplicato + competitor (RFC-006) — in fondo al pannello.
+            canScan: il trigger/rilancio è del proposer o di un admin, e solo
+            in 'nuova' (fuori da 'nuova' il report resta ma è storico). */}
+        {(detail.status === "nuova" || detail.dup_scan_status !== "assente") && (
+          <section className="flex flex-col gap-2">
+            {canScan && detail.dup_scan_status === "assente" && (
+              <ProposalScanTrigger proposalId={detail.id} />
+            )}
+            <span className="flex items-center gap-2">
+              <SectionTitle>Scansione duplicati</SectionTitle>
+              <EvalStatusCue status={detail.dup_scan_status} />
+            </span>
+            {detail.dup_flagged && (
+              <div className="flex flex-col gap-1 rounded-lg border border-danger/40 p-3">
+                <p role="alert" className="text-sm text-danger">
+                  ⚠️ Possibile duplicato
+                  {detail.dup_similarity !== null && ` (${detail.dup_similarity}% simile`}
+                  {detail.dup_match && (
+                    <>
+                      {" "}
+                      a{" "}
+                      <Link
+                        href={`/proposals/${detail.dup_match.id}`}
+                        className="underline underline-offset-2"
+                      >
+                        «{detail.dup_match.title}»
+                      </Link>{" "}
+                      di {personLabel(detail.dup_match.proposer)}
+                    </>
+                  )}
+                  {detail.dup_similarity !== null && ")"}.
+                </p>
+                <p className="text-xs text-foreground/60">
+                  Non può uscire da «Nuova» finché non la modifichi per differenziarla,
+                  la sposti in Rifiutata o la elimini.
+                </p>
+              </div>
+            )}
+            {/* "in corso" anche su assente+canScan: il trigger qui sopra sta
+                partendo in questo stesso render. Per gli altri viewer con scan
+                'assente' niente messaggio: nulla sta girando. */}
+            {(detail.dup_scan_status === "in_corso" ||
+              (canScan && detail.dup_scan_status === "assente")) && (
+              <p className="text-sm text-foreground/60">
+                Scansione delle idee simili in corso…
+              </p>
+            )}
+            {detail.dup_report && <ReportText text={detail.dup_report} />}
+            {detail.dup_scan_status === "fallita" && (
+              <p role="alert" className="text-sm text-danger">
+                Scansione fallita{detail.dup_scan_error ? `: ${detail.dup_scan_error}` : "."}
+              </p>
+            )}
+            {/* Rilancia anche su in_corso: recupera scan orfani di un crash */}
+            {canScan &&
+              (detail.dup_scan_status === "fallita" ||
+                detail.dup_scan_status === "in_corso") && (
+                <RetryButton proposalId={detail.id} kind="scan" />
+              )}
+          </section>
+        )}
       </ProposalDiscussion>
     </article>
   );

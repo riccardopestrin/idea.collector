@@ -15,6 +15,8 @@ const proposal = (id: string, status: ProposalListItem["status"]): ProposalListI
   confidence: null,
   effort: null,
   ai_eval_status: "assente",
+  dup_scan_status: "assente",
+  dup_flagged: false,
   created_at: "2026-01-01",
   proposer_id: "u1",
   proposer: null,

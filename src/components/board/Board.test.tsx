@@ -7,12 +7,19 @@ import type { ProposalListItem } from "@/lib/proposals";
 
 import { Board } from "./Board";
 
-const { updateProposalStatus, deleteProposal, evaluateProposal } = vi.hoisted(() => ({
-  updateProposalStatus: vi.fn(async () => null),
-  deleteProposal: vi.fn(async () => null),
-  evaluateProposal: vi.fn(async () => null),
+const { updateProposalStatus, deleteProposal, evaluateProposal, runProposalScanAction } =
+  vi.hoisted(() => ({
+    updateProposalStatus: vi.fn(async () => null),
+    deleteProposal: vi.fn(async () => null),
+    evaluateProposal: vi.fn(async () => null),
+    runProposalScanAction: vi.fn(async () => null),
+  }));
+vi.mock("@/app/proposals/actions", () => ({
+  updateProposalStatus,
+  deleteProposal,
+  evaluateProposal,
+  runProposalScanAction,
 }));
-vi.mock("@/app/proposals/actions", () => ({ updateProposalStatus, deleteProposal, evaluateProposal }));
 
 const proposal = (
   id: string,
@@ -29,6 +36,8 @@ const proposal = (
   confidence: null,
   effort: null,
   ai_eval_status: "assente",
+  dup_scan_status: "assente",
+  dup_flagged: false,
   created_at: "2026-01-01",
   proposer_id: proposerId,
   proposer: null,

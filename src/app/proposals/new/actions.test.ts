@@ -2,11 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createProposal } from "./actions";
 
-const { getUser, insert, from, redirect, revalidatePath } = vi.hoisted(() => {
-  const insert = vi.fn();
+const { getUser, insert, single, from, redirect, revalidatePath } = vi.hoisted(() => {
+  const single = vi.fn();
+  // l'insert ritorna l'id della nuova proposta per il redirect al dettaglio
+  const insert = vi.fn(() => ({ select: vi.fn(() => ({ single })) }));
   return {
     getUser: vi.fn(),
     insert,
+    single,
     from: vi.fn(() => ({ insert })),
     redirect: vi.fn(),
     revalidatePath: vi.fn(),
@@ -28,7 +31,8 @@ const formOf = (entries: Record<string, string>) => {
 describe("createProposal", () => {
   beforeEach(() => {
     getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } } });
-    insert.mockReset().mockResolvedValue({ error: null });
+    insert.mockClear();
+    single.mockReset().mockResolvedValue({ data: { id: "p9" }, error: null });
     redirect.mockReset();
     revalidatePath.mockReset();
   });
@@ -59,7 +63,17 @@ describe("createProposal", () => {
       proposer_id: "u1",
     });
     expect(revalidatePath).toHaveBeenCalledWith("/");
-    expect(redirect).toHaveBeenCalledWith("/");
+    // RFC-006: si atterra sul dettaglio, dove parte lo scan duplicati
+    expect(redirect).toHaveBeenCalledWith("/proposals/p9");
+  });
+
+  it("returns a generic error when the insert fails", async () => {
+    single.mockResolvedValue({ data: null, error: { message: "boom" } });
+
+    const result = await createProposal(null, formOf({ title: "X" }));
+
+    expect(result).toEqual({ error: "Errore nel salvataggio. Riprova." });
+    expect(redirect).not.toHaveBeenCalled();
   });
 
   it("refuses to write when there is no authenticated user", async () => {

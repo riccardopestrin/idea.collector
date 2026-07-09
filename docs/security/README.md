@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-08
+**Last updated:** 2026-07-09
 
 # Security Review
 
@@ -47,13 +47,13 @@ _SEC-2 e SEC-3 (RLS su `profiles`/`proposals`) risolte il 2026-07-01 da `0003_lo
 
 ### SEC-6 — `ai_eval_error` grezzo esposto a tutti gli autenticati (LOW)
 
-**Where:** `supabase/migrations/0010_ai_evaluation.sql` (`fail_ai_evaluation` salva `p_error` verbatim, troncato a 500), [`src/app/proposals/actions.ts`](../../src/app/proposals/actions.ts) (`evaluateProposal` passa `err.message` grezzo), [`src/components/detail/ProposalPanel.tsx`](../../src/components/detail/ProposalPanel.tsx) (render a ogni utente autenticato).
+**Where:** `supabase/migrations/0010_ai_evaluation.sql` (`fail_ai_evaluation` salva `p_error` verbatim, troncato a 500), [`src/app/proposals/actions.ts`](../../src/app/proposals/actions.ts) (`evaluateProposal` passa `err.message` grezzo), [`src/components/detail/ProposalPanel.tsx`](../../src/components/detail/ProposalPanel.tsx) (render a ogni utente autenticato). Stesso pattern replicato dallo scan duplicati (RFC-006): `supabase/migrations/0017_duplicate_scan.sql` (`fail_dup_scan`, `left(..., 500)`), [`src/lib/ai/runProposalScan.ts`](../../src/lib/ai/runProposalScan.ts) (passa `err.message` grezzo), `ProposalPanel` (render di `dup_scan_error` su stato `fallita`).
 
-**Issue:** Il messaggio d'errore della valutazione AI (errori Anthropic SDK, status GitHub API, messaggi PostgREST, hint di configurazione tipo "manca la repo nel profilo") viene persistito in `proposals.ai_eval_error` e mostrato nel pannello a chiunque, contributor inclusi — non solo agli admin che possono agire sul retry.
+**Issue:** Il messaggio d'errore della valutazione AI (errori Anthropic SDK, status GitHub API, messaggi PostgREST, hint di configurazione tipo "manca la repo nel profilo") viene persistito in `proposals.ai_eval_error` e mostrato nel pannello a chiunque, contributor inclusi — non solo agli admin che possono agire sul retry. Dal branch `ideaChecker` lo stesso vale per `proposals.dup_scan_error` (errori Anthropic/web_search/PostgREST dello scan duplicati), reso a ogni viewer autenticato mentre il retry è del solo proposer/admin.
 
 **Impact:** Low. Tool interno, utenti fidati; il contenuto è JSX-escaped (no XSS) e troncato a 500 char. Il rischio residuo è disclosure di dettagli interni (endpoint, request-id, stato config) a ruoli che non ne hanno bisogno.
 
-**Fix when touched:** In `evaluateProposal`, mappare gli errori a categorie stabili user-safe (es. "errore GitHub", "errore modello", "configurazione mancante") prima di chiamare `fail_ai_evaluation`, e/o mostrare `ai_eval_error` nel pannello solo quando `isAdmin`.
+**Fix when touched:** In `evaluateProposal`, mappare gli errori a categorie stabili user-safe (es. "errore GitHub", "errore modello", "configurazione mancante") prima di chiamare `fail_ai_evaluation`, e/o mostrare `ai_eval_error` nel pannello solo quando `isAdmin`. Stesso trattamento per `runProposalScan`/`fail_dup_scan` e per il render di `dup_scan_error` (mostrarlo solo a `canScan`).
 
 ### SEC-7 — Voter email exposed via `rice_votes` voter embed (LOW)
 
@@ -74,6 +74,16 @@ _SEC-2 e SEC-3 (RLS su `profiles`/`proposals`) risolte il 2026-07-01 da `0003_lo
 **Impact:** Low. Tool interno invite-only; l'allargamento della superficie è una scelta deliberata documentata negli header di 0013/0016 (l'alternativa scartata — allargare a qualsiasi commentatore — è stata correttamente evitata). Il danno possibile è solo l'integrità della prioritizzazione (score/rationale falsificati o fuori scala), nessuna escalation né disclosure; la rationale è resa JSX-escaped.
 
 **Fix when touched:** Spostare il backstop a DB: in `apply_ai_evaluation` rifiutare (o clampare) fattori fuori da 1–10 e applicare `left(p_rationale, 2000)`, oppure aggiungere `CHECK` sulle colonne score. Stessa classe del gap già registrato per `rice_votes` in [`be-careful.md`](be-careful.md) (`2026-07-05-58f8`) — conviene sanare entrambi nello stesso intervento.
+
+### SEC-9 — Bypass del blocco anti-duplicato via `apply_dup_scan` diretta (LOW)
+
+**Where:** `supabase/migrations/0017_duplicate_scan.sql` (`apply_dup_scan` — grant a `authenticated`, gate `can_run_dup_scan`; `p_report text` senza cap di lunghezza DB-side), [`src/lib/ai/scanProposal.ts`](../../src/lib/ai/scanProposal.ts) (`buildScanReport` — cap 8000 char solo in TS), [`src/components/detail/ProposalPanel.tsx`](../../src/components/detail/ProposalPanel.tsx) (`ReportText` linkifica gli URL http/https del report).
+
+**Issue:** `can_run_dup_scan` autorizza l'admin oppure il proposer con proposta in `nuova` — cioè esattamente l'attore che il blocco anti-duplicato (RFC-006) vuole contenere. Quel proposer può chiamare `apply_dup_scan` direttamente via PostgREST con l'anon key e la propria sessione e: (a) **auto-sbloccarsi** scrivendo `p_flagged=false` senza alcuno scan reale — il gate in `move_proposal` e il guard in `updateProposalStatus` leggono solo `dup_flagged`, quindi la proposta flaggata avanza; (b) **forgiare** `p_match`/`p_similarity`/`p_report` spacciandoli per esito di Claude (il match deve esistere per FK e la similarity ha `CHECK 0–100`, ma il report è testo libero senza limite DB-side — il cap 8000 vive solo in `buildScanReport`), e gli URL http/https di un report forgiato diventano link cliccabili in `ReportText`. Stessa classe di SEC-8 (validazione solo in TS dietro RPC granted ad `authenticated`). La prompt injection via idee candidate (testo libero degli altri membri dentro `<candidate>`) è la via più debole nella direzione opposta — far flaggare la proposta di un collega — già mitigata da framing untrusted nel system prompt, validazione di `matchId` contro l'insieme reale dei candidati e clamp 0–100.
+
+**Impact:** Low. Tool interno invite-only; il danno è l'integrità del workflow (il controllo anti-duplicato è aggirabile dal suo stesso destinatario, e uno sblocco legittimo resta comunque possibile via edit+re-scan o admin) più, in seconda battuta, un report contraffatto con link di phishing "firmato Claude" (render JSX-escaped, solo http/https, `noopener noreferrer`). Nessuna escalation né disclosure.
+
+**Fix when touched:** Spostare il backstop a DB in `apply_dup_scan`: `left(p_report, 8000)` e derivare/validare il flag rispetto alla similarità DB-side (es. rifiutare `p_flagged` incoerente con `p_similarity` e la soglia 85), accettando che il forging della similarity stessa resti nella classe SEC-8 — da sanare nello stesso intervento sul pattern RPC eval/scan (range check + clamp DB-side per entrambe le famiglie).
 
 ### SEC-4 — Vulnerable transitive `postcss` via `next` (LOW)
 

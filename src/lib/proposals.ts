@@ -38,6 +38,9 @@ export type ProposalListItem = VoteComponents & {
   description: string | null;
   status: ProposalStatus;
   ai_eval_status: AiEvalStatus;
+  // scan anti-duplicato (RFC-006): flag = bloccata in 'nuova'
+  dup_scan_status: AiEvalStatus;
+  dup_flagged: boolean;
   created_at: string;
   proposer_id: string;
   proposer: { name: string | null; email: string } | null;
@@ -65,6 +68,14 @@ export type ProposalDetail = VoteComponents & {
   ai_eval_status: AiEvalStatus;
   ai_eval_error: string | null;
   ai_rationale: string | null;
+  // scan anti-duplicato + competitor (RFC-006). dup_match è l'idea locale più
+  // simile (embed: link e autore resi dai dati, mai dal testo di Claude).
+  dup_scan_status: AiEvalStatus;
+  dup_scan_error: string | null;
+  dup_flagged: boolean;
+  dup_similarity: number | null;
+  dup_report: string | null;
+  dup_match: { id: string; title: string; proposer: PersonRef } | null;
   links: string[];
   internal_notes: string | null;
   created_at: string;
@@ -204,7 +215,8 @@ export async function listProposals(
   let query = supabase
     .from("proposals")
     .select(
-      `id, title, description, status, ai_eval_status, reach, impact,
+      `id, title, description, status, ai_eval_status, dup_scan_status,
+       dup_flagged, reach, impact,
        confidence, effort, created_at, proposer_id, proposer:profiles(name, email),
        votes:rice_votes(voter_id, reach, impact, confidence, effort),
        contributors:comments(author_id, promotion_status, created_at,
@@ -264,9 +276,11 @@ export async function getProposalDetail(
     .from("proposals")
     .select(
       `id, title, description, problem, status, reach, impact, confidence,
-       effort, ai_rationale, ai_eval_status, ai_eval_error, links, internal_notes,
+       effort, ai_rationale, ai_eval_status, ai_eval_error, dup_scan_status,
+       dup_scan_error, dup_flagged, dup_similarity, dup_report, links, internal_notes,
        created_at, proposer_id,
        proposer:profiles(name, email),
+       dup_match:proposals!dup_match_id(id, title, proposer:profiles(name, email)),
        status_history(id, from_status, to_status, created_at, author:profiles(name, email)),
        comments(id, body, created_at, author_id, promotion_status, anchor_field,
                 anchor_text, anchor_occurrence, author:profiles(name, email)),

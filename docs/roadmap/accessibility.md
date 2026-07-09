@@ -182,6 +182,26 @@ Proposer/admin che usano screen reader non possono distinguere in modo affidabil
 #### Cronologia
 - 2026-07-08 — Flaggato durante review chain di `commentPromotion` (Software Reviewer [5], confermato da Review Reviewer).
 
+### [A11Y-10] `EvalStatusCue` annuncia "Valutazione AI" anche accanto a "Scansione duplicati"
+
+**Status:** non fissato — flaggato il 2026-07-08 durante review della PR `ideaChecker`.
+
+#### Dove
+- `src/components/evaluation/EvalStatusCue.tsx:11,20` — `aria-label` hardcoded "Valutazione AI in corso/completata/fallita"
+- `src/components/detail/ProposalPanel.tsx` — il cue è riusato accanto al titolo "Scansione duplicati" (RFC-006)
+
+#### Cosa c'è di sbagliato
+Il cue di stato (rotella/pallino) espone etichette accessibili fisse sulla valutazione AI, ma nella sezione dello scan duplicati descrive lo stato dello scan: uno screen reader annuncia la feature sbagliata.
+
+#### Impatto user-visible
+Utenti screen reader sentono "Valutazione AI in corso" mentre visivamente il contesto è la scansione duplicati — informazione fuorviante ma solo di lettura (nessun percorso decisionale bloccato). Severità bassa.
+
+#### Fix raccomandato
+Prop opzionale su `EvalStatusCue` per la label (es. `kind: "eval" | "scan"` o `labelPrefix`), passata dal call site dello scan in `ProposalPanel` ("Scansione duplicati in corso/completata/fallita").
+
+#### Cronologia
+- 2026-07-08 — Flaggato durante review chain di `ideaChecker` (Software Reviewer, confermato da Review Reviewer).
+
 ## Issue risolti
 
 _Nessuna issue risolta._

@@ -1,5 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 
+import { AI_MODEL, completedText } from "@/lib/ai/anthropic";
+
 // Service di valutazione (ADR-0003/0006): costruisce il prompt, chiama Claude con
 // structured outputs, valida/clampa il JSON. Riceve client e digest già pronti —
 // nessun secret letto qui.
@@ -114,7 +116,7 @@ export async function evaluateWithClaude(
 
   const response = await client.messages.create(
     {
-      model: "claude-opus-4-8",
+      model: AI_MODEL,
       // il thinking adattivo conta dentro max_tokens: serve margine oltre al JSON
       max_tokens: 16_000,
       thinking: { type: "adaptive" },
@@ -137,13 +139,7 @@ export async function evaluateWithClaude(
     { timeout: 30_000 },
   );
 
-  if (response.stop_reason === "refusal") {
-    throw new Error("il modello ha rifiutato la valutazione");
-  }
-  if (response.stop_reason === "max_tokens") {
-    throw new Error("risposta del modello troncata (max_tokens): riprova");
-  }
-  const text = response.content.find((block) => block.type === "text")?.text;
-  if (!text) throw new Error("risposta del modello senza contenuto");
-  return validateScores(JSON.parse(text) as RiceScores);
+  return validateScores(
+    JSON.parse(completedText(response, "la valutazione")) as RiceScores,
+  );
 }
