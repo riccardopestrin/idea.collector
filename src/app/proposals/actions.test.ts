@@ -516,27 +516,33 @@ describe("updateProposalStatus", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("rejects a transition the state machine forbids without touching the database", async () => {
+    const result = await updateProposalStatus("p1", "nuova", "approvata");
+    expect(result).toEqual({ error: "Spostamento non consentito." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("refuses to write when there is no authenticated user", async () => {
     getUser.mockResolvedValue({ data: { user: null } });
-    const result = await updateProposalStatus("p1", "nuova", "approvata");
+    const result = await updateProposalStatus("p1", "nuova", "in_valutazione");
     expect(result).toEqual({ error: "Sessione scaduta. Rientra e riprova." });
     expect(rpc).not.toHaveBeenCalled();
   });
 
   it("moves via the move_proposal RPC as any authenticated member", async () => {
-    const result = await updateProposalStatus("p1", "nuova", "approvata");
+    const result = await updateProposalStatus("p1", "nuova", "in_valutazione");
     expect(result).toBeNull();
     expect(rpc).toHaveBeenCalledWith("move_proposal", {
       p_id: "p1",
       p_from: "nuova",
-      p_to: "approvata",
+      p_to: "in_valutazione",
     });
     expect(refresh).toHaveBeenCalled();
   });
 
   it("reports a concurrent move when the compare-and-set finds no row", async () => {
     rpc.mockResolvedValue({ data: false, error: null });
-    const result = await updateProposalStatus("p1", "nuova", "approvata");
+    const result = await updateProposalStatus("p1", "nuova", "in_valutazione");
     expect(result).toEqual({
       error: "La proposta è stata spostata da qualcun altro. Ricarica la pagina.",
     });
@@ -546,7 +552,7 @@ describe("updateProposalStatus", () => {
   it("returns a generic error when the RPC fails", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const result = await updateProposalStatus("p1", "nuova", "approvata");
+    const result = await updateProposalStatus("p1", "nuova", "in_valutazione");
     expect(result).toEqual({ error: "Errore nel salvataggio. Riprova." });
     expect(refresh).not.toHaveBeenCalled();
   });
@@ -572,21 +578,14 @@ describe("updateProposalStatus", () => {
     });
   });
 
-  it("blocks a flagged proposal from any source status (no rifiutata round-trip)", async () => {
+  it("blocks a flagged proposal from a non-nuova source too (gate on flag, not path)", async () => {
     tables.proposals.row = { ...tables.proposals.row, dup_flagged: true };
-    const result = await updateProposalStatus("p1", "rifiutata", "in_valutazione");
+    const result = await updateProposalStatus("p1", "in_valutazione", "approvata");
     expect(result).toEqual({
       error:
         "Possibile duplicato: modifica l'idea per differenziarla, oppure spostala in Rifiutata o eliminala.",
     });
     expect(rpc).not.toHaveBeenCalled();
-  });
-
-  it("still lets a flagged proposal move back to 'nuova' (unblock path)", async () => {
-    tables.proposals.row = { ...tables.proposals.row, dup_flagged: true };
-    const result = await updateProposalStatus("p1", "rifiutata", "nuova");
-    expect(result).toBeNull();
-    expect(rpc).toHaveBeenCalled();
   });
 });
 

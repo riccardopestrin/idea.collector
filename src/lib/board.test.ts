@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ProposalListItem } from "@/lib/proposals";
 
-import { BOARD_COLUMNS, groupByStatus, STATUS_LABELS } from "./board";
+import { ALLOWED_TRANSITIONS, BOARD_COLUMNS, canMoveTo, groupByStatus, STATUS_LABELS } from "./board";
 
 const proposal = (id: string, status: ProposalListItem["status"]): ProposalListItem => ({
   id,
@@ -52,5 +52,46 @@ describe("STATUS_LABELS", () => {
       expect(STATUS_LABELS[status]).toBeTruthy();
       expect(STATUS_LABELS[status]).not.toBe(status);
     }
+  });
+});
+
+describe("canMoveTo", () => {
+  it("allows exactly the transitions the state machine declares", () => {
+    for (const from of BOARD_COLUMNS) {
+      for (const to of BOARD_COLUMNS) {
+        expect(canMoveTo(from, to)).toBe(ALLOWED_TRANSITIONS[from].includes(to));
+      }
+    }
+  });
+
+  it("allows the forward flow steps", () => {
+    expect(canMoveTo("nuova", "in_valutazione")).toBe(true);
+    expect(canMoveTo("in_valutazione", "approvata")).toBe(true);
+    expect(canMoveTo("approvata", "in_sviluppo")).toBe(true);
+    expect(canMoveTo("in_sviluppo", "rilasciata")).toBe(true);
+  });
+
+  it("lets every non-rejected state move to rifiutata", () => {
+    for (const from of BOARD_COLUMNS) {
+      if (from === "rifiutata") continue;
+      expect(canMoveTo(from, "rifiutata")).toBe(true);
+    }
+  });
+
+  it("makes rifiutata terminal — no transition leaves it (only DELETE)", () => {
+    for (const to of BOARD_COLUMNS) expect(canMoveTo("rifiutata", to)).toBe(false);
+  });
+
+  it("forbids skipping forward and jumping into nuova", () => {
+    expect(canMoveTo("nuova", "approvata")).toBe(false);
+    expect(canMoveTo("nuova", "in_sviluppo")).toBe(false);
+    expect(canMoveTo("in_valutazione", "in_sviluppo")).toBe(false);
+    expect(canMoveTo("archiviata", "nuova")).toBe(false);
+  });
+
+  it("lets archiviata re-enter the active flow", () => {
+    expect(canMoveTo("archiviata", "in_valutazione")).toBe(true);
+    expect(canMoveTo("archiviata", "approvata")).toBe(true);
+    expect(canMoveTo("archiviata", "in_sviluppo")).toBe(true);
   });
 });

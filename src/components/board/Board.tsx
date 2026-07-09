@@ -3,6 +3,7 @@
 import {
   DndContext,
   type DragEndEvent,
+  type DragStartEvent,
   KeyboardSensor,
   PointerSensor,
   useDraggable,
@@ -13,10 +14,10 @@ import {
 import { type ReactNode, useOptimistic, useState, useTransition } from "react";
 
 import { deleteProposal, evaluateProposal, updateProposalStatus } from "@/app/proposals/actions";
-import { Column } from "@/components/board/Column";
+import { Column, type DropHint } from "@/components/board/Column";
 import { DeleteProposalDialog } from "@/components/board/DeleteProposalDialog";
 import { ProposalCard } from "@/components/cards/ProposalCard";
-import { BOARD_COLUMNS, groupByStatus, STATUS_LABELS } from "@/lib/board";
+import { BOARD_COLUMNS, canMoveTo, groupByStatus, STATUS_LABELS } from "@/lib/board";
 import type { ProposalListItem, ProposalStatus } from "@/lib/proposals";
 import { BOARD_GAP } from "@/lib/tokens";
 
@@ -39,6 +40,8 @@ export function Board({
   );
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ProposalListItem | null>(null);
+  // stato della card trascinata: pilota lo spunta/divieto sulle colonne
+  const [draggedStatus, setDraggedStatus] = useState<ProposalStatus | null>(null);
   const [isPending, startTransition] = useTransition();
   const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor));
 
@@ -63,11 +66,20 @@ export function Board({
     });
   }
 
+  function handleDragStart({ active }: DragStartEvent) {
+    const proposal = optimisticProposals.find((p) => p.id === String(active.id));
+    setDraggedStatus(proposal?.status ?? null);
+  }
+
   function handleDragEnd({ active, over }: DragEndEvent) {
+    setDraggedStatus(null);
     if (!over) return;
     const toStatus = over.id as ProposalStatus;
     const proposal = optimisticProposals.find((p) => p.id === String(active.id));
-    if (!proposal || proposal.status === toStatus) return;
+    // drop su una colonna non consentita: la card torna indietro, nessun errore
+    if (!proposal || proposal.status === toStatus || !canMoveTo(proposal.status, toStatus)) {
+      return;
+    }
     move(proposal, toStatus);
   }
 
@@ -90,10 +102,21 @@ export function Board({
         </p>
       )}
       {/* id stabile: senza, il contatore interno di dnd-kit diverge tra SSR e client (hydration mismatch) */}
-      <DndContext id="board" sensors={sensors} onDragEnd={handleDragEnd}>
+      <DndContext
+        id="board"
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setDraggedStatus(null)}
+      >
         <div className={`flex flex-1 ${BOARD_GAP} overflow-x-auto pb-4`}>
           {BOARD_COLUMNS.map((status) => (
-            <DroppableColumn key={status} status={status} count={groups[status].length}>
+            <DroppableColumn
+              key={status}
+              status={status}
+              count={groups[status].length}
+              dropHint={columnDropHint(draggedStatus, status)}
+            >
               {groups[status].map((proposal) => (
                 <DraggableCard
                   key={proposal.id}
@@ -126,19 +149,34 @@ export function Board({
   );
 }
 
+// Spunta/divieto per una colonna durante il drag: null quando non si trascina o
+// sulla colonna d'origine, "valid" se la transizione è consentita, altrimenti "invalid".
+function columnDropHint(dragged: ProposalStatus | null, column: ProposalStatus): DropHint {
+  if (dragged === null || dragged === column) return null;
+  return canMoveTo(dragged, column) ? "valid" : "invalid";
+}
+
 // Wrapper che lega il droppable di @dnd-kit alla Column presentazionale.
 function DroppableColumn({
   status,
   count,
+  dropHint,
   children,
 }: {
   status: ProposalStatus;
   count: number;
+  dropHint: DropHint;
   children: ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
-    <Column ref={setNodeRef} title={STATUS_LABELS[status]} count={count} isOver={isOver}>
+    <Column
+      ref={setNodeRef}
+      title={STATUS_LABELS[status]}
+      count={count}
+      isOver={isOver}
+      dropHint={dropHint}
+    >
       {children}
     </Column>
   );

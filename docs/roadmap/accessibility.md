@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-08
+**Last updated:** 2026-07-09
 
 # Accessibility
 
@@ -201,6 +201,26 @@ Prop opzionale su `EvalStatusCue` per la label (es. `kind: "eval" | "scan"` o `l
 
 #### Cronologia
 - 2026-07-08 — Flaggato durante review chain di `ideaChecker` (Software Reviewer, confermato da Review Reviewer).
+
+### [A11Y-11] Feedback spunta/divieto del drag solo visivo (colore + icone `aria-hidden`)
+
+**Status:** non fissato — flaggato il 2026-07-09 durante review della PR `cardDirections`.
+
+#### Dove
+- `src/components/board/Column.tsx` — ring verde/rosso + `CheckIcon`/`NoEntryIcon`, entrambe `aria-hidden="true"`, nessun testo alternativo
+- `src/components/board/Board.tsx` — `columnDropHint` calcola valido/invalido; `DndContext` senza `announcements`, nessuna regione `aria-live`; drop invalido torna indietro in silenzio (`handleDragEnd`)
+
+#### Cosa c'è di sbagliato
+La macchina a stati (branch `cardDirections`) segnala le colonne target valide/vietate durante il drag solo con colore (ring verde/rosso) e due icone `aria-hidden`. Con il `KeyboardSensor` abilitato, un utente da tastiera può iniziare un drag ma non percepisce quali colonne siano target leciti; uno screen reader non riceve nulla e il drop vietato torna indietro senza feedback non-visivo.
+
+#### Impatto user-visible
+Utenti tastiera/screen reader non distinguono i target consentiti da quelli vietati: l'interazione primaria della board resta inaccessibile via AT. Si somma a [A11Y-03] (drag da tastiera già impraticabile). Severità media.
+
+#### Fix raccomandato
+Aggiungere `announcements` al `DndContext` di dnd-kit (onDragOver → "consentito/non consentito" per il target) e/o una regione `aria-live` che rifletta `dropHint`, più un segnale testuale/`aria` non affidato al solo colore sulle colonne. Considerare insieme a [A11Y-03] (drag handle dedicata).
+
+#### Cronologia
+- 2026-07-09 — Flaggato durante review chain di `cardDirections` (Software Reviewer, confermato da Review Reviewer).
 
 ## Issue risolti
 

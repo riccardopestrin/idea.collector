@@ -7,6 +7,24 @@ export const BOARD_COLUMNS = [
   "rilasciata", "rifiutata", "archiviata",
 ] as const satisfies readonly ProposalStatus[];
 
+// Macchina a stati della board (branch cardDirections): transizioni consentite
+// per il drag. DELETE non è una colonna — è l'azione trash, disponibile su ogni
+// card (autore/admin) da qualsiasi stato, con conferma. 'rifiutata' è terminale
+// (solo DELETE): è la safeguard prima della cancellazione irreversibile.
+export const ALLOWED_TRANSITIONS: Record<ProposalStatus, readonly ProposalStatus[]> = {
+  nuova: ["in_valutazione", "rifiutata"],
+  in_valutazione: ["approvata", "rifiutata", "archiviata"],
+  approvata: ["in_sviluppo", "rifiutata"],
+  in_sviluppo: ["rilasciata", "archiviata", "rifiutata"],
+  rilasciata: ["rifiutata"],
+  rifiutata: [],
+  archiviata: ["in_valutazione", "approvata", "in_sviluppo", "rifiutata"],
+};
+
+export function canMoveTo(from: ProposalStatus, to: ProposalStatus): boolean {
+  return ALLOWED_TRANSITIONS[from].includes(to);
+}
+
 // Label IT degli stati — unico punto che traduce l'enum DB in testo utente.
 export const STATUS_LABELS: Record<ProposalStatus, string> = {
   nuova: "Nuova",

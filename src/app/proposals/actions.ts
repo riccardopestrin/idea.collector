@@ -3,6 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { refresh } from "next/cache";
 
+import { canMoveTo } from "@/lib/board";
 import { runEvaluation } from "@/lib/ai/runEvaluation";
 import { runProposalScan } from "@/lib/ai/runProposalScan";
 import { isAnchorField, markdownToPlainText, resolveAnchor } from "@/lib/anchors";
@@ -31,6 +32,11 @@ export async function updateProposalStatus(
     return { error: "Stato non valido." };
   }
   if (fromStatus === toStatus) return null;
+  // Macchina a stati (branch cardDirections): guard qui per il messaggio; il
+  // backstop è in move_proposal (migration 0018).
+  if (!canMoveTo(fromStatus, toStatus)) {
+    return { error: "Spostamento non consentito." };
+  }
 
   const supabase = await supabaseServer();
   const {
@@ -38,11 +44,13 @@ export async function updateProposalStatus(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
 
-  // RFC-006: una proposta flaggata come possibile duplicato non avanza —
-  // gate sullo stato del flag, qualunque sia lo stato di partenza (un gate su
-  // fromStatus sarebbe aggirabile via nuova → rifiutata → altrove). Liberi
-  // solo Rifiutata e il rientro in Nuova (sblocco/re-scan). Guard qui per il
-  // messaggio chiaro; move_proposal (migration 0017) è il backstop.
+  // RFC-006: una proposta flaggata come possibile duplicato non avanza — gate
+  // sullo stato del flag, qualunque sia lo stato di partenza. Resta libera solo
+  // 'rifiutata' (l'uscita di scarto): lo sblocco avviene editando l'idea mentre
+  // è in 'nuova' (abbassa la similarità), non muovendola. 'nuova' non è più un
+  // target raggiungibile dalla macchina a stati (canMoveTo l'ha già scartato
+  // sopra): la clausa resta solo per simmetria col gemello move_proposal
+  // (migration 0018). Guard qui per il messaggio chiaro; move_proposal è il backstop.
   if (toStatus !== "rifiutata" && toStatus !== "nuova") {
     const { data: proposal } = await supabase
       .from("proposals")
