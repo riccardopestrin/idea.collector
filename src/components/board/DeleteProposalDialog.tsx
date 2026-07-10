@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 
 import { controlClass } from "@/components/form/Field";
+import { STRINGS } from "@/lib/strings";
 
 // Conferma di eliminazione (rettifica ADR-0002): l'eliminazione è definitiva e
 // cancella anche la history, quindi il dialog propone "Sposta in Rifiutata"
@@ -29,11 +30,8 @@ export function DeleteProposalDialog({
       onClose={onClose}
       className="m-auto w-full max-w-md rounded-lg border border-border bg-background p-6 backdrop:bg-black/40"
     >
-      <h2 className="font-semibold">Eliminare “{title}”?</h2>
-      <p className="mt-2 text-sm text-foreground/70">
-        L’eliminazione è definitiva e cancella anche la cronologia degli stati. In
-        alternativa puoi spostarla in Rifiutata: resta consultabile.
-      </p>
+      <h2 className="font-semibold">{STRINGS.deleteDialog.heading(title)}</h2>
+      <p className="mt-2 text-sm text-foreground/70">{STRINGS.deleteDialog.body}</p>
       <div className="mt-5 flex flex-wrap justify-end gap-3 text-sm">
         <button
           type="button"
@@ -41,7 +39,7 @@ export function DeleteProposalDialog({
           disabled={busy}
           className={controlClass}
         >
-          Annulla
+          {STRINGS.common.cancel}
         </button>
         <button
           type="button"
@@ -49,7 +47,7 @@ export function DeleteProposalDialog({
           disabled={busy}
           className={`${controlClass} font-medium`}
         >
-          Sposta in Rifiutata
+          {STRINGS.deleteDialog.moveToRejected}
         </button>
         <button
           type="button"
@@ -57,7 +55,7 @@ export function DeleteProposalDialog({
           disabled={busy}
           className="rounded-md bg-red-600 px-3 py-2 font-medium text-white"
         >
-          Elimina definitivamente
+          {STRINGS.deleteDialog.confirm}
         </button>
       </div>
     </dialog>

@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { controlClass } from "@/components/form/Field";
-import { STATUS_LABELS } from "@/lib/board";
 import { PROPOSAL_STATUSES, type ProposalStatus } from "@/lib/proposals";
+import { STRINGS } from "@/lib/strings";
 
 // Form filtri lista (GET): la pagina legge q/status dai searchParams. Client per
 // gestire la × che pulisce il campo; "Azzera" torna alla lista piena via resetHref.
@@ -32,14 +32,14 @@ export function ProposalFilters({
           name="q"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Cerca per titolo o descrizione…"
+          placeholder={STRINGS.filters.searchPlaceholder}
           className={`w-full ${controlClass} pr-9`}
         />
         {q && (
           <button
             type="button"
             onClick={() => setQ("")}
-            aria-label="Cancella ricerca"
+            aria-label={STRINGS.filters.clearSearch}
             className="absolute right-2 top-1/2 -translate-y-1/2 text-lg leading-none text-foreground/50 hover:text-foreground"
           >
             ×
@@ -52,20 +52,20 @@ export function ProposalFilters({
           defaultValue={status ?? ""}
           className={controlClass}
         >
-          <option value="">Tutti gli stati</option>
+          <option value="">{STRINGS.filters.allStatuses}</option>
           {PROPOSAL_STATUSES.map((s) => (
             <option key={s} value={s}>
-              {STATUS_LABELS[s]}
+              {STRINGS.status[s]}
             </option>
           ))}
         </select>
       )}
       <button type="submit" className="rounded-md border border-border px-4 py-2">
-        Filtra
+        {STRINGS.filters.submit}
       </button>
       {hasFilters && (
         <Link href={resetHref} className="rounded-md px-3 py-2 text-foreground/70 hover:text-foreground">
-          Azzera
+          {STRINGS.filters.reset}
         </Link>
       )}
     </form>

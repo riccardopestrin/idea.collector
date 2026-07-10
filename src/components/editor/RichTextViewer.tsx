@@ -14,6 +14,7 @@ import {
 } from "@/components/editor/anchoring";
 import { richTextExtensions } from "@/components/editor/extensions";
 import { resolveAnchor } from "@/lib/anchors";
+import { STRINGS } from "@/lib/strings";
 
 type ViewerAnchor = { text: string; occurrence: number };
 
@@ -127,7 +128,7 @@ export function RichTextViewer({
             }}
             className="rounded-md border border-border bg-background px-2 py-1 text-xs shadow-sm"
           >
-            Commenta
+            {STRINGS.common.comment}
           </button>
         </BubbleMenu>
       )}

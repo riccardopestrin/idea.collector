@@ -6,7 +6,6 @@ import { RiceVoteForm } from "@/components/detail/RiceVoteForm";
 import { SectionTitle } from "@/components/detail/SectionTitle";
 import { EvalStatusCue } from "@/components/evaluation/EvalStatusCue";
 import { RetryButton } from "@/components/evaluation/RetryButton";
-import { STATUS_LABELS } from "@/lib/board";
 import {
   acceptedContributorIds,
   computeCompositeScore,
@@ -17,6 +16,7 @@ import {
   type ProposalDetail,
   type VoteComponents,
 } from "@/lib/proposals";
+import { STRINGS } from "@/lib/strings";
 
 const dateFormat = new Intl.DateTimeFormat("it-IT", {
   dateStyle: "medium",
@@ -24,12 +24,7 @@ const dateFormat = new Intl.DateTimeFormat("it-IT", {
 });
 
 // Ordine e label dei fattori RICE-10 mostrati come medie in alto (effort = Ease).
-const COMPONENT_LABELS = {
-  reach: "Reach",
-  impact: "Impact",
-  confidence: "Confidence",
-  effort: "Ease",
-} as const;
+const COMPONENT_LABELS = STRINGS.rice.factors;
 
 // I link sono input utente salvato verbatim (be-careful 2026-06-28-lnk1):
 // solo http/https diventano anchor, il resto è testo inerte.
@@ -121,12 +116,14 @@ export function ProposalPanel({
               <EvalStatusCue status={detail.ai_eval_status} />
             </h1>
             <p className="text-sm text-foreground/60">
-              {STATUS_LABELS[detail.status]} · di {personLabel(detail.proposer)}
+              {STRINGS.status[detail.status]} · {STRINGS.panel.byLine(personLabel(detail.proposer))}
               {/* dedupe per author_id, non per label: due omonimi restano distinti */}
               {contributions.length > 0 &&
-                ` · con ${[...new Map(contributions.map((c) => [c.author_id, c.author])).values()]
-                  .map(personLabel)
-                  .join(", ")}`}{" "}
+                ` · ${STRINGS.panel.withLine(
+                  [...new Map(contributions.map((c) => [c.author_id, c.author])).values()]
+                    .map(personLabel)
+                    .join(", "),
+                )}`}{" "}
               · {dateFormat.format(new Date(detail.created_at))}
             </p>
           </header>
@@ -134,7 +131,7 @@ export function ProposalPanel({
       >
         {contributions.length > 0 && (
           <section className="flex flex-col gap-3">
-            <SectionTitle>Contributi</SectionTitle>
+            <SectionTitle>{STRINGS.panel.contributions}</SectionTitle>
             {contributions.map((c) => (
               <div key={c.id} className="flex flex-col gap-1 border-l-2 border-border pl-3">
                 <p className="whitespace-pre-wrap text-sm">{c.body}</p>
@@ -147,11 +144,11 @@ export function ProposalPanel({
           <section className="flex flex-col gap-2 rounded-lg border border-border p-4">
             <div className="flex flex-col gap-0.5">
               <span className="text-sm text-foreground/60">
-                Voto totale RICE-10 ·{" "}
-                {claudeTotal !== null ? "Claude + utenti" : "utenti"}
+                {STRINGS.panel.totalVote} ·{" "}
+                {claudeTotal !== null ? STRINGS.panel.claudePlusUsers : STRINGS.panel.usersOnly}
               </span>
               <span className="text-4xl font-semibold">{formatScore(composite.total)}</span>
-              <span className="text-xs text-foreground/50">su 10</span>
+              <span className="text-xs text-foreground/50">{STRINGS.panel.outOf10}</span>
             </div>
             {componentAverages.length > 0 && (
               <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
@@ -170,7 +167,7 @@ export function ProposalPanel({
 
         {detail.links.length > 0 && (
           <section className="flex flex-col gap-1">
-            <SectionTitle>Link</SectionTitle>
+            <SectionTitle>{STRINGS.panel.linksHeading}</SectionTitle>
             <ul className="flex flex-col gap-1 text-sm">
               {detail.links.map((link) => (
                 <li key={link} className="break-all">
@@ -196,24 +193,24 @@ export function ProposalPanel({
         {detail.ai_eval_status === "fallita" && (
           <section className="flex flex-col gap-2 rounded-lg border border-danger/40 p-3">
             <p role="alert" className="text-sm text-danger">
-              Valutazione AI fallita{detail.ai_eval_error ? `: ${detail.ai_eval_error}` : "."}
+              {STRINGS.panel.evalFailed(detail.ai_eval_error)}
             </p>
             {isAdmin && <RetryButton proposalId={detail.id} />}
           </section>
         )}
         {detail.ai_eval_status === "in_corso" && isAdmin && (
           <section className="flex flex-col gap-2 rounded-lg border border-border p-3">
-            <p className="text-sm text-foreground/70">Valutazione AI in corso…</p>
+            <p className="text-sm text-foreground/70">{STRINGS.panel.evalInProgress}</p>
             <RetryButton proposalId={detail.id} />
           </section>
         )}
 
         {claudeTotal !== null && (
           <section className="flex flex-col gap-2">
-            <SectionTitle>Voto di Claude</SectionTitle>
+            <SectionTitle>{STRINGS.panel.claudeVote}</SectionTitle>
             <div>
               <span className="text-2xl font-semibold">{formatScore(claudeTotal)}</span>
-              <span className="text-sm text-foreground/50"> su 10</span>
+              <span className="text-sm text-foreground/50"> {STRINGS.panel.outOf10}</span>
             </div>
             {detail.ai_rationale && (
               <p className="whitespace-pre-wrap text-sm text-foreground/70">
@@ -225,7 +222,7 @@ export function ProposalPanel({
 
         {detail.votes.length > 0 && (
           <section className="flex flex-col gap-2">
-            <SectionTitle>Voti utenti ({detail.votes.length})</SectionTitle>
+            <SectionTitle>{STRINGS.panel.userVotes} ({detail.votes.length})</SectionTitle>
             <ul className="flex flex-col gap-1 text-sm">
               {detail.votes.map((vote) => {
                 const voteScore = computeVoteScore(vote);
@@ -235,7 +232,7 @@ export function ProposalPanel({
                     {voteScore !== null && (
                       <span className="font-medium text-foreground">
                         {formatScore(voteScore)}
-                        <span className="text-xs text-foreground/50"> / 10</span>
+                        <span className="text-xs text-foreground/50"> {STRINGS.panel.perTen}</span>
                       </span>
                     )}
                   </li>
@@ -247,7 +244,7 @@ export function ProposalPanel({
 
         {detail.internal_notes && (
           <section className="flex flex-col gap-1">
-            <SectionTitle>Note interne</SectionTitle>
+            <SectionTitle>{STRINGS.panel.internalNotes}</SectionTitle>
             <p className="whitespace-pre-wrap text-sm text-foreground/80">
               {detail.internal_notes}
             </p>
@@ -259,16 +256,16 @@ export function ProposalPanel({
             <span aria-hidden className="text-foreground/50 transition-transform group-open:rotate-90">
               ▸
             </span>
-            <SectionTitle>Cronologia stati</SectionTitle>
+            <SectionTitle>{STRINGS.panel.historyHeading}</SectionTitle>
           </summary>
           {detail.status_history.length === 0 ? (
-            <p className="mt-1 text-sm text-foreground/60">Nessuno spostamento ancora.</p>
+            <p className="mt-1 text-sm text-foreground/60">{STRINGS.panel.historyEmpty}</p>
           ) : (
             <ul className="mt-1 flex flex-col gap-1 text-sm">
               {detail.status_history.map((entry) => (
                 <li key={entry.id} className="text-foreground/80">
-                  {entry.from_status ? `${STATUS_LABELS[entry.from_status]} → ` : ""}
-                  {STATUS_LABELS[entry.to_status]}
+                  {entry.from_status ? `${STRINGS.status[entry.from_status]} → ` : ""}
+                  {STRINGS.status[entry.to_status]}
                   <span className="text-foreground/50">
                     {" "}
                     · {personLabel(entry.author)} · {dateFormat.format(new Date(entry.created_at))}
@@ -288,33 +285,31 @@ export function ProposalPanel({
               <ProposalScanTrigger proposalId={detail.id} />
             )}
             <span className="flex items-center gap-2">
-              <SectionTitle>Scansione duplicati</SectionTitle>
+              <SectionTitle>{STRINGS.panel.scanHeading}</SectionTitle>
               <EvalStatusCue status={detail.dup_scan_status} />
             </span>
             {detail.dup_flagged && (
               <div className="flex flex-col gap-1 rounded-lg border border-danger/40 p-3">
                 <p role="alert" className="text-sm text-danger">
-                  ⚠️ Possibile duplicato
-                  {detail.dup_similarity !== null && ` (${detail.dup_similarity}% simile`}
+                  {STRINGS.panel.dupWarning}
+                  {detail.dup_similarity !== null &&
+                    ` (${STRINGS.panel.similar(detail.dup_similarity)}`}
                   {detail.dup_match && (
                     <>
                       {" "}
-                      a{" "}
+                      {STRINGS.panel.dupLinkIntro}{" "}
                       <Link
                         href={`/proposals/${detail.dup_match.id}`}
                         className="underline underline-offset-2"
                       >
                         «{detail.dup_match.title}»
                       </Link>{" "}
-                      di {personLabel(detail.dup_match.proposer)}
+                      {STRINGS.panel.byLine(personLabel(detail.dup_match.proposer))}
                     </>
                   )}
                   {detail.dup_similarity !== null && ")"}.
                 </p>
-                <p className="text-xs text-foreground/60">
-                  Non può uscire da «Nuova» finché non la modifichi per differenziarla,
-                  la sposti in Rifiutata o la elimini.
-                </p>
+                <p className="text-xs text-foreground/60">{STRINGS.panel.dupBlockedHint}</p>
               </div>
             )}
             {/* "in corso" anche su assente+canScan: il trigger qui sopra sta
@@ -322,14 +317,12 @@ export function ProposalPanel({
                 'assente' niente messaggio: nulla sta girando. */}
             {(detail.dup_scan_status === "in_corso" ||
               (canScan && detail.dup_scan_status === "assente")) && (
-              <p className="text-sm text-foreground/60">
-                Scansione delle idee simili in corso…
-              </p>
+              <p className="text-sm text-foreground/60">{STRINGS.panel.scanInProgress}</p>
             )}
             {detail.dup_report && <ReportText text={detail.dup_report} />}
             {detail.dup_scan_status === "fallita" && (
               <p role="alert" className="text-sm text-danger">
-                Scansione fallita{detail.dup_scan_error ? `: ${detail.dup_scan_error}` : "."}
+                {STRINGS.panel.scanFailed(detail.dup_scan_error)}
               </p>
             )}
             {/* Rilancia anche su in_corso: recupera scan orfani di un crash */}

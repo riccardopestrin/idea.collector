@@ -14,6 +14,7 @@ import { Field } from "@/components/form/Field";
 import { SubmitButton } from "@/components/form/SubmitButton";
 import type { ProposalComment } from "@/lib/proposals";
 import { personLabel } from "@/lib/proposals";
+import { STRINGS } from "@/lib/strings";
 
 import { CommentForm, type PendingAnchor } from "./CommentForm";
 
@@ -50,9 +51,9 @@ export function CommentsSidebar({
   const decides = currentUserId === proposerId || isAdmin === true;
   return (
     <aside className="flex flex-col gap-3 lg:border-l lg:border-border lg:pl-5">
-      <SectionTitle>Commenti e osservazioni</SectionTitle>
+      <SectionTitle>{STRINGS.comments.heading}</SectionTitle>
       {comments.length === 0 ? (
-        <p className="text-sm text-foreground/60">Nessun commento ancora.</p>
+        <p className="text-sm text-foreground/60">{STRINGS.comments.empty}</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {comments.map((comment) => (
@@ -87,8 +88,8 @@ export function CommentsSidebar({
 
 // Label dei badge di promozione (nessun badge per 'none').
 const PROMOTION_BADGES = {
-  pending: "candidato contributo",
-  accepted: "contributo",
+  pending: STRINGS.comments.badgePending,
+  accepted: STRINGS.comments.badgeAccepted,
 } as const;
 
 function CommentItem({
@@ -136,7 +137,7 @@ function CommentItem({
           </span>
           {!comment.anchor_resolved && (
             <span className="mt-0.5 block italic text-foreground/40">
-              testo modificato
+              {STRINGS.comments.staleAnchor}
             </span>
           )}
         </blockquote>
@@ -154,7 +155,7 @@ function CommentItem({
                   onClick={() => setEditing(true)}
                   className="underline underline-offset-2"
                 >
-                  Modifica
+                  {STRINGS.common.edit}
                 </button>
               )}
               {/* un contributo accepted non si elimina: prima la revoca */}
@@ -168,7 +169,7 @@ function CommentItem({
                       onClick={() => setConfirmingDelete(false)}
                       className="underline underline-offset-2"
                     >
-                      Annulla
+                      {STRINGS.common.cancel}
                     </button>
                   </>
                 ) : (
@@ -177,30 +178,30 @@ function CommentItem({
                     onClick={() => setConfirmingDelete(true)}
                     className="text-danger underline underline-offset-2"
                   >
-                    Elimina
+                    {STRINGS.common.delete}
                   </button>
                 ))}
               {promotable && (
                 <PromotionButton
-                  label="Proponi come contributo"
+                  label={STRINGS.comments.propose}
                   action={() => requestCommentPromotion(comment.id)}
                 />
               )}
               {resolvable && (
                 <>
                   <PromotionButton
-                    label="Accetta"
+                    label={STRINGS.comments.accept}
                     action={() => resolveCommentPromotion(comment.id, true)}
                   />
                   <PromotionButton
-                    label="Rifiuta"
+                    label={STRINGS.comments.reject}
                     action={() => resolveCommentPromotion(comment.id, false)}
                   />
                 </>
               )}
               {revocable && (
                 <PromotionButton
-                  label="Revoca partecipazione"
+                  label={STRINGS.comments.revoke}
                   action={() => revokeCommentPromotion(comment.id)}
                 />
               )}
@@ -260,7 +261,7 @@ function CommentEditForm({
   return (
     <form action={action} className="mt-1 flex flex-col gap-2">
       <Field
-        label="Modifica commento"
+        label={STRINGS.comments.editLabel}
         name="body"
         multiline
         required
@@ -272,13 +273,13 @@ function CommentEditForm({
         </p>
       )}
       <div className="flex gap-2">
-        <SubmitButton pending={pending}>Salva</SubmitButton>
+        <SubmitButton pending={pending}>{STRINGS.common.save}</SubmitButton>
         <button
           type="button"
           onClick={onDone}
           className="rounded-md border border-border px-4 py-2 text-sm"
         >
-          Annulla
+          {STRINGS.common.cancel}
         </button>
       </div>
     </form>
@@ -298,7 +299,7 @@ function DeleteCommentButton({ commentId }: { commentId: string }) {
         disabled={pending}
         className="text-danger underline underline-offset-2 disabled:opacity-50"
       >
-        Conferma eliminazione
+        {STRINGS.comments.confirmDelete}
       </button>
       {state?.error && (
         <span role="alert" className="ml-2 text-danger">

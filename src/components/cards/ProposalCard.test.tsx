@@ -2,8 +2,8 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { STATUS_LABELS } from "@/lib/board";
 import type { ProposalListItem } from "@/lib/proposals";
+import { STRINGS } from "@/lib/strings";
 
 import { ProposalCard } from "./ProposalCard";
 
@@ -89,12 +89,12 @@ describe("ProposalCard", () => {
 
   it("shows the board status label when showStatus is set", () => {
     renderCard({ status: "in_valutazione" }, undefined, true);
-    expect(screen.getByText(STATUS_LABELS.in_valutazione)).toBeInTheDocument();
+    expect(screen.getByText(STRINGS.status.in_valutazione)).toBeInTheDocument();
   });
 
   it("hides the board status label by default", () => {
     renderCard({ status: "in_valutazione" });
-    expect(screen.queryByText(STATUS_LABELS.in_valutazione)).not.toBeInTheDocument();
+    expect(screen.queryByText(STRINGS.status.in_valutazione)).not.toBeInTheDocument();
   });
 
   it("shows the duplicate badge only when the proposal is flagged", () => {

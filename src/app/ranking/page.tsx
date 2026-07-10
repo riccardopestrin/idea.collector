@@ -5,6 +5,7 @@ import { ProposalFilters } from "@/components/filters/ProposalFilters";
 import { AppHeader } from "@/components/nav/AppHeader";
 import { getProfile } from "@/lib/profiles";
 import { isProposalStatus, listProposals, rankProposalsByScore } from "@/lib/proposals";
+import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
 
 // Classifica: le proposte elencate per voto composito decrescente, a prescindere
@@ -37,15 +38,13 @@ export default async function Ranking({
       <AppHeader profileLabel={profile?.name ?? user.email} />
 
       <main className="flex w-full flex-1 flex-col gap-6 p-6">
-        <h1 className="text-xl font-semibold">Classifica</h1>
+        <h1 className="text-xl font-semibold">{STRINGS.nav.ranking}</h1>
 
         <ProposalFilters search={search} status={statusFilter} resetHref="/ranking" />
 
         {ranked.length === 0 ? (
           <p className="text-sm text-foreground/70">
-            {search || statusFilter
-              ? "Nessuna proposta corrisponde ai filtri."
-              : "Nessuna proposta ancora."}
+            {search || statusFilter ? STRINGS.board.noneMatchFilters : STRINGS.board.noneYet}
           </p>
         ) : (
           <ol className="flex flex-col gap-3">

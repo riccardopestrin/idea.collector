@@ -17,8 +17,9 @@ import { deleteProposal, evaluateProposal, updateProposalStatus } from "@/app/pr
 import { Column, type DropHint } from "@/components/board/Column";
 import { DeleteProposalDialog } from "@/components/board/DeleteProposalDialog";
 import { ProposalCard } from "@/components/cards/ProposalCard";
-import { BOARD_COLUMNS, canMoveTo, groupByStatus, STATUS_LABELS } from "@/lib/board";
+import { BOARD_COLUMNS, canMoveTo, groupByStatus } from "@/lib/board";
 import type { ProposalListItem, ProposalStatus } from "@/lib/proposals";
+import { STRINGS } from "@/lib/strings";
 import { BOARD_GAP } from "@/lib/tokens";
 
 // Board a colonne per stato (ADR-0002 + rettifica). Unico Client Component e
@@ -172,7 +173,7 @@ function DroppableColumn({
   return (
     <Column
       ref={setNodeRef}
-      title={STATUS_LABELS[status]}
+      title={STRINGS.status[status]}
       count={count}
       isOver={isOver}
       dropHint={dropHint}

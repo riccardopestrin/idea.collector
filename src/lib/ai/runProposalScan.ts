@@ -9,6 +9,7 @@ import {
   searchCompetitors,
   stubScan,
 } from "@/lib/ai/scanProposal";
+import { STRINGS } from "@/lib/strings";
 
 // cap candidati per il judge locale (RFC-006): oltre serve un pre-filtro
 // (pg_trgm/pgvector) — follow-up se il volume cresce.
@@ -29,7 +30,7 @@ export async function runProposalScan(
     .select("title, description, problem, status, dup_scan_status")
     .eq("id", proposalId)
     .maybeSingle();
-  if (!proposal) return { error: "Proposta non trovata." };
+  if (!proposal) return { error: STRINGS.errors.proposalNotFound };
 
   // Lo scan ha senso solo in 'nuova': il gate blocca solo l'uscita da lì.
   if (proposal.status !== "nuova") return null;
@@ -42,7 +43,7 @@ export async function runProposalScan(
   });
   if (beginError) {
     console.error("runProposalScan begin:", beginError);
-    return { error: "Errore nell'avvio dello scan duplicati. Riprova." };
+    return { error: STRINGS.evaluation.scanStartFailed };
   }
   if (!began) return null; // già in corso: una sola scan in-flight
 
@@ -102,6 +103,6 @@ export async function runProposalScan(
     // resta 'in_corso' orfano (be-careful 2026-07-08-strd) — almeno loggato
     if (failError) console.error("runProposalScan fail_dup_scan:", failError);
     refresh();
-    return { error: `Scan duplicati fallito: ${message}` };
+    return { error: STRINGS.evaluation.scanFailed(message) };
   }
 }

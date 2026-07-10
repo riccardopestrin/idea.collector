@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import type { ProposalListItem } from "@/lib/proposals";
 
-import { BOARD_COLUMNS, canMoveTo, groupByStatus, STATUS_LABELS } from "./board";
+import { STRINGS } from "@/lib/strings";
+
+import { BOARD_COLUMNS, canMoveTo, groupByStatus } from "./board";
 
 const proposal = (id: string, status: ProposalListItem["status"]): ProposalListItem => ({
   id,
@@ -46,11 +48,11 @@ describe("groupByStatus", () => {
   });
 });
 
-describe("STATUS_LABELS", () => {
+describe("STRINGS.status", () => {
   // label pinnate per intero: un typo o uno swap (es. Approvata↔Rifiutata)
   // cambierebbe cosa vede l'utente in board senza rompere nessun tipo
   it("maps every status to its exact human label", () => {
-    expect(STATUS_LABELS).toEqual({
+    expect(STRINGS.status).toEqual({
       nuova: "Nuova",
       in_valutazione: "In Valutazione",
       approvata: "Approvata",

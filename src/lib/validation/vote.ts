@@ -1,4 +1,5 @@
 import type { VoteComponents } from "@/lib/proposals";
+import { STRINGS } from "@/lib/strings";
 
 // Validazione di un voto RICE-10 utente (ADR-0006): i 4 fattori sono slider
 // interi 1–10, tutti obbligatori. effort = Ease (10 = facile).
@@ -20,7 +21,7 @@ export function parseVoteFields(
   };
 
   if (Object.values(fields).some((v) => v === null)) {
-    return { error: "Assegna un valore da 1 a 10 a ogni parametro." };
+    return { error: STRINGS.rice.invalid };
   }
   return { fields };
 }

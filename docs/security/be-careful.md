@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-08
+**Last updated:** 2026-07-10
 
 # Be Careful — issue note consapevolmente rinviate
 
@@ -323,6 +323,30 @@ Impostare `maxDuration` adeguato sulla route (o un deadline complessivo ~90s che
 
 ### Cronologia
 - 2026-07-08 — Flaggato durante review chain di `ideaChecker` (finding [7]). Downgrade a NICE-TO-HAVE: nessun deploy, tetto realistico contenuto.
+
+## `2026-07-10-6623` Messaggi d'errore GitHub user-visible fuori dal catalogo stringhe
+
+**Status:** non fissato — non si verifica nell'attuale use case.
+
+### Dove
+- [src/lib/github/app.ts](../../src/lib/github/app.ts) — `throw new Error("GITHUB_APP_ID / GITHUB_APP_PRIVATE_KEY non configurate")`, `"GitHub: token installazione fallito (…)"`, `"GitHub: lista repo fallita (…)"`
+- [src/lib/github/repoDigest.ts](../../src/lib/github/repoDigest.ts) — `"GitHub: repo … non raggiungibile"`
+- [src/lib/ai/runEvaluation.ts](../../src/lib/ai/runEvaluation.ts) — fallback `"errore sconosciuto"` nel catch
+
+### Il problema potenziale
+Questi messaggi non sono solo log: `runEvaluation` li cattura, li persiste via `fail_ai_evaluation` e `ProposalPanel` li rende all'utente tramite `ai_eval_error`. Sono copy user-facing in italiano fuori da `src/lib/strings.ts`, incoerenti con `STRINGS.github.notConnected` che vive nel catalogo sullo stesso code path.
+
+### Perché oggi non è un problema
+Esiste una sola lingua (IT): il testo mostrato è comunque corretto. Nessun impatto runtime.
+
+### Quando diventa un problema
+1. Al primo catalogo di una seconda lingua: i banner di fallimento eval mostrerebbero testo misto (catalogo tradotto + errori GitHub in italiano).
+
+### Cosa fare se devi toccare quest'area
+Spostare i quattro messaggi (+ `"errore sconosciuto"`) in `STRINGS.github` / `STRINGS.errors`, come già fatto per `notConnected`. Micro follow-up, nessuna nuova astrazione.
+
+### Cronologia
+- 2026-07-10 — Flaggato durante review chain di `stringsRefactor` (finding [3], confermato dal Review Reviewer come NICE-TO-HAVE da deferire: i file non erano nel changed set della PR).
 
 ---
 

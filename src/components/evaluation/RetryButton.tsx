@@ -4,14 +4,15 @@ import { useState, useTransition } from "react";
 
 import { evaluateProposal, runProposalScanAction } from "@/app/proposals/actions";
 import { controlClass } from "@/components/form/Field";
+import { STRINGS } from "@/lib/strings";
 
 // "Rilancia" su un run AI fallito (o in_corso orfano di un crash, 0011):
 // richiama la Server Action con force. kind: 'eval' = valutazione RICE
 // (admin), 'scan' = scan duplicati (proposer o admin, RFC-006). Usato sia
 // sulla card piccola sia nel pannello.
 const KINDS = {
-  eval: { label: "Rilancia valutazione", action: evaluateProposal },
-  scan: { label: "Rilancia scansione", action: runProposalScanAction },
+  eval: { label: STRINGS.evaluation.retryEval, action: evaluateProposal },
+  scan: { label: STRINGS.evaluation.retryScan, action: runProposalScanAction },
 } as const;
 
 export function RetryButton({

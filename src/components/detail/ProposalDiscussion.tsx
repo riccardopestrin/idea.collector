@@ -12,6 +12,7 @@ import { Field } from "@/components/form/Field";
 import { SubmitButton } from "@/components/form/SubmitButton";
 import type { AnchorField } from "@/lib/anchors";
 import type { ProposalComment } from "@/lib/proposals";
+import { STRINGS } from "@/lib/strings";
 
 type ProposalDefaults = {
   title: string;
@@ -85,7 +86,7 @@ export function ProposalDiscussion({
             onClick={() => setEditing(true)}
             className="shrink-0 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-foreground/5"
           >
-            Modifica
+            {STRINGS.common.edit}
           </button>
         )}
       </div>
@@ -93,7 +94,7 @@ export function ProposalDiscussion({
         <div className="flex min-w-0 flex-col gap-5">
           {defaults.description && (
             <section className="flex flex-col gap-1">
-              <SectionTitle>Descrizione</SectionTitle>
+              <SectionTitle>{STRINGS.proposal.descriptionLabel}</SectionTitle>
               <RichTextViewer
                 value={defaults.description}
                 anchors={anchorsFor("description")}
@@ -103,7 +104,7 @@ export function ProposalDiscussion({
           )}
           {defaults.problem && (
             <section className="flex flex-col gap-1">
-              <SectionTitle>Problema / motivazione</SectionTitle>
+              <SectionTitle>{STRINGS.proposal.problemLabel}</SectionTitle>
               <RichTextViewer
                 value={defaults.problem}
                 anchors={anchorsFor("problem")}
@@ -149,19 +150,19 @@ function EditProposalForm({
 
   return (
     <form action={action} className="flex flex-col gap-4">
-      <Field label="Titolo" name="title" required defaultValue={defaults.title} />
+      <Field label={STRINGS.proposal.titleLabel} name="title" required defaultValue={defaults.title} />
       <RichTextField
-        label="Descrizione"
+        label={STRINGS.proposal.descriptionLabel}
         name="description"
         defaultValue={defaults.description}
       />
       <RichTextField
-        label="Problema / motivazione"
+        label={STRINGS.proposal.problemLabel}
         name="problem"
         defaultValue={defaults.problem}
       />
       <Field
-        label="Link (uno per riga)"
+        label={STRINGS.proposal.linksLabel}
         name="links"
         multiline
         defaultValue={defaults.links.join("\n")}
@@ -172,13 +173,13 @@ function EditProposalForm({
         </p>
       )}
       <div className="flex gap-2">
-        <SubmitButton pending={pending}>Salva</SubmitButton>
+        <SubmitButton pending={pending}>{STRINGS.common.save}</SubmitButton>
         <button
           type="button"
           onClick={onClose}
           className="rounded-md border border-border px-4 py-2 text-sm"
         >
-          Annulla
+          {STRINGS.common.cancel}
         </button>
       </div>
     </form>

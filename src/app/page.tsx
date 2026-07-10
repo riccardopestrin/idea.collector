@@ -6,6 +6,7 @@ import { ProposalFilters } from "@/components/filters/ProposalFilters";
 import { AppHeader } from "@/components/nav/AppHeader";
 import { getProfile } from "@/lib/profiles";
 import { listProposals } from "@/lib/proposals";
+import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
 
 // Home autenticata. Il proxy già blocca i non loggati; ricontrolliamo qui vicino
@@ -37,12 +38,12 @@ export default async function MainBoard({
 
       <main className="flex w-full flex-1 flex-col gap-6 p-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Proposte</h1>
+          <h1 className="text-xl font-semibold">{STRINGS.board.heading}</h1>
           <Link
             href="/proposals/new"
             className="rounded-md bg-foreground px-4 py-2 text-sm text-background"
           >
-            Nuova proposta
+            {STRINGS.board.newProposal}
           </Link>
         </div>
 
@@ -50,9 +51,7 @@ export default async function MainBoard({
 
         {proposals.length === 0 && (
           <p className="text-sm text-foreground/70">
-            {search
-              ? "Nessuna proposta corrisponde ai filtri."
-              : "Nessuna proposta ancora. Crea la prima."}
+            {search ? STRINGS.board.noneMatchFilters : STRINGS.board.noneYetCreate}
           </p>
         )}
         <Board proposals={proposals} userId={user.id} isAdmin={profile?.role === "admin"} />

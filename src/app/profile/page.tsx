@@ -6,6 +6,7 @@ import { GithubRepoSection } from "@/components/profile/GithubRepoSection";
 import { type InstallationRepo, listInstallationRepos } from "@/lib/github/app";
 import { getGithubSettings } from "@/lib/github/settings";
 import { getProfile } from "@/lib/profiles";
+import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
 
 // Pagina profilo: nome + (per gli admin) configurazione del repository GitHub
@@ -35,7 +36,7 @@ export default async function ProfilePage({
         repos = await listInstallationRepos(settings.github_installation_id);
       } catch (err) {
         console.error("profile github:", err);
-        loadError = "Impossibile leggere le repo da GitHub. Riprova o riconnetti.";
+        loadError = STRINGS.github.reposLoadFailed;
       }
     }
     const callbackFailed = (await searchParams).github === "error";
@@ -50,7 +51,7 @@ export default async function ProfilePage({
         repos={repos}
         loadError={
           loadError ??
-          (callbackFailed ? "Connessione GitHub non riuscita. Riprova." : undefined)
+          (callbackFailed ? STRINGS.github.connectFailed : undefined)
         }
       />
     );
@@ -61,7 +62,7 @@ export default async function ProfilePage({
       <div className="w-full max-w-lg">
         <BackLink />
       </div>
-      <NameForm heading="Profilo" defaultName={profile?.name ?? undefined} />
+      <NameForm heading={STRINGS.profile.heading} defaultName={profile?.name ?? undefined} />
       {github}
     </main>
   );

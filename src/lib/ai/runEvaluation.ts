@@ -5,6 +5,7 @@ import { anthropicClient } from "@/lib/ai/anthropic";
 import { evaluateWithClaude, stubScores } from "@/lib/ai/evaluateProposal";
 import { buildRepoDigest } from "@/lib/github/repoDigest";
 import { getGithubSettings } from "@/lib/github/settings";
+import { STRINGS } from "@/lib/strings";
 
 // Corpo post-autorizzazione della valutazione AI (RFC-003/RFC-004): chi può
 // chiamarla lo decidono i chiamanti (action admin, updateProposal) e la RPC
@@ -42,7 +43,7 @@ export async function runEvaluation(
       },
       { merge: false }
     >();
-  if (!proposal) return { error: "Proposta non trovata." };
+  if (!proposal) return { error: STRINGS.errors.proposalNotFound };
 
   // Idempotenza: se già valutata dall'AI e non toccata a mano, l'auto-trigger salta.
   if (!force && proposal.ai_generated && !proposal.manually_edited) return null;
@@ -55,12 +56,12 @@ export async function runEvaluation(
   });
   if (beginError) {
     console.error("runEvaluation begin:", beginError);
-    return { error: "Errore nell'avvio della valutazione. Riprova." };
+    return { error: STRINGS.evaluation.startFailed };
   }
   if (!began) {
     // senza force: già in corso, una sola valutazione in-flight. Con force può
     // essere solo una proposta sparita nel frattempo.
-    return force ? { error: "Proposta non trovata." } : null;
+    return force ? { error: STRINGS.errors.proposalNotFound } : null;
   }
 
   // il refresh qui rende visibile 'in_corso' agli altri client; chi ha lanciato
@@ -70,7 +71,7 @@ export async function runEvaluation(
   try {
     const settings = await getGithubSettings(supabase);
     if (!settings?.github_installation_id || !settings.github_owner || !settings.github_repo) {
-      throw new Error("Collega GitHub e scegli la repo nel profilo.");
+      throw new Error(STRINGS.github.notConnected);
     }
     const digest = await buildRepoDigest(
       settings.github_installation_id,
@@ -105,6 +106,6 @@ export async function runEvaluation(
     console.error("runEvaluation:", err);
     await supabase.rpc("fail_ai_evaluation", { p_id: proposalId, p_error: message });
     refresh();
-    return { error: `Valutazione fallita: ${message}` };
+    return { error: STRINGS.evaluation.failed(message) };
   }
 }

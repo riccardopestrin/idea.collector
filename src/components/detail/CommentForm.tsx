@@ -6,6 +6,7 @@ import { addComment } from "@/app/proposals/actions";
 import { Field } from "@/components/form/Field";
 import { SubmitButton } from "@/components/form/SubmitButton";
 import type { AnchorField } from "@/lib/anchors";
+import { STRINGS } from "@/lib/strings";
 
 export type PendingAnchor = {
   field: AnchorField;
@@ -47,7 +48,7 @@ export function CommentForm({
             onClick={onCancelAnchor}
             className="self-start text-xs text-foreground/50 underline underline-offset-2"
           >
-            Annulla
+            {STRINGS.common.cancel}
           </button>
           <input type="hidden" name="anchor_field" value={pendingAnchor.field} />
           <input type="hidden" name="anchor_text" value={pendingAnchor.quote} />
@@ -55,7 +56,7 @@ export function CommentForm({
         </div>
       )}
       <Field
-        label={pendingAnchor ? "Commenta la selezione" : "Aggiungi un commento"}
+        label={pendingAnchor ? STRINGS.comments.anchoredLabel : STRINGS.comments.addLabel}
         name="body"
         multiline
         required
@@ -66,7 +67,7 @@ export function CommentForm({
         </p>
       )}
       <div>
-        <SubmitButton pending={pending}>Commenta</SubmitButton>
+        <SubmitButton pending={pending}>{STRINGS.common.comment}</SubmitButton>
       </div>
     </form>
   );

@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { updateName } from "@/app/profile/actions";
 import { Field } from "@/components/form/Field";
 import { SubmitButton } from "@/components/form/SubmitButton";
+import { STRINGS } from "@/lib/strings";
 
 // Form condivisa da /onboarding e /profile: un solo campo, una sola action.
 export function NameForm({
@@ -20,7 +21,7 @@ export function NameForm({
     <form action={action} className="flex w-full max-w-lg flex-col gap-4">
       <h1 className="text-xl font-semibold">{heading}</h1>
 
-      <Field label="Nome" name="name" required defaultValue={defaultName} />
+      <Field label={STRINGS.profile.nameLabel} name="name" required defaultValue={defaultName} />
 
       {state?.error && (
         <p role="alert" className="text-sm text-danger">
@@ -28,7 +29,7 @@ export function NameForm({
         </p>
       )}
 
-      <SubmitButton pending={pending}>Salva</SubmitButton>
+      <SubmitButton pending={pending}>{STRINGS.common.save}</SubmitButton>
     </form>
   );
 }

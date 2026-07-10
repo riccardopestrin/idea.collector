@@ -5,13 +5,14 @@ import { useActionState, useState } from "react";
 import { submitRiceVote } from "@/app/proposals/[id]/actions";
 import { SubmitButton } from "@/components/form/SubmitButton";
 import { SectionTitle } from "@/components/detail/SectionTitle";
+import { STRINGS } from "@/lib/strings";
 
 // I 4 fattori RICE-10 (ADR-0006), stessa scala per tutti. effort è "Ease".
 const PARAMS = [
-  { name: "reach", label: "Reach" },
-  { name: "impact", label: "Impact" },
-  { name: "confidence", label: "Confidence" },
-  { name: "effort", label: "Ease" },
+  { name: "reach", label: STRINGS.rice.factors.reach },
+  { name: "impact", label: STRINGS.rice.factors.impact },
+  { name: "confidence", label: STRINGS.rice.factors.confidence },
+  { name: "effort", label: STRINGS.rice.factors.effort },
 ] as const;
 
 function Slider({ name, label }: { name: string; label: string }) {
@@ -46,23 +47,21 @@ export function RiceVoteForm({ proposalId }: { proposalId: string }) {
 
   return (
     <section className="flex flex-col gap-3 rounded-lg border border-border p-4">
-      <SectionTitle>Il tuo voto RICE-10</SectionTitle>
+      <SectionTitle>{STRINGS.rice.heading}</SectionTitle>
       <form action={action} className="flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-x-6 gap-y-3">
           {PARAMS.map((p) => (
             <Slider key={p.name} name={p.name} label={p.label} />
           ))}
         </div>
-        <p className="text-xs text-foreground/50">
-          1 = minimo · 10 = massimo. Il voto è definitivo e non modificabile.
-        </p>
+        <p className="text-xs text-foreground/50">{STRINGS.rice.legend}</p>
         {state?.error && (
           <p role="alert" className="text-sm text-danger">
             {state.error}
           </p>
         )}
         <div>
-          <SubmitButton pending={pending}>Invia voto</SubmitButton>
+          <SubmitButton pending={pending}>{STRINGS.rice.submit}</SubmitButton>
         </div>
       </form>
     </section>

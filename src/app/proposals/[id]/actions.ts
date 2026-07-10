@@ -5,6 +5,7 @@ import { refresh } from "next/cache";
 import { runEvaluation } from "@/lib/ai/runEvaluation";
 import { runProposalScan } from "@/lib/ai/runProposalScan";
 import { getProfile } from "@/lib/profiles";
+import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
 import { parseProposalFields } from "@/lib/validation/proposal";
 import { parseVoteFields } from "@/lib/validation/vote";
@@ -25,7 +26,7 @@ export async function updateProposal(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+  if (!user) return { error: STRINGS.errors.sessionExpired };
 
   const parsed = parseProposalFields(formData);
   if ("error" in parsed) return { error: parsed.error };
@@ -36,16 +37,16 @@ export async function updateProposal(
     .select("proposer_id, status, title, description, problem")
     .eq("id", proposalId)
     .maybeSingle();
-  if (!proposal) return { error: "Proposta non trovata." };
+  if (!proposal) return { error: STRINGS.errors.proposalNotFound };
 
   if (
     proposal.proposer_id !== user.id &&
     (await getProfile(supabase, user.id))?.role !== "admin"
   ) {
-    return { error: "Solo l'autore o un admin può modificare la proposta." };
+    return { error: STRINGS.proposal.editAuth };
   }
   if (proposal.status !== "nuova" && proposal.status !== "in_valutazione") {
-    return { error: "La proposta non è più modificabile." };
+    return { error: STRINGS.proposal.notEditable };
   }
 
   const { error } = await supabase
@@ -54,7 +55,7 @@ export async function updateProposal(
     .eq("id", proposalId);
   if (error) {
     console.error("updateProposal:", error);
-    return { error: "Errore nel salvataggio. Riprova." };
+    return { error: STRINGS.errors.saveFailed };
   }
 
   refresh();
@@ -88,19 +89,19 @@ export async function submitRiceVote(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+  if (!user) return { error: STRINGS.errors.sessionExpired };
 
   const { data: proposal } = await supabase
     .from("proposals")
     .select("proposer_id, status")
     .eq("id", proposalId)
     .maybeSingle();
-  if (!proposal) return { error: "Proposta non trovata." };
+  if (!proposal) return { error: STRINGS.errors.proposalNotFound };
   if (proposal.status !== "in_valutazione") {
-    return { error: "Puoi votare solo le proposte in valutazione." };
+    return { error: STRINGS.rice.onlyInEvaluation };
   }
   if (proposal.proposer_id === user.id) {
-    return { error: "Non puoi votare la tua stessa proposta." };
+    return { error: STRINGS.rice.ownProposal };
   }
   // Un contributore accettato è co-autore (migration 0016): come per il
   // proposer, niente voto. Guard nel service, policy insert come backstop.
@@ -113,7 +114,7 @@ export async function submitRiceVote(
     .limit(1)
     .maybeSingle();
   if (contribution) {
-    return { error: "Come contributore accettato sei co-autore: non puoi votare." };
+    return { error: STRINGS.rice.contributorCoAuthor };
   }
 
   const parsed = parseVoteFields(formData);
@@ -124,9 +125,9 @@ export async function submitRiceVote(
     .insert({ proposal_id: proposalId, voter_id: user.id, ...parsed.fields });
   if (error) {
     // 23505 = unique_violation: ha già votato (voto immutabile).
-    if (error.code === "23505") return { error: "Hai già votato questa proposta." };
+    if (error.code === "23505") return { error: STRINGS.rice.alreadyVoted };
     console.error("submitRiceVote:", error);
-    return { error: "Errore nel salvataggio. Riprova." };
+    return { error: STRINGS.errors.saveFailed };
   }
 
   refresh();

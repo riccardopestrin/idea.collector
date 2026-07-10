@@ -4,13 +4,13 @@ import Link from "next/link";
 
 import { EvalStatusCue } from "@/components/evaluation/EvalStatusCue";
 import { RetryButton } from "@/components/evaluation/RetryButton";
-import { STATUS_LABELS } from "@/lib/board";
 import {
   computeCompositeScore,
   formatScore,
   personLabel,
   type ProposalListItem,
 } from "@/lib/proposals";
+import { STRINGS } from "@/lib/strings";
 
 // Card di una proposta. Presentazionale: riceve la riga già letta; il wrapper
 // (la <li> draggable della board) decide posizionamento e interazione.
@@ -35,7 +35,7 @@ export function ProposalCard({
       {onDelete && (
         <button
           type="button"
-          aria-label={`Elimina ${proposal.title}`}
+          aria-label={STRINGS.card.deleteAria(proposal.title)}
           onClick={onDelete}
           // il click non deve avviare il drag della <li> che ci ospita
           onPointerDown={(e) => e.stopPropagation()}
@@ -56,23 +56,23 @@ export function ProposalCard({
       </Link>
       <span className="flex items-center gap-2 text-xs text-foreground/50">
         {/* co-autori: proposer + autori dei contributi accettati (migration 0016) */}
-        di {[proposal.proposer, ...proposal.contributors].map(personLabel).join(", ")}
+        {STRINGS.card.byLine([proposal.proposer, ...proposal.contributors].map(personLabel).join(", "))}
         <EvalStatusCue status={proposal.ai_eval_status} />
         {/* RFC-006: bloccata in 'nuova' finché non differenziata o rifiutata */}
         {proposal.dup_flagged && (
           <span className="rounded-full border border-danger/40 px-2 py-0.5 font-medium text-danger">
-            possibile duplicato
+            {STRINGS.card.dupBadge}
           </span>
         )}
         {showStatus && (
           <span className="rounded-full border border-border px-2 py-0.5 font-medium text-foreground/70">
-            {STATUS_LABELS[proposal.status]}
+            {STRINGS.status[proposal.status]}
           </span>
         )}
         {score !== null && (
           <span
             className="ml-auto rounded-full border border-border px-2 py-0.5 font-medium text-foreground/80"
-            title="Voto RICE-10 · Claude + utenti"
+            title={STRINGS.card.scoreTitle}
           >
             {formatScore(score)}
           </span>

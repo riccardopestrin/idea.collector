@@ -3,8 +3,9 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BOARD_COLUMNS, STATUS_LABELS } from "@/lib/board";
+import { BOARD_COLUMNS } from "@/lib/board";
 import type { ProposalListItem } from "@/lib/proposals";
+import { STRINGS } from "@/lib/strings";
 
 import { Board } from "./Board";
 
@@ -104,7 +105,7 @@ describe("Board", () => {
 
     const headings = screen.getAllByRole("heading", { level: 2 });
     expect(headings.map((h) => h.textContent)).toEqual(
-      BOARD_COLUMNS.map((s) => `${STATUS_LABELS[s]}0`),
+      BOARD_COLUMNS.map((s) => `${STRINGS.status[s]}0`),
     );
   });
 

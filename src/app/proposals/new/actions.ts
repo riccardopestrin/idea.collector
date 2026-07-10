@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
 import { parseProposalFields } from "@/lib/validation/proposal";
 
@@ -18,7 +19,7 @@ export async function createProposal(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+  if (!user) return { error: STRINGS.errors.sessionExpired };
 
   const parsed = parseProposalFields(formData);
   if ("error" in parsed) return { error: parsed.error };
@@ -30,7 +31,7 @@ export async function createProposal(
     .single();
   if (error || !data) {
     console.error("createProposal:", error);
-    return { error: "Errore nel salvataggio. Riprova." };
+    return { error: STRINGS.errors.saveFailed };
   }
 
   revalidatePath("/"); // altrimenti la board mostra la cache senza la nuova proposta

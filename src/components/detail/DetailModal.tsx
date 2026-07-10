@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useRef } from "react";
 
+import { STRINGS } from "@/lib/strings";
+
 // Overlay del dettaglio (intercepting route): <dialog> nativo per focus trap
 // ed Esc; chiudere (Esc, ×, click sul backdrop) torna alla board con back().
 export function DetailModal({ children }: { children: ReactNode }) {
@@ -21,7 +23,7 @@ export function DetailModal({ children }: { children: ReactNode }) {
     >
       <button
         type="button"
-        aria-label="Chiudi"
+        aria-label={STRINGS.common.close}
         onClick={() => ref.current?.close()}
         className="absolute right-2 top-2 rounded p-1.5 leading-none text-foreground/40 hover:text-foreground"
       >

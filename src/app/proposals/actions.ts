@@ -14,6 +14,7 @@ import {
   type PromotionStatus,
   type ProposalStatus,
 } from "@/lib/proposals";
+import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
 
 type ActionResult = { error: string } | null;
@@ -29,20 +30,20 @@ export async function updateProposalStatus(
   toStatus: string,
 ): Promise<ActionResult> {
   if (!isProposalStatus(fromStatus) || !isProposalStatus(toStatus)) {
-    return { error: "Stato non valido." };
+    return { error: STRINGS.board.invalidStatus };
   }
   if (fromStatus === toStatus) return null;
   // Macchina a stati (branch cardDirections): guard qui per il messaggio; il
   // backstop è in move_proposal (migration 0018).
   if (!canMoveTo(fromStatus, toStatus)) {
-    return { error: "Spostamento non consentito." };
+    return { error: STRINGS.board.moveNotAllowed };
   }
 
   const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+  if (!user) return { error: STRINGS.errors.sessionExpired };
 
   // RFC-006: una proposta flaggata come possibile duplicato non avanza — gate
   // sullo stato del flag, qualunque sia lo stato di partenza. Resta libera solo
@@ -58,10 +59,7 @@ export async function updateProposalStatus(
       .eq("id", proposalId)
       .maybeSingle();
     if (proposal?.dup_flagged) {
-      return {
-        error:
-          "Possibile duplicato: modifica l'idea per differenziarla, oppure spostala in Rifiutata o eliminala.",
-      };
+      return { error: STRINGS.board.dupBlocked };
     }
   }
 
@@ -72,10 +70,10 @@ export async function updateProposalStatus(
   });
   if (error) {
     console.error("updateProposalStatus:", error);
-    return { error: "Errore nel salvataggio. Riprova." };
+    return { error: STRINGS.errors.saveFailed };
   }
   if (!moved) {
-    return { error: "La proposta è stata spostata da qualcun altro. Ricarica la pagina." };
+    return { error: STRINGS.board.movedByOther };
   }
 
   refresh();
@@ -94,9 +92,9 @@ export async function evaluateProposal(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+  if (!user) return { error: STRINGS.errors.sessionExpired };
   if ((await getProfile(supabase, user.id))?.role !== "admin") {
-    return { error: "Solo un admin può lanciare la valutazione AI." };
+    return { error: STRINGS.evaluation.adminOnly };
   }
 
   return runEvaluation(supabase, proposalId, force);
@@ -114,19 +112,19 @@ export async function runProposalScanAction(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+  if (!user) return { error: STRINGS.errors.sessionExpired };
 
   const { data: proposal } = await supabase
     .from("proposals")
     .select("proposer_id")
     .eq("id", proposalId)
     .maybeSingle();
-  if (!proposal) return { error: "Proposta non trovata." };
+  if (!proposal) return { error: STRINGS.errors.proposalNotFound };
   if (
     proposal.proposer_id !== user.id &&
     (await getProfile(supabase, user.id))?.role !== "admin"
   ) {
-    return { error: "Solo l'autore o un admin può lanciare lo scan duplicati." };
+    return { error: STRINGS.evaluation.scanAuth };
   }
 
   return runProposalScan(supabase, proposalId, force);
@@ -143,23 +141,23 @@ export async function addComment(
   formData: FormData,
 ): Promise<ActionResult> {
   const body = String(formData.get("body") ?? "").trim();
-  if (!body) return { error: "Il commento non può essere vuoto." };
-  if (body.length > 4000) return { error: "Commento troppo lungo (max 4000 caratteri)." };
+  if (!body) return { error: STRINGS.comments.emptyBody };
+  if (body.length > 4000) return { error: STRINGS.comments.tooLong };
 
   const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+  if (!user) return { error: STRINGS.errors.sessionExpired };
 
   const { data: proposal } = await supabase
     .from("proposals")
     .select("status, description, problem")
     .eq("id", proposalId)
     .maybeSingle();
-  if (!proposal) return { error: "Proposta non trovata." };
+  if (!proposal) return { error: STRINGS.errors.proposalNotFound };
   if (proposal.status !== "nuova" && proposal.status !== "in_valutazione") {
-    return { error: "La proposta non accetta più commenti." };
+    return { error: STRINGS.comments.closed };
   }
 
   // Ancora opzionale: field ∈ enum, occurrence ≥ 1, e la quote deve risolversi
@@ -177,7 +175,7 @@ export async function addComment(
       !Number.isInteger(anchorOccurrence) ||
       anchorOccurrence < 1
     ) {
-      return { error: "Ancora del commento non valida." };
+      return { error: STRINGS.comments.anchorInvalid };
     }
     const fieldText = proposal[anchorField];
     const resolved =
@@ -187,7 +185,7 @@ export async function addComment(
         occurrence: anchorOccurrence,
       });
     if (!resolved) {
-      return { error: "Il testo selezionato non corrisponde più alla proposta. Ricarica la pagina." };
+      return { error: STRINGS.comments.anchorStale };
     }
     anchor = {
       anchor_field: anchorField,
@@ -201,7 +199,7 @@ export async function addComment(
     .insert({ proposal_id: proposalId, author_id: user.id, body, ...anchor });
   if (error) {
     console.error("addComment:", error);
-    return { error: "Errore nel salvataggio. Riprova." };
+    return { error: STRINGS.errors.saveFailed };
   }
 
   refresh();
@@ -229,14 +227,14 @@ async function commentContext(
     .select("author_id, proposal_id, body, promotion_status")
     .eq("id", commentId)
     .maybeSingle();
-  if (!comment) return { error: "Commento non trovato." };
+  if (!comment) return { error: STRINGS.errors.commentNotFound };
 
   const { data: proposal } = await supabase
     .from("proposals")
     .select("status, proposer_id")
     .eq("id", comment.proposal_id)
     .maybeSingle();
-  if (!proposal) return { error: "Proposta non trovata." };
+  if (!proposal) return { error: STRINGS.errors.proposalNotFound };
   return { comment, proposal };
 }
 
@@ -253,7 +251,7 @@ async function authorizeCommentMutation(
   if ("error" in ctx) return ctx;
   if (ctx.comment.author_id !== userId) return { error: notOwnerError };
   if (!isOpenProposalStatus(ctx.proposal.status)) {
-    return { error: "La proposta non accetta più modifiche." };
+    return { error: STRINGS.comments.mutationsClosed };
   }
   return ctx;
 }
@@ -266,27 +264,27 @@ export async function editComment(
   formData: FormData,
 ): Promise<ActionResult> {
   const body = String(formData.get("body") ?? "").trim();
-  if (!body) return { error: "Il commento non può essere vuoto." };
-  if (body.length > 4000) return { error: "Commento troppo lungo (max 4000 caratteri)." };
+  if (!body) return { error: STRINGS.comments.emptyBody };
+  if (body.length > 4000) return { error: STRINGS.comments.tooLong };
 
   const supabase = await supabaseServer();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+  if (!user) return { error: STRINGS.errors.sessionExpired };
 
   const ctx = await authorizeCommentMutation(
     supabase,
     commentId,
     user.id,
-    "Puoi modificare solo i tuoi commenti.",
+    STRINGS.comments.editOnlyOwn,
   );
   if ("error" in ctx) return ctx;
 
   const { error } = await supabase.from("comments").update({ body }).eq("id", commentId);
   if (error) {
     console.error("editComment:", error);
-    return { error: "Errore nel salvataggio. Riprova." };
+    return { error: STRINGS.errors.saveFailed };
   }
 
   refresh();
@@ -310,24 +308,24 @@ export async function deleteComment(commentId: string): Promise<ActionResult> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+  if (!user) return { error: STRINGS.errors.sessionExpired };
 
   const ctx = await authorizeCommentMutation(
     supabase,
     commentId,
     user.id,
-    "Puoi eliminare solo i tuoi commenti.",
+    STRINGS.comments.deleteOnlyOwn,
   );
   if ("error" in ctx) return ctx;
   // un contributo accepted non si elimina: prima il revoke (policy 0016 backstop)
   if (ctx.comment.promotion_status === "accepted") {
-    return { error: "Revoca la partecipazione prima di eliminare il contributo." };
+    return { error: STRINGS.comments.revokeBeforeDelete };
   }
 
   const { error } = await supabase.from("comments").delete().eq("id", commentId);
   if (error) {
     console.error("deleteComment:", error);
-    return { error: "Errore nell'eliminazione. Riprova." };
+    return { error: STRINGS.errors.deleteFailed };
   }
 
   refresh();
@@ -339,8 +337,6 @@ export async function deleteComment(commentId: string): Promise<ActionResult> {
 // Le transizioni di promotion_status passano solo dalle RPC security definer
 // (CAS: false = stato cambiato nel frattempo). Il guard applicativo qui replica
 // l'autorizzazione della RPC per dare messaggi puntuali; la RPC è il backstop.
-
-const STALE_PROMOTION = "Lo stato del commento è cambiato nel frattempo. Ricarica la pagina.";
 
 // Esito comune delle RPC di promozione: null = transizione avvenuta (con
 // refresh); false dal CAS = stato cambiato sotto i piedi.
@@ -355,9 +351,9 @@ async function callPromotionRpc(
   const { data: done, error } = await supabase.rpc(fn, args);
   if (error) {
     console.error(`${fn}:`, error);
-    return { error: "Errore nel salvataggio. Riprova." };
+    return { error: STRINGS.errors.saveFailed };
   }
-  if (!done) return { error: STALE_PROMOTION };
+  if (!done) return { error: STRINGS.promotion.stale };
   refresh();
   return null;
 }
@@ -368,18 +364,18 @@ export async function requestCommentPromotion(commentId: string): Promise<Action
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+  if (!user) return { error: STRINGS.errors.sessionExpired };
 
   const ctx = await commentContext(supabase, commentId);
   if ("error" in ctx) return ctx;
   if (ctx.comment.author_id !== user.id) {
-    return { error: "Puoi proporre solo i tuoi commenti." };
+    return { error: STRINGS.promotion.onlyOwn };
   }
   if (ctx.proposal.proposer_id === user.id) {
-    return { error: "I tuoi commenti sulla tua proposta non sono promuovibili." };
+    return { error: STRINGS.promotion.ownProposal };
   }
   if (!isOpenProposalStatus(ctx.proposal.status)) {
-    return { error: "La proposta non accetta più promozioni." };
+    return { error: STRINGS.promotion.closed };
   }
 
   return callPromotionRpc(supabase, "request_comment_promotion", {
@@ -398,7 +394,7 @@ export async function resolveCommentPromotion(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+  if (!user) return { error: STRINGS.errors.sessionExpired };
 
   const ctx = await commentContext(supabase, commentId);
   if ("error" in ctx) return ctx;
@@ -406,10 +402,10 @@ export async function resolveCommentPromotion(
     ctx.proposal.proposer_id !== user.id &&
     (await getProfile(supabase, user.id))?.role !== "admin"
   ) {
-    return { error: "Solo il proposer o un admin decide sulla promozione." };
+    return { error: STRINGS.promotion.decideAuth };
   }
   if (!isOpenProposalStatus(ctx.proposal.status)) {
-    return { error: "La proposta non accetta più promozioni." };
+    return { error: STRINGS.promotion.closed };
   }
 
   const result = await callPromotionRpc(supabase, "resolve_comment_promotion", {
@@ -434,7 +430,7 @@ export async function revokeCommentPromotion(commentId: string): Promise<ActionR
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+  if (!user) return { error: STRINGS.errors.sessionExpired };
 
   const ctx = await commentContext(supabase, commentId);
   if ("error" in ctx) return ctx;
@@ -443,10 +439,10 @@ export async function revokeCommentPromotion(commentId: string): Promise<ActionR
   const isAdmin =
     !isAuthor && !isProposer && (await getProfile(supabase, user.id))?.role === "admin";
   if (!isAuthor && !isProposer && !isAdmin) {
-    return { error: "Solo l'autore, il proposer o un admin può revocare il contributo." };
+    return { error: STRINGS.promotion.revokeAuth };
   }
   if (!isOpenProposalStatus(ctx.proposal.status)) {
-    return { error: "La proposta non accetta più modifiche ai contributi." };
+    return { error: STRINGS.promotion.contributionsClosed };
   }
 
   const result = await callPromotionRpc(supabase, "revoke_comment_promotion", {
@@ -468,26 +464,26 @@ export async function deleteProposal(proposalId: string): Promise<ActionResult> 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Sessione scaduta. Rientra e riprova." };
+  if (!user) return { error: STRINGS.errors.sessionExpired };
 
   const { data: proposal } = await supabase
     .from("proposals")
     .select("proposer_id")
     .eq("id", proposalId)
     .single();
-  if (!proposal) return { error: "Proposta non trovata." };
+  if (!proposal) return { error: STRINGS.errors.proposalNotFound };
 
   if (
     proposal.proposer_id !== user.id &&
     (await getProfile(supabase, user.id))?.role !== "admin"
   ) {
-    return { error: "Solo l'autore o un admin può eliminare la proposta." };
+    return { error: STRINGS.proposal.deleteAuth };
   }
 
   const { error } = await supabase.from("proposals").delete().eq("id", proposalId);
   if (error) {
     console.error("deleteProposal:", error);
-    return { error: "Errore nell'eliminazione. Riprova." };
+    return { error: STRINGS.errors.deleteFailed };
   }
 
   refresh();
