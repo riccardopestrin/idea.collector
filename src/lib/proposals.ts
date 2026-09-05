@@ -77,6 +77,8 @@ export type ProposalDetail = VoteComponents & {
   dup_report: string | null;
   dup_match: { id: string; title: string; proposer: PersonRef } | null;
   links: string[];
+  // branch o "#PR" sulla repo collegata (migration 0020); null = non collegato
+  git_ref: string | null;
   internal_notes: string | null;
   created_at: string;
   proposer_id: string;
@@ -232,6 +234,8 @@ export async function listProposals(
     // che un input rompa/estenda la .or — trust boundary.
     const safe = search.replace(/[,()*]/g, " ");
     query = query.or(`title.ilike.%${safe}%,description.ilike.%${safe}%`);
+    // l'archivio è fuori dai risultati di ricerca, salvo filtro stato esplicito
+    if (!status) query = query.neq("status", "archiviata");
   }
   if (status) query = query.eq("status", status);
 
@@ -277,8 +281,8 @@ export async function getProposalDetail(
     .select(
       `id, title, description, problem, status, reach, impact, confidence,
        effort, ai_rationale, ai_eval_status, ai_eval_error, dup_scan_status,
-       dup_scan_error, dup_flagged, dup_similarity, dup_report, links, internal_notes,
-       created_at, proposer_id,
+       dup_scan_error, dup_flagged, dup_similarity, dup_report, links, git_ref,
+       internal_notes, created_at, proposer_id,
        proposer:profiles(name, email),
        dup_match:proposals!dup_match_id(id, title, proposer:profiles(name, email)),
        status_history(id, from_status, to_status, created_at, author:profiles(name, email)),

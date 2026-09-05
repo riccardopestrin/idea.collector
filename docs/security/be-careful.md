@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-10
+**Last updated:** 2026-09-05
 
 # Be Careful — issue note consapevolmente rinviate
 
@@ -17,13 +17,15 @@ Ogni voce ha un ID stabile nel formato `YYYY-MM-DD-XXXX` (data del flag + 4 char
 - [src/app/proposals/actions.ts](../../src/app/proposals/actions.ts) — `evaluateProposal`: stesso guard inline (getUser + getProfile role)
 - [src/app/auth/github/callback/route.ts](../../src/app/auth/github/callback/route.ts) — terza variante inline
 - [src/app/proposals/actions.ts](../../src/app/proposals/actions.ts) — `resolveCommentPromotion` e `revokeCommentPromotion` (branch `commentPromotion`, 2026-07-08): variante **proposer-or-admin** — un'estrazione di un semplice `requireAdmin` non coprirebbe questa forma; l'eventuale helper deve accettare anche la condizione di ownership
-- [src/app/proposals/actions.ts](../../src/app/proposals/actions.ts) — `runProposalScanAction` (branch `ideaChecker`, 2026-07-08): quarta istanza della variante proposer-or-admin (backstop DB: RPC `can_run_dup_scan`, migration 0017)
+- [src/app/proposals/actions.ts](../../src/app/proposals/actions.ts) — `runProposalScanAction` (branch `ideaChecker`, 2026-07-08): quarta istanza della variante proposer-or-admin (dal 2026-09-05 SENZA backstop DB: `can_run_dup_scan` droppata dalla 0020)
+- [src/app/profile/actions.ts](../../src/app/profile/actions.ts) — `inviteUser`/`setUserRole`/`removeUser` (branch `newFeatures`, 2026-09-05): riusano `requireAdmin()` del modulo; `deleteComment` e `setGitRef` aggiungono due istanze inline della variante owner-or-admin
 
 ### Il problema potenziale
 La forma auth-resolve + role-check è ripetuta in 3+ punti: una futura modifica all'autorizzazione va applicata ovunque, e un punto dimenticato è un bug di sicurezza (mitigato dal backstop RLS/RPC a DB).
 
 ### Perché oggi non è un problema
 Ogni call site fa il guard correttamente e il DB (RPC admin-only + RLS) rifiuta comunque le scritture non autorizzate.
+**Attenzione (2026-09-05, migration 0020 / SEC-9):** per le scritture di scan ed eval il backstop DB non c'è più — le RPC sono eseguibili solo da `service_role` e `runProposalScan`/`runEvaluation` scrivono col client admin. L'autorizzazione di quei percorsi vive SOLO nei guard delle Server Action (`runProposalScanAction`, `evaluateProposal`, `updateProposal`, `editComment`, `resolve/revokeCommentPromotion`): un guard dimenticato lì non viene più fermato a DB. Scelta owner (remediation SEC-9), ma alza il peso di questa entry.
 
 ### Quando diventa un problema
 1. Quando cambia il modello dei ruoli (es. nuovi ruoli oltre admin/contributor).
@@ -278,7 +280,7 @@ Il messaggio generico all'utente è giusto (niente leak), ma l'errore reale scom
 
 ## `2026-07-08-strd` Scan duplicati strandabile `in_corso` se la proposta esce da 'nuova' a metà scan
 
-**Status:** non fissato — non si verifica nell'attuale use case.
+**Status:** ✅ risolto 2026-09-05 — migration 0020: `fail_dup_scan`/`apply_dup_scan` girano come `service_role` senza condizione di stato (SEC-9), quindi il marker di fallimento viene sempre scritto anche se la proposta è uscita da 'nuova' a metà scan.
 
 ### Dove
 - [src/lib/ai/runProposalScan.ts](../../src/lib/ai/runProposalScan.ts) — catch: l'errore di `fail_dup_scan` è solo loggato

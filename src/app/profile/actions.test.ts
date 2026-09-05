@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { disconnectGithub, selectRepo, startGithubConnect, updateName } from "./actions";
+import {
+  disconnectGithub,
+  inviteUser,
+  selectRepo,
+  setUserDisabled,
+  setUserRole,
+  startGithubConnect,
+  updateName,
+} from "./actions";
 
 const {
   getUser,
@@ -33,12 +41,20 @@ const {
 });
 
 vi.mock("@/lib/supabase/server", () => ({
-  supabaseServer: async () => ({ auth: { getUser }, from }),
+  supabaseServer: async () => ({ auth: { getUser }, from, rpc }),
+}));
+const { rpc, inviteUserByEmail, updateUserById } = vi.hoisted(() => ({
+  rpc: vi.fn(),
+  inviteUserByEmail: vi.fn(),
+  updateUserById: vi.fn(),
+}));
+vi.mock("@/lib/supabase/admin", () => ({
+  supabaseAdmin: () => ({ auth: { admin: { inviteUserByEmail, updateUserById } } }),
 }));
 vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("next/cache", () => ({ refresh }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ set: cookieSet }) }));
-vi.mock("@/lib/profiles", () => ({ getProfile }));
+vi.mock("@/lib/profiles", () => ({ getProfile, ROLES: ["admin", "contributor"] }));
 vi.mock("@/lib/github/app", () => ({ listInstallationRepos }));
 vi.mock("@/lib/github/settings", () => ({ getGithubSettings, upsertGithubSettings }));
 
@@ -210,6 +226,100 @@ describe("GitHub actions", () => {
         github_repo: null,
       });
       expect(refresh).toHaveBeenCalled();
+    });
+  });
+});
+
+describe("user management", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
+    getProfile.mockResolvedValue({ role: "admin", name: "Ric" });
+    rpc.mockResolvedValue({ data: null, error: null });
+    inviteUserByEmail.mockResolvedValue({ data: { user: { id: "new-1" } }, error: null });
+    updateUserById.mockResolvedValue({ data: {}, error: null });
+  });
+
+  describe("inviteUser", () => {
+    it("refuses a non-admin user", async () => {
+      getProfile.mockResolvedValue({ role: "contributor", name: null });
+      expect(await inviteUser(null, formOf({ email: "a@b.co" }))).toEqual({
+        error: "Solo un admin può gestire gli utenti.",
+      });
+      expect(inviteUserByEmail).not.toHaveBeenCalled();
+    });
+
+    it("rejects a malformed email before calling Supabase", async () => {
+      expect(await inviteUser(null, formOf({ email: "not-an-email" }))).toEqual({
+        error: "Email non valida.",
+      });
+      expect(inviteUserByEmail).not.toHaveBeenCalled();
+    });
+
+    it("invites a contributor with the normalized email and no role change", async () => {
+      expect(await inviteUser(null, formOf({ email: " Ada@Hint.App " }))).toBeNull();
+      expect(inviteUserByEmail).toHaveBeenCalledWith("ada@hint.app");
+      expect(rpc).not.toHaveBeenCalled();
+      expect(refresh).toHaveBeenCalled();
+    });
+
+    it("promotes the invitee when the admin flag is set", async () => {
+      expect(await inviteUser(null, formOf({ email: "ada@hint.app", admin: "on" }))).toBeNull();
+      expect(rpc).toHaveBeenCalledWith("set_profile_role", { p_id: "new-1", p_role: "admin" });
+    });
+
+    it("maps an invite failure to a generic message", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      inviteUserByEmail.mockResolvedValue({ data: { user: null }, error: { message: "smtp" } });
+      expect(await inviteUser(null, formOf({ email: "ada@hint.app" }))).toEqual({
+        error: "Invito non riuscito. Riprova.",
+      });
+    });
+  });
+
+  describe("setUserRole", () => {
+    it("rejects an unknown role", async () => {
+      expect(await setUserRole("u2", "owner")).toEqual({ error: "Ruolo non valido." });
+      expect(rpc).not.toHaveBeenCalled();
+    });
+
+    it("refuses to change the caller's own role", async () => {
+      expect(await setUserRole("u1", "contributor")).toEqual({
+        error: "Non puoi cambiare il tuo stesso ruolo.",
+      });
+      expect(rpc).not.toHaveBeenCalled();
+    });
+
+    it("changes another user's role through the RPC", async () => {
+      expect(await setUserRole("u2", "admin")).toBeNull();
+      expect(rpc).toHaveBeenCalledWith("set_profile_role", { p_id: "u2", p_role: "admin" });
+      expect(refresh).toHaveBeenCalled();
+    });
+  });
+
+  describe("setUserDisabled", () => {
+    it("refuses to disable the caller", async () => {
+      expect(await setUserDisabled("u1", true)).toEqual({
+        error: "Non puoi disabilitare te stesso.",
+      });
+      expect(updateUserById).not.toHaveBeenCalled();
+    });
+
+    it("bans another user via the admin API and lifts the ban to re-enable", async () => {
+      expect(await setUserDisabled("u2", true)).toBeNull();
+      expect(updateUserById).toHaveBeenCalledWith("u2", { ban_duration: "876600h" });
+
+      expect(await setUserDisabled("u2", false)).toBeNull();
+      expect(updateUserById).toHaveBeenCalledWith("u2", { ban_duration: "none" });
+      expect(refresh).toHaveBeenCalledTimes(2);
+    });
+
+    it("maps an admin API failure to a generic message", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      updateUserById.mockResolvedValue({ data: null, error: { message: "boom" } });
+      expect(await setUserDisabled("u2", true)).toEqual({
+        error: "Operazione non riuscita. Riprova.",
+      });
     });
   });
 });

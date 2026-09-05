@@ -1,7 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+// Ruoli applicativi — mirror del check su profiles.role (migration 0001).
+export const ROLES = ["admin", "contributor"] as const;
+export type Role = (typeof ROLES)[number];
+
 export type Profile = {
-  role: "admin" | "contributor";
+  role: Role;
   name: string | null;
 };
 

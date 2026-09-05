@@ -60,8 +60,9 @@ export function CommentsSidebar({
             <CommentItem
               key={comment.id}
               comment={comment}
-              // edit/delete solo al creatore e solo su proposta aperta (canComment)
+              // edit solo al creatore, delete anche all'admin; solo su proposta aperta (canComment)
               mine={canComment && comment.author_id === currentUserId}
+              canDelete={canComment && (comment.author_id === currentUserId || isAdmin === true)}
               // candidabile solo dal suo autore, mai dal proposer dell'idea
               canPromote={
                 canComment &&
@@ -95,12 +96,14 @@ const PROMOTION_BADGES = {
 function CommentItem({
   comment,
   mine,
+  canDelete,
   canPromote,
   canResolve,
   onHover,
 }: {
   comment: ProposalComment;
   mine: boolean;
+  canDelete: boolean;
   canPromote: boolean;
   canResolve: boolean;
   onHover: (commentId: string | null) => void;
@@ -147,7 +150,7 @@ function CommentItem({
       ) : (
         <>
           <p className="mt-1 whitespace-pre-wrap text-sm">{comment.body}</p>
-          {(mine || promotable || resolvable || revocable) && (
+          {(mine || canDelete || promotable || resolvable || revocable) && (
             <div className="mt-2 flex flex-wrap gap-3 text-xs text-foreground/50">
               {mine && (
                 <button
@@ -159,7 +162,7 @@ function CommentItem({
                 </button>
               )}
               {/* un contributo accepted non si elimina: prima la revoca */}
-              {mine &&
+              {canDelete &&
                 !accepted &&
                 (confirmingDelete ? (
                   <>

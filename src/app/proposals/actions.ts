@@ -238,26 +238,9 @@ async function commentContext(
   return { comment, proposal };
 }
 
-// Autorizza una mutazione su un commento: solo il creatore, e solo finché la
-// proposta è aperta (cristallizzazione, coerente con addComment). notOwnerError
-// tiene distinto il messaggio tra modifica ed eliminazione.
-async function authorizeCommentMutation(
-  supabase: SupabaseClient,
-  commentId: string,
-  userId: string,
-  notOwnerError: string,
-): Promise<{ error: string } | CommentContext> {
-  const ctx = await commentContext(supabase, commentId);
-  if ("error" in ctx) return ctx;
-  if (ctx.comment.author_id !== userId) return { error: notOwnerError };
-  if (!isOpenProposalStatus(ctx.proposal.status)) {
-    return { error: STRINGS.comments.mutationsClosed };
-  }
-  return ctx;
-}
-
-// Modifica il testo di un commento. L'ancora resta invariata (il grant di
-// colonna di 0014 permette solo `body`).
+// Modifica il testo di un commento: solo il creatore, solo su proposta aperta
+// (cristallizzazione, coerente con addComment). L'ancora resta invariata (il
+// grant di colonna di 0014 permette solo `body`).
 export async function editComment(
   commentId: string,
   _prev: ActionResult,
@@ -273,13 +256,12 @@ export async function editComment(
   } = await supabase.auth.getUser();
   if (!user) return { error: STRINGS.errors.sessionExpired };
 
-  const ctx = await authorizeCommentMutation(
-    supabase,
-    commentId,
-    user.id,
-    STRINGS.comments.editOnlyOwn,
-  );
+  const ctx = await commentContext(supabase, commentId);
   if ("error" in ctx) return ctx;
+  if (ctx.comment.author_id !== user.id) return { error: STRINGS.comments.editOnlyOwn };
+  if (!isOpenProposalStatus(ctx.proposal.status)) {
+    return { error: STRINGS.comments.mutationsClosed };
+  }
 
   const { error } = await supabase.from("comments").update({ body }).eq("id", commentId);
   if (error) {
@@ -290,8 +272,8 @@ export async function editComment(
   refresh();
 
   // Il testo di un contributo accepted è parte dell'idea (live): un edit vero
-  // rilancia l'eval, come updateProposal. can_run_ai_evaluation (0016) autorizza
-  // l'autore di un contributo accepted.
+  // rilancia l'eval, come updateProposal. Autorizzazione = il guard sopra (solo
+  // l'autore); la scrittura gira come service_role (0020), nessun backstop DB.
   if (
     ctx.comment.promotion_status === "accepted" &&
     ctx.proposal.status === "in_valutazione" &&
@@ -302,7 +284,7 @@ export async function editComment(
   return null;
 }
 
-// Elimina un commento. Stesse regole della modifica.
+// Elimina un commento: l'autore, o un admin (pieni poteri); solo su proposta aperta.
 export async function deleteComment(commentId: string): Promise<ActionResult> {
   const supabase = await supabaseServer();
   const {
@@ -310,13 +292,18 @@ export async function deleteComment(commentId: string): Promise<ActionResult> {
   } = await supabase.auth.getUser();
   if (!user) return { error: STRINGS.errors.sessionExpired };
 
-  const ctx = await authorizeCommentMutation(
-    supabase,
-    commentId,
-    user.id,
-    STRINGS.comments.deleteOnlyOwn,
-  );
+  // autore, oppure admin (policy "admin delete open", migration 0020)
+  const ctx = await commentContext(supabase, commentId);
   if ("error" in ctx) return ctx;
+  if (
+    ctx.comment.author_id !== user.id &&
+    (await getProfile(supabase, user.id))?.role !== "admin"
+  ) {
+    return { error: STRINGS.comments.deleteOnlyOwn };
+  }
+  if (!isOpenProposalStatus(ctx.proposal.status)) {
+    return { error: STRINGS.comments.mutationsClosed };
+  }
   // un contributo accepted non si elimina: prima il revoke (policy 0016 backstop)
   if (ctx.comment.promotion_status === "accepted") {
     return { error: STRINGS.comments.revokeBeforeDelete };

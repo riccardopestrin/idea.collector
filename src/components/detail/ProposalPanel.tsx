@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { GitRefSection } from "@/components/detail/GitRefSection";
 import { ProposalDiscussion } from "@/components/detail/ProposalDiscussion";
 import { ProposalScanTrigger } from "@/components/detail/ProposalScanTrigger";
 import { RiceVoteForm } from "@/components/detail/RiceVoteForm";
@@ -65,10 +66,13 @@ export function ProposalPanel({
   detail,
   isAdmin,
   currentUserId,
+  repo,
 }: {
   detail: ProposalDetail;
   isAdmin?: boolean;
   currentUserId?: string;
+  // repo GitHub collegata (app_settings): serve per linkare git_ref
+  repo?: { owner: string; name: string } | null;
 }) {
   const composite = computeCompositeScore(detail, detail.votes);
   const claudeTotal = composite.claudeTotal;
@@ -76,10 +80,10 @@ export function ProposalPanel({
     .map((field) => ({ field, value: composite.components[field] }))
     .filter((c): c is { field: keyof VoteComponents; value: number } => c.value !== null);
   const isOpen = isOpenProposalStatus(detail.status);
-  const canEdit = isOpen && (isAdmin === true || currentUserId === detail.proposer_id);
+  const isProposerOrAdmin = isAdmin === true || currentUserId === detail.proposer_id;
+  const canEdit = isOpen && isProposerOrAdmin;
   // scan duplicati (RFC-006): trigger/rilancio del proposer o admin, solo in 'nuova'
-  const canScan =
-    detail.status === "nuova" && (isAdmin === true || currentUserId === detail.proposer_id);
+  const canScan = detail.status === "nuova" && isProposerOrAdmin;
   // commenti promossi a contributo: parte dell'idea, resi sotto il body
   const contributions = detail.comments.filter((c) => c.promotion_status === "accepted");
   const contributorIds = acceptedContributorIds(detail.comments);
@@ -187,6 +191,15 @@ export function ProposalPanel({
               ))}
             </ul>
           </section>
+        )}
+
+        {(detail.git_ref || isProposerOrAdmin) && (
+          <GitRefSection
+            proposalId={detail.id}
+            gitRef={detail.git_ref}
+            repo={repo ?? null}
+            canEdit={isProposerOrAdmin}
+          />
         )}
 
         {/* Rilancia anche su in_corso: recupera valutazioni orfane di un crash (0011) */}

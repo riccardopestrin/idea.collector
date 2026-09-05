@@ -33,7 +33,19 @@ pnpm exec supabase test db       # test RLS pgTAP in supabase/tests
 pnpm db:stop
 ```
 
-Per puntare l'app al locale, in `.env.local` usare i valori stampati da `pnpm exec supabase status` (`API URL` → `NEXT_PUBLIC_SUPABASE_URL`, `anon key` → `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
+Per puntare l'app al locale, in `.env.local` usare i valori stampati da `pnpm exec supabase status` (`API URL` → `NEXT_PUBLIC_SUPABASE_URL`, `anon key` → `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `service_role key` → `SUPABASE_SERVICE_ROLE_KEY`). La service-role key serve solo lato server: inviti/rimozione utenti e scrittura degli esiti di scan/valutazione AI (migration 0020).
+
+### Test d'integrazione (stack locale)
+
+```bash
+pnpm test:integration            # scenario full-stack: proposta → contributo → voti, su RLS/RPC reali
+```
+
+Richiede lo stack locale attivo; se le chiavi non sono in `.env`, le legge da `supabase status`. Rifiuta URL non locali perché crea e cancella utenti veri (`*@test.local`).
+
+### Inviti
+
+L'admin invita dalla pagina Profilo → Utenti (`auth.admin.inviteUserByEmail`). L'email usa il template `supabase/templates/invite.html`, che manda a `/auth/callback?token_hash=…&type=invite` (verifica server-side). In locale le email finiscono su Mailpit (`http://127.0.0.1:54324`). **Sul progetto remoto il template va replicato a mano**: Dashboard → Authentication → Email Templates → Invite user, con lo stesso link.
 
 ## Learn More
 

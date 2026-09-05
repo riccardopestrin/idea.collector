@@ -10,14 +10,16 @@ import {
   stubScan,
 } from "@/lib/ai/scanProposal";
 import { STRINGS } from "@/lib/strings";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 // cap candidati per il judge locale (RFC-006): oltre serve un pre-filtro
 // (pg_trgm/pgvector) — follow-up se il volume cresce.
 const CANDIDATE_LIMIT = 100;
 
 // Corpo post-autorizzazione dello scan anti-duplicato (RFC-006, mirror di
-// runEvaluation): chi può chiamarlo lo decidono i chiamanti (action, edit) e
-// la RPC can_run_dup_scan come backstop. Il fallimento non è mai bloccante:
+// runEvaluation): chi può chiamarlo lo decidono i chiamanti (action, edit);
+// gli esiti si scrivono col client service-role (SEC-9, migration 0020), così il
+// proposer non può forgiarli via PostgREST. Il fallimento non è mai bloccante:
 // marca 'fallita' e ritorna l'errore. force=true (Rilancia / re-scan su edit)
 // salta idempotenza e guard in-flight.
 export async function runProposalScan(
@@ -37,7 +39,8 @@ export async function runProposalScan(
   // Idempotenza: l'auto-trigger on-view gira una volta sola; force ricalcola.
   if (!force && proposal.dup_scan_status !== "assente") return null;
 
-  const { data: began, error: beginError } = await supabase.rpc("begin_dup_scan", {
+  const admin = supabaseAdmin();
+  const { data: began, error: beginError } = await admin.rpc("begin_dup_scan", {
     p_id: proposalId,
     p_force: force,
   });
@@ -82,7 +85,7 @@ export async function runProposalScan(
           })();
 
     const flagged = local.matchId !== null && local.similarity >= DUP_SIMILARITY_THRESHOLD;
-    const { error: applyError } = await supabase.rpc("apply_dup_scan", {
+    const { error: applyError } = await admin.rpc("apply_dup_scan", {
       p_id: proposalId,
       p_flagged: flagged,
       p_similarity: local.matchId === null ? null : local.similarity,
@@ -95,7 +98,7 @@ export async function runProposalScan(
   } catch (err) {
     const message = err instanceof Error ? err.message : "errore sconosciuto";
     console.error("runProposalScan:", err);
-    const { error: failError } = await supabase.rpc("fail_dup_scan", {
+    const { error: failError } = await admin.rpc("fail_dup_scan", {
       p_id: proposalId,
       p_error: message,
     });

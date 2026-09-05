@@ -6,10 +6,12 @@ import { evaluateWithClaude, stubScores } from "@/lib/ai/evaluateProposal";
 import { buildRepoDigest } from "@/lib/github/repoDigest";
 import { getGithubSettings } from "@/lib/github/settings";
 import { STRINGS } from "@/lib/strings";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 // Corpo post-autorizzazione della valutazione AI (RFC-003/RFC-004): chi può
-// chiamarla lo decidono i chiamanti (action admin, updateProposal) e la RPC
-// can_run_ai_evaluation come backstop. Il fallimento non è mai bloccante:
+// chiamarla lo decidono i chiamanti (action admin, updateProposal, promozioni);
+// gli esiti si scrivono col client service-role (SEC-8, migration 0020), così
+// nessun utente può forgiarli via PostgREST. Il fallimento non è mai bloccante:
 // marca `fallita` e ritorna l'errore. force=true (Rilancia) salta idempotenza
 // e guard in-flight.
 export async function runEvaluation(
@@ -50,7 +52,8 @@ export async function runEvaluation(
 
   // force (Rilancia) bypassa anche il guard in-flight della RPC: recupera le
   // valutazioni rimaste 'in_corso' per un crash tra begin e fail (migration 0011).
-  const { data: began, error: beginError } = await supabase.rpc("begin_ai_evaluation", {
+  const admin = supabaseAdmin();
+  const { data: began, error: beginError } = await admin.rpc("begin_ai_evaluation", {
     p_id: proposalId,
     p_force: force,
   });
@@ -90,7 +93,7 @@ export async function runEvaluation(
       process.env.AI_EVAL_FAKE === "1"
         ? stubScores()
         : await evaluateWithClaude(anthropicClient(), input, digest);
-    const { error: applyError } = await supabase.rpc("apply_ai_evaluation", {
+    const { error: applyError } = await admin.rpc("apply_ai_evaluation", {
       p_id: proposalId,
       p_reach: scores.reach,
       p_impact: scores.impact,
@@ -104,7 +107,7 @@ export async function runEvaluation(
   } catch (err) {
     const message = err instanceof Error ? err.message : "errore sconosciuto";
     console.error("runEvaluation:", err);
-    await supabase.rpc("fail_ai_evaluation", { p_id: proposalId, p_error: message });
+    await admin.rpc("fail_ai_evaluation", { p_id: proposalId, p_error: message });
     refresh();
     return { error: STRINGS.evaluation.failed(message) };
   }

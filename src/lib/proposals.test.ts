@@ -135,15 +135,17 @@ describe("rankProposalsByScore", () => {
 function fakeBuilder(data: unknown) {
   const or = vi.fn();
   const eq = vi.fn();
+  const neq = vi.fn();
   const builder = {
     select: vi.fn(() => builder),
     order: vi.fn(() => builder),
     or: or.mockImplementation(() => builder),
     eq: eq.mockImplementation(() => builder),
+    neq: neq.mockImplementation(() => builder),
     overrideTypes: vi.fn(() => Promise.resolve({ data })),
   };
   const supabase = { from: vi.fn(() => builder) } as unknown as SupabaseClient;
-  return { supabase, or, eq };
+  return { supabase, or, eq, neq };
 }
 
 describe("listProposals", () => {
@@ -163,12 +165,30 @@ describe("listProposals", () => {
     expect(or).toHaveBeenCalledWith("title.ilike.%map a  b %,description.ilike.%map a  b %");
   });
 
+  it("keeps archived proposals out of search results", async () => {
+    const { supabase, neq } = fakeBuilder([row]);
+
+    await listProposals(supabase, { search: "mappa" });
+
+    expect(neq).toHaveBeenCalledWith("status", "archiviata");
+  });
+
+  it("searches inside the archive when the status filter asks for it", async () => {
+    const { supabase, neq, eq } = fakeBuilder([row]);
+
+    await listProposals(supabase, { search: "mappa", status: "archiviata" });
+
+    expect(neq).not.toHaveBeenCalled();
+    expect(eq).toHaveBeenCalledWith("status", "archiviata");
+  });
+
   it("does not filter when no search or status is given", async () => {
-    const { supabase, or, eq } = fakeBuilder([row]);
+    const { supabase, or, eq, neq } = fakeBuilder([row]);
 
     await listProposals(supabase, {});
 
     expect(or).not.toHaveBeenCalled();
+    expect(neq).not.toHaveBeenCalled();
     // l'unico eq è il filtro sull'embed dei contributi, sempre presente (0016)
     expect(eq).toHaveBeenCalledTimes(1);
     expect(eq).toHaveBeenCalledWith("contributors.promotion_status", "accepted");

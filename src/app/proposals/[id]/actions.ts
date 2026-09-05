@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 
 import { runEvaluation } from "@/lib/ai/runEvaluation";
 import { runProposalScan } from "@/lib/ai/runProposalScan";
+import { parseGitRef } from "@/lib/github/gitRef";
 import { getProfile } from "@/lib/profiles";
 import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -127,6 +128,49 @@ export async function submitRiceVote(
     // 23505 = unique_violation: ha già votato (voto immutabile).
     if (error.code === "23505") return { error: STRINGS.rice.alreadyVoted };
     console.error("submitRiceVote:", error);
+    return { error: STRINGS.errors.saveFailed };
+  }
+
+  refresh();
+  return null;
+}
+
+// Collega (o scollega, input vuoto) il branch/PR su cui si lavora (migration
+// 0020). Proposer o admin, in qualsiasi stato: non è contenuto dell'idea, quindi
+// fuori dalla cristallizzazione. Policy "owner or admin update" come backstop.
+export async function setGitRef(
+  proposalId: string,
+  _prev: UpdateProposalState,
+  formData: FormData,
+): Promise<UpdateProposalState> {
+  const gitRef = parseGitRef(String(formData.get("git_ref") ?? ""));
+  if (gitRef === undefined) return { error: STRINGS.proposal.gitRefInvalid };
+
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: STRINGS.errors.sessionExpired };
+
+  const { data: proposal } = await supabase
+    .from("proposals")
+    .select("proposer_id")
+    .eq("id", proposalId)
+    .maybeSingle();
+  if (!proposal) return { error: STRINGS.errors.proposalNotFound };
+  if (
+    proposal.proposer_id !== user.id &&
+    (await getProfile(supabase, user.id))?.role !== "admin"
+  ) {
+    return { error: STRINGS.proposal.gitRefAuth };
+  }
+
+  const { error } = await supabase
+    .from("proposals")
+    .update({ git_ref: gitRef })
+    .eq("id", proposalId);
+  if (error) {
+    console.error("setGitRef:", error);
     return { error: STRINGS.errors.saveFailed };
   }
 

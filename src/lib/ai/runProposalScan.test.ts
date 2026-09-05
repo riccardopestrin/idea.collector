@@ -10,6 +10,12 @@ const { refresh, findLocalDuplicate, searchCompetitors } = vi.hoisted(() => ({
 }));
 
 vi.mock("next/cache", () => ({ refresh }));
+// le scritture (RPC) passano dal client service-role (migration 0020): il mock
+// delega alla rpc del fake corrente così i test asseriscono su una sola spy
+const adminRpc = vi.hoisted(() => ({ current: vi.fn() }));
+vi.mock("@/lib/supabase/admin", () => ({
+  supabaseAdmin: () => ({ rpc: (...args: unknown[]) => adminRpc.current(...args) }),
+}));
 vi.mock("@/lib/ai/anthropic", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./anthropic")>()),
   anthropicClient: () => ({}),
@@ -54,6 +60,7 @@ function fakeSupabase({
     };
   });
   const rpc = vi.fn(async () => ({ data: true, error: null }));
+  adminRpc.current = rpc;
   return { client: { from, rpc } as unknown as SupabaseClient, rpc };
 }
 

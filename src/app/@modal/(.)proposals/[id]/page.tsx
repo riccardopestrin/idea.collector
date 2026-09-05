@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { DetailModal } from "@/components/detail/DetailModal";
 import { ProposalPanel } from "@/components/detail/ProposalPanel";
+import { connectedRepo, getGithubSettings } from "@/lib/github/settings";
 import { getProfile } from "@/lib/profiles";
 import { getProposalDetail } from "@/lib/proposals";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -14,8 +15,12 @@ export default async function ProposalDetailModal({
   params: Promise<{ id: string }>;
 }) {
   const supabase = await supabaseServer();
-  const detail = await getProposalDetail(supabase, (await params).id);
+  const [detail, settings] = await Promise.all([
+    getProposalDetail(supabase, (await params).id),
+    getGithubSettings(supabase),
+  ]);
   if (!detail) notFound();
+  const repo = connectedRepo(settings);
 
   const {
     data: { user },
@@ -26,7 +31,7 @@ export default async function ProposalDetailModal({
 
   return (
     <DetailModal>
-      <ProposalPanel detail={detail} isAdmin={isAdmin} currentUserId={user?.id} />
+      <ProposalPanel detail={detail} isAdmin={isAdmin} currentUserId={user?.id} repo={repo} />
     </DetailModal>
   );
 }

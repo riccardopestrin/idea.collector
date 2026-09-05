@@ -18,6 +18,10 @@ export async function getGithubSettings(
   return data as GithubSettings | null;
 }
 
+// Repo collegata come {owner, name}, o null se non (ancora) scelta.
+export const connectedRepo = (s: GithubSettings | null) =>
+  s?.github_owner && s.github_repo ? { owner: s.github_owner, name: s.github_repo } : null;
+
 export async function upsertGithubSettings(
   supabase: SupabaseClient,
   userId: string,

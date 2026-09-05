@@ -243,10 +243,13 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# Invito admin (auth.admin.inviteUserByEmail): il link porta token_hash a
+# /auth/callback, che lo verifica server-side (verifyOtp). Il template di
+# default usa l'implicit flow (#access_token) che il Route Handler non vede.
+# Sul progetto remoto va replicato a mano: Dashboard → Auth → Email Templates.
+[auth.email.template.invite]
+subject = "Invito a Proposte feature"
+content_path = "./supabase/templates/invite.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]

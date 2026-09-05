@@ -280,11 +280,18 @@ describe("deleteComment", () => {
     expect(tables.comments.delete).not.toHaveBeenCalled();
   });
 
-  it("refuses a user who is not the comment author", async () => {
+  it("refuses a user who is neither the comment author nor an admin", async () => {
     tables.comments.row = { author_id: "someone-else", proposal_id: "p1" };
     const result = await deleteComment("c1");
-    expect(result).toEqual({ error: "Puoi eliminare solo i tuoi commenti." });
+    expect(result).toEqual({ error: "Puoi eliminare solo i tuoi commenti (o essere admin)." });
     expect(tables.comments.delete).not.toHaveBeenCalled();
+  });
+
+  it("lets an admin delete someone else's comment", async () => {
+    tables.profiles.row = { role: "admin" };
+    tables.comments.row = { author_id: "someone-else", proposal_id: "p1", promotion_status: "none" };
+    expect(await deleteComment("c1")).toBeNull();
+    expect(tables.comments.delete).toHaveBeenCalled();
   });
 
   it("refuses to delete a comment on a crystallized proposal", async () => {

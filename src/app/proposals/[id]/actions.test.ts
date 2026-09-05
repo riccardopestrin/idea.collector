@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { submitRiceVote, updateProposal } from "./actions";
+import { setGitRef, submitRiceVote, updateProposal } from "./actions";
 
 const { getUser, tables, refresh, runEvaluation, runProposalScan, updateResult, insertResult } = vi.hoisted(() => {
   const updateResult = { value: { error: null } as { error: unknown } };
@@ -253,5 +253,41 @@ describe("submitRiceVote", () => {
     expect(await submitRiceVote("p1", null, voteForm())).toEqual({
       error: "Errore nel salvataggio. Riprova.",
     });
+  });
+});
+
+describe("setGitRef", () => {
+  const form = (value: string) => {
+    const fd = new FormData();
+    fd.set("git_ref", value);
+    return fd;
+  };
+
+  it("rejects an invalid reference before touching the database", async () => {
+    expect(await setGitRef("p1", null, form("two words"))).toEqual({
+      error: "Riferimento non valido: niente spazi, max 200 caratteri.",
+    });
+    expect(tables.proposals.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a user who is neither proposer nor admin", async () => {
+    tables.proposals.row = { proposer_id: "someone-else" };
+    expect(await setGitRef("p1", null, form("feature/x"))).toEqual({
+      error: "Solo l'autore o un admin può collegare branch o PR.",
+    });
+    expect(tables.proposals.update).not.toHaveBeenCalled();
+  });
+
+  it("saves a normalized PR reference for the proposer", async () => {
+    expect(await setGitRef("p1", null, form("42"))).toBeNull();
+    expect(tables.proposals.update).toHaveBeenCalledWith({ git_ref: "#42" });
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("lets an admin clear the reference with an empty input", async () => {
+    tables.proposals.row = { proposer_id: "someone-else" };
+    tables.profiles.row = { role: "admin" };
+    expect(await setGitRef("p1", null, form(""))).toBeNull();
+    expect(tables.proposals.update).toHaveBeenCalledWith({ git_ref: null });
   });
 });

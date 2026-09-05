@@ -36,6 +36,7 @@ const base: ProposalDetail = {
   dup_report: null,
   dup_match: null,
   links: ["https://example.com/spec"],
+  git_ref: null,
   internal_notes: null,
   created_at: "2026-07-01T10:00:00Z",
   proposer_id: "u1",
@@ -184,6 +185,30 @@ describe("ProposalPanel", () => {
     );
     expect(screen.queryByRole("button", { name: "Modifica" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Elimina" })).not.toBeInTheDocument();
+  });
+
+  it("shows the Branch/PR section to the proposer even when empty, but hides it from others", () => {
+    const { rerender } = render(<ProposalPanel detail={base} currentUserId="u3" />);
+    expect(screen.queryByRole("heading", { name: "Branch / PR" })).not.toBeInTheDocument();
+
+    rerender(<ProposalPanel detail={base} currentUserId="u1" />);
+    expect(screen.getByRole("heading", { name: "Branch / PR" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Modifica branch / PR" })).toBeInTheDocument();
+  });
+
+  it("shows a set git_ref to everyone as a link into the connected repo", () => {
+    render(
+      <ProposalPanel
+        detail={{ ...base, git_ref: "#42" }}
+        currentUserId="u3"
+        repo={{ owner: "acme", name: "ideas" }}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "#42" })).toHaveAttribute(
+      "href",
+      "https://github.com/acme/ideas/pull/42",
+    );
+    expect(screen.queryByRole("button", { name: "Modifica branch / PR" })).not.toBeInTheDocument();
   });
 
   it("shows empty states when there are no moves or comments", () => {
