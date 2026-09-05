@@ -42,9 +42,10 @@ select is(
 );
 
 -- CAS: from_status stale (la carta non è più "nuova") -> nessuna mossa.
+-- Transizione lecita per la macchina a stati (0018), così si arriva al CAS.
 select is(
   public.move_proposal('44444444-0000-0000-0000-000000000001',
-                       'nuova', 'approvata'),
+                       'nuova', 'rifiutata'),
   false,
   'una mossa basata su uno stato stale fallisce (compare-and-set)'
 );
