@@ -16,3 +16,5 @@ Template: copia [`0000-template.md`](0000-template.md).
 | [0004](0004-github-app-repo-context.md) | Integrazione GitHub via GitHub App per contesto progetto | Proposed |
 | [0005](0005-tiptap-editor-anchored-comments.md) | Tiptap editor rich-text, storage markdown, anchoring commenti | Proposed |
 | [0006](0006-rice10-geometric-scoring.md) | Scoring RICE-10: scale 1–10 a rubriche, media geometrica | Proposed |
+| [0007](0007-duplicate-scan-llm-judge-web-search.md) | Scan anti-duplicato con LLM-as-judge + ricerca competitor via web_search | Proposed |
+| [0008](0008-service-role-writes-for-ai-verdicts.md) | Esiti AI (scan duplicati, valutazione) scritti solo dal service role | Proposed |

@@ -107,9 +107,12 @@ function UserItem({ user, isSelf }: { user: UserRow; isSelf: boolean }) {
           )}
         </span>
         <div className="flex items-center gap-2">
-          {/* il <select> invia al change: una form per riga, niente bottone Salva */}
+          {/* il <select> invia al change: una form per riga, niente bottone Salva.
+              key: React resetta il form dopo l'action e una select non controllata
+              tornerebbe al defaultValue del mount — rimontarla mostra il ruolo nuovo */}
           <form action={roleAction}>
             <select
+              key={user.role}
               name="role"
               aria-label={STRINGS.users.roleLabel(user.email)}
               defaultValue={user.role}
