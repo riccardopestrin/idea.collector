@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { DeleteSection } from "@/components/form/DeleteSection";
 import { GithubRepoSection } from "@/components/project/GithubRepoSection";
 import { MembersSection } from "@/components/project/MembersSection";
 import { type InstallationRepo, listInstallationRepos } from "@/lib/github/app";
@@ -8,6 +9,7 @@ import { listMembers } from "@/lib/projects";
 import { STRINGS } from "@/lib/strings";
 import { pageTitleClass } from "@/lib/tokens";
 
+import { deleteProject } from "../../actions";
 import { loadProject } from "../project";
 
 // Impostazioni del progetto, solo admin: membri (inviti, ruoli, rimozione) e
@@ -53,6 +55,11 @@ export default async function ProjectSettingsPage({
         selectedRepo={repo ? `${repo.owner}/${repo.name}` : null}
         repos={repos}
         loadError={loadError ?? (callbackFailed ? STRINGS.github.connectFailed : undefined)}
+      />
+      <DeleteSection
+        texts={STRINGS.projects.delete}
+        confirmHeading={STRINGS.projects.deleteConfirmHeading(project.name)}
+        action={deleteProject.bind(null, project.id)}
       />
     </main>
   );

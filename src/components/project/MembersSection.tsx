@@ -3,7 +3,8 @@
 import { useActionState, useState } from "react";
 
 import { inviteMember, type InviteResult, removeMember, setMemberRole } from "@/app/projects/actions";
-import { controlClass, dangerLinkClass, displayClass, labelClass, linkClass } from "@/lib/tokens";
+import { controlClass, dangerLinkClass, labelClass, linkClass, settingsSectionClass } from "@/lib/tokens";
+import { SettingsHeading } from "@/components/form/SettingsHeading";
 import { SubmitButton } from "@/components/form/SubmitButton";
 import type { Member } from "@/lib/projects";
 import { STRINGS } from "@/lib/strings";
@@ -27,9 +28,8 @@ export function MembersSection({
   );
 
   return (
-    <section className="flex w-full max-w-lg flex-col gap-4 border-t border-ink pt-6">
-      <h2 className={`${displayClass} text-2xl`}>{STRINGS.members.heading}</h2>
-      <p className="text-sm text-foreground/60">{STRINGS.members.intro}</p>
+    <section className={settingsSectionClass}>
+      <SettingsHeading heading={STRINGS.members.heading} intro={STRINGS.members.intro} />
 
       <ul className="flex flex-col divide-y divide-ink border border-ink text-sm">
         {members.map((m) => (

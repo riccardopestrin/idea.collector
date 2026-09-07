@@ -227,3 +227,17 @@ export async function disconnectGithub(projectId: string): Promise<ActionResult>
   refresh();
   return null;
 }
+
+// Elimina il progetto con membri e proposte (cascade FK, policy 0023). È
+// irreversibile: la conferma vive nel dialog lato client, qui solo il guard.
+export async function deleteProject(projectId: string): Promise<ActionResult> {
+  const { supabase, user } = await requireProjectAdmin(projectId);
+  if (!user) return { error: STRINGS.projects.delete.adminOnly };
+
+  const { error } = await supabase.from("projects").delete().eq("id", projectId);
+  if (error) {
+    console.error("deleteProject:", error);
+    return { error: STRINGS.projects.delete.failed };
+  }
+  redirect("/");
+}

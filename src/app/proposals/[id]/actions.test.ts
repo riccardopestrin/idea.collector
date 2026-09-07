@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { setGitRef, submitRiceVote, updateProposal } from "./actions";
+import { setGitRef, setTaskUrl, submitRiceVote, updateProposal } from "./actions";
 
 const { getUser, tables, refresh, runEvaluation, runProposalScan, updateResult, insertResult } = vi.hoisted(() => {
   const updateResult = { value: { error: null } as { error: unknown } };
@@ -141,12 +141,12 @@ describe("updateProposal", () => {
 
   it("does not fail the save when the evaluation fails", async () => {
     tables.proposals.row = { ...tables.proposals.row, status: "in_valutazione" };
-    runEvaluation.mockResolvedValue({ error: "Valutazione fallita: boom" });
+    runEvaluation.mockResolvedValue({ error: "Errore nell'avvio della valutazione. Riprova." });
     expect(await updateProposal("p1", null, proposalForm())).toBeNull();
   });
 
   it("does not fail the save when the duplicate scan fails", async () => {
-    runProposalScan.mockResolvedValue({ error: "Scan duplicati fallito: boom" });
+    runProposalScan.mockResolvedValue({ error: "Errore nell'avvio dello scan duplicati. Riprova." });
     expect(await updateProposal("p1", null, proposalForm())).toBeNull();
   });
 
@@ -253,6 +253,37 @@ describe("submitRiceVote", () => {
     expect(await submitRiceVote("p1", null, voteForm())).toEqual({
       error: "Errore nel salvataggio. Riprova.",
     });
+  });
+});
+
+describe("setTaskUrl", () => {
+  const form = (value: string) => {
+    const fd = new FormData();
+    fd.set("task_url", value);
+    return fd;
+  };
+
+  it("rejects a non-ClickUp URL before touching the database", async () => {
+    expect(await setTaskUrl("p1", null, form("https://evil.example/t/1"))).toEqual({
+      error: "Link non valido: serve un URL https di app.clickup.com.",
+    });
+    expect(tables.proposals.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a user who is neither proposer nor admin", async () => {
+    tables.proposals.row = { proposer_id: "someone-else" };
+    expect(await setTaskUrl("p1", null, form("https://app.clickup.com/t/1"))).toEqual({
+      error: "Solo l'autore o un admin può collegare un task.",
+    });
+    expect(tables.proposals.update).not.toHaveBeenCalled();
+  });
+
+  it("saves the task URL for the proposer and clears it on empty input", async () => {
+    expect(await setTaskUrl("p1", null, form(" https://app.clickup.com/t/1 "))).toBeNull();
+    expect(tables.proposals.update).toHaveBeenCalledWith({ task_url: "https://app.clickup.com/t/1" });
+
+    expect(await setTaskUrl("p1", null, form(""))).toBeNull();
+    expect(tables.proposals.update).toHaveBeenCalledWith({ task_url: null });
   });
 });
 

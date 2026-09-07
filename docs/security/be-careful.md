@@ -378,6 +378,32 @@ Spostare i quattro messaggi (+ `"errore sconosciuto"`) in `STRINGS.github` / `ST
 
 ---
 
+## `2026-09-07-98a4` Progetto senza admin per race su `delete_account` (e su demote incrociato)
+
+**Status:** non fissato — non si verifica nell'attuale use case.
+
+### Dove
+- [supabase/migrations/0024_delete_account.sql](../../supabase/migrations/0024_delete_account.sql) — il check "unico admin di un progetto con altri membri" e il `delete from project_members` sono statement separati, READ COMMITTED, senza `for update`
+- [src/app/projects/actions.ts](../../src/app/projects/actions.ts) — `setMemberRole`/`removeMember` vietano solo l'auto-demote/auto-rimozione (policy `admin update others` / `admin delete others`, 0021): due admin possono demotarsi a vicenda in parallelo
+
+### Il problema potenziale
+Due co-admin dello stesso progetto che eliminano l'account nello stesso istante passano entrambi il check e il progetto resta con membri ma senza admin: nessuno può più invitare, promuovere, collegare GitHub o eliminarlo. Stessa finestra se un admin viene demotato mentre l'altro si elimina. Il demote incrociato concorrente produce oggi lo stesso stato anche senza `delete_account`.
+
+### Perché oggi non è un problema
+Team piccolo, finestra di pochi millisecondi, operazioni rare. Recovery solo via SQL manuale (promuovere un membro in `project_members`).
+
+### Quando diventa un problema
+1. Progetti con molti admin e churn di account.
+2. Un'automazione che elimina account o cambia ruoli in batch.
+
+### Cosa fare se devi toccare quest'area
+In testa a `delete_account`, prima del check, bloccare le membership dei progetti coinvolti: `perform 1 from public.project_members where project_id in (select project_id from public.project_members where user_id = uid) for update;` — lock di riga mirati, niente lock di tabella. Per il demote incrociato: stesso `for update` in una RPC `set_member_role` con check "resta almeno un admin", o accettare lo stato e aggiungere un recovery in-app. Path owner-locked (`supabase/migrations/`).
+
+### Cronologia
+- 2026-09-07 — Flaggato durante review chain di `lastFixes` (finding [3], Software Reviewer). Downgrade a NICE-TO-HAVE dal Review Reviewer: race a probabilità trascurabile, coerente con lo stile dei guard esistenti (che già ammettono il demote incrociato), migration owner-locked.
+
+---
+
 ## Risolti recenti
 
 _Nessuna voce risolta._

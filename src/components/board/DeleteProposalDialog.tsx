@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 
 import { STRINGS } from "@/lib/strings";
-import { buttonClass, dangerButtonClass, displayClass } from "@/lib/tokens";
+import { buttonClass, confirmDialogClass, dangerButtonClass, displayClass } from "@/lib/tokens";
 
 // Conferma di eliminazione (rettifica ADR-0002): l'eliminazione è definitiva e
 // cancella anche la history, quindi il dialog propone "Sposta in Rifiutata"
@@ -28,7 +28,7 @@ export function DeleteProposalDialog({
     <dialog
       ref={ref}
       onClose={onClose}
-      className="m-auto w-full max-w-md border border-ink bg-paper p-6 text-ink shadow-hard-lg backdrop:bg-ink/60"
+      className={confirmDialogClass}
     >
       <h2 className={`${displayClass} text-xl`}>{STRINGS.deleteDialog.heading(title)}</h2>
       <p className="mt-3 text-sm text-foreground/70">{STRINGS.deleteDialog.body}</p>

@@ -7,17 +7,18 @@ type FieldProps = {
   name: string;
   required?: boolean;
   multiline?: boolean;
+  type?: "text" | "email";
   defaultValue?: string;
 };
 
-export function Field({ label, name, required, multiline, defaultValue }: FieldProps) {
+export function Field({ label, name, required, multiline, type = "text", defaultValue }: FieldProps) {
   return (
     <label className="flex flex-col gap-1.5" htmlFor={name}>
       <span className={labelClass}>{label}</span>
       {multiline ? (
         <textarea id={name} name={name} required={required} rows={3} defaultValue={defaultValue} className={controlClass} />
       ) : (
-        <input id={name} name={name} type="text" required={required} defaultValue={defaultValue} className={controlClass} />
+        <input id={name} name={name} type={type} required={required} defaultValue={defaultValue} className={controlClass} />
       )}
     </label>
   );

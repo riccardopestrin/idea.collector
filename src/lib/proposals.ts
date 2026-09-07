@@ -79,6 +79,8 @@ export type ProposalDetail = VoteComponents & {
   links: string[];
   // branch o "#PR" sulla repo collegata (migration 0020); null = non collegato
   git_ref: string | null;
+  // URL del task ClickUp (migration 0026); null = non collegato
+  task_url: string | null;
   internal_notes: string | null;
   created_at: string;
   proposer_id: string;
@@ -290,7 +292,7 @@ export async function getProposalDetail(
       `id, title, description, problem, status, reach, impact, confidence,
        effort, ai_rationale, ai_eval_status, ai_eval_error, dup_scan_status,
        dup_scan_error, dup_flagged, dup_similarity, dup_report, links, git_ref,
-       internal_notes, created_at, proposer_id, project_id,
+       task_url, internal_notes, created_at, proposer_id, project_id,
        proposer:profiles(name, email),
        project:projects(github_owner, github_repo),
        dup_match:proposals!dup_match_id(id, title, proposer:profiles(name, email)),

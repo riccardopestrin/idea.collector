@@ -37,6 +37,7 @@ const base: ProposalDetail = {
   dup_match: null,
   links: ["https://example.com/spec"],
   git_ref: null,
+  task_url: null,
   internal_notes: null,
   created_at: "2026-07-01T10:00:00Z",
   proposer_id: "u1",
@@ -211,6 +212,20 @@ describe("ProposalPanel", () => {
       "https://github.com/acme/ideas/pull/42",
     );
     expect(screen.queryByRole("button", { name: "Modifica branch / PR" })).not.toBeInTheDocument();
+  });
+
+  it("shows a set task URL to everyone as an outbound link", () => {
+    render(
+      <ProposalPanel
+        detail={{ ...base, task_url: "https://app.clickup.com/t/86c1abc" }}
+        currentUserId="u3"
+      />,
+    );
+    expect(screen.getByRole("link", { name: "https://app.clickup.com/t/86c1abc" })).toHaveAttribute(
+      "href",
+      "https://app.clickup.com/t/86c1abc",
+    );
+    expect(screen.queryByRole("button", { name: "Modifica task ClickUp" })).not.toBeInTheDocument();
   });
 
   it("shows empty states when there are no moves or comments", () => {

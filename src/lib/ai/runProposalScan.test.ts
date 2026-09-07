@@ -91,7 +91,7 @@ describe("runProposalScan", () => {
 
     const result = await runProposalScan(client, "p1");
 
-    expect(result).toEqual({ error: "Scan duplicati fallito: boom" });
+    expect(result).toBeNull();
     expect(rpc).toHaveBeenCalledWith("fail_dup_scan", { p_id: "p1", p_error: "boom" });
     expect(rpc).not.toHaveBeenCalledWith("apply_dup_scan", expect.anything());
   });

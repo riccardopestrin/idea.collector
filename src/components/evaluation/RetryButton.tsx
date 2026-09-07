@@ -9,7 +9,8 @@ import { STRINGS } from "@/lib/strings";
 // "Rilancia" su un run AI fallito (o in_corso orfano di un crash, 0011):
 // richiama la Server Action con force. kind: 'eval' = valutazione RICE
 // (admin), 'scan' = scan duplicati (proposer o admin, RFC-006). Usato sia
-// sulla card piccola sia nel pannello.
+// sulla card piccola sia nel pannello. Un run fallito finisce sulla riga e lo
+// mostra chi ci ospita; qui compaiono solo gli errori non persistiti.
 const KINDS = {
   eval: { label: STRINGS.evaluation.retryEval, action: evaluateProposal },
   scan: { label: STRINGS.evaluation.retryScan, action: runProposalScanAction },

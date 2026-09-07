@@ -12,8 +12,9 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 // chiamarla lo decidono i chiamanti (action admin, updateProposal, promozioni);
 // gli esiti si scrivono col client service-role (SEC-8, migration 0020), così
 // nessun utente può forgiarli via PostgREST. Il fallimento non è mai bloccante:
-// marca `fallita` e ritorna l'errore. force=true (Rilancia) salta idempotenza
-// e guard in-flight.
+// marca `fallita` con l'errore sulla riga (la UI lo legge da lì) e ritorna
+// null; l'errore di ritorno è solo per ciò che non viene persistito.
+// force=true (Rilancia) salta idempotenza e guard in-flight.
 export async function runEvaluation(
   supabase: SupabaseClient,
   proposalId: string,
@@ -110,6 +111,6 @@ export async function runEvaluation(
     console.error("runEvaluation:", err);
     await admin.rpc("fail_ai_evaluation", { p_id: proposalId, p_error: message });
     refresh();
-    return { error: STRINGS.evaluation.failed(message) };
+    return null;
   }
 }

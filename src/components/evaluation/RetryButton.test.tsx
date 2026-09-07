@@ -28,9 +28,9 @@ describe("RetryButton", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("relaunches the duplicate scan for kind=scan and shows the action error", async () => {
+  it("relaunches the duplicate scan for kind=scan and shows a non-persisted action error", async () => {
     vi.mocked(runProposalScanAction).mockResolvedValue({
-      error: "Scan duplicati fallito: boom",
+      error: "Solo l'autore o un admin può lanciare lo scan duplicati.",
     });
     const user = userEvent.setup();
     render(<RetryButton proposalId="p1" kind="scan" />);
@@ -39,7 +39,9 @@ describe("RetryButton", () => {
 
     expect(runProposalScanAction).toHaveBeenCalledWith("p1", true);
     expect(evaluateProposal).not.toHaveBeenCalled();
-    expect(await screen.findByRole("alert")).toHaveTextContent("Scan duplicati fallito: boom");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Solo l'autore o un admin può lanciare lo scan duplicati.",
+    );
   });
 
   it("does not let the click bubble up to the draggable card", async () => {

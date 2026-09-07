@@ -643,10 +643,10 @@ describe("runProposalScanAction", () => {
     expect(runProposalScan).toHaveBeenCalledWith(expect.anything(), "p1", false);
   });
 
-  it("surfaces the scan error to the caller", async () => {
-    runProposalScan.mockResolvedValue({ error: "Scan duplicati fallito: boom" });
+  it("surfaces a non-persisted scan error to the caller", async () => {
+    runProposalScan.mockResolvedValue({ error: "Errore nell'avvio dello scan duplicati. Riprova." });
     const result = await runProposalScanAction("p1");
-    expect(result).toEqual({ error: "Scan duplicati fallito: boom" });
+    expect(result).toEqual({ error: "Errore nell'avvio dello scan duplicati. Riprova." });
   });
 });
 

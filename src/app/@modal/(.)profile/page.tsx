@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 
+import { deleteAccount } from "@/app/profile/actions";
 import { DetailModal } from "@/components/detail/DetailModal";
+import { DeleteSection } from "@/components/form/DeleteSection";
+import { EmailForm } from "@/components/form/EmailForm";
 import { NameForm } from "@/components/form/NameForm";
 import { getProfile } from "@/lib/profiles";
 import { STRINGS } from "@/lib/strings";
@@ -19,11 +22,17 @@ export default async function ProfileModal() {
 
   return (
     <DetailModal narrow>
-      <div className="p-8">
+      <div className="flex flex-col gap-8 p-8">
         <NameForm
           heading={STRINGS.profile.heading}
           defaultName={profile?.name ?? undefined}
           backOnSave
+        />
+        <EmailForm currentEmail={user.email ?? ""} />
+        <DeleteSection
+          texts={STRINGS.profile.delete}
+          confirmHeading={STRINGS.profile.delete.confirmHeading}
+          action={deleteAccount}
         />
       </div>
     </DetailModal>

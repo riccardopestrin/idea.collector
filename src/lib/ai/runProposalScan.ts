@@ -20,8 +20,9 @@ const CANDIDATE_LIMIT = 100;
 // runEvaluation): chi può chiamarlo lo decidono i chiamanti (action, edit);
 // gli esiti si scrivono col client service-role (SEC-9, migration 0020), così il
 // proposer non può forgiarli via PostgREST. Il fallimento non è mai bloccante:
-// marca 'fallita' e ritorna l'errore. force=true (Rilancia / re-scan su edit)
-// salta idempotenza e guard in-flight.
+// marca 'fallita' con l'errore sulla riga (la UI lo legge da lì) e ritorna
+// null; l'errore di ritorno è solo per ciò che non viene persistito.
+// force=true (Rilancia / re-scan su edit) salta idempotenza e guard in-flight.
 export async function runProposalScan(
   supabase: SupabaseClient,
   proposalId: string,
@@ -108,6 +109,6 @@ export async function runProposalScan(
     // resta 'in_corso' orfano (be-careful 2026-07-08-strd) — almeno loggato
     if (failError) console.error("runProposalScan fail_dup_scan:", failError);
     refresh();
-    return { error: STRINGS.evaluation.scanFailed(message) };
+    return null;
   }
 }

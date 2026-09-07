@@ -131,9 +131,7 @@ describe("runEvaluation", () => {
     getGithubSettings.mockResolvedValue(null);
     const { client, rpc } = fakeSupabase({ proposal: fresh });
 
-    expect(await runEvaluation(client, "p1")).toEqual({
-      error: "Valutazione fallita: Collega GitHub e scegli la repo nelle impostazioni del progetto.",
-    });
+    expect(await runEvaluation(client, "p1")).toBeNull();
     expect(rpc).toHaveBeenCalledWith("fail_ai_evaluation", {
       p_id: "p1",
       p_error: "Collega GitHub e scegli la repo nelle impostazioni del progetto.",
@@ -184,9 +182,7 @@ describe("runEvaluation", () => {
       applyError: { message: "kaputt" },
     });
 
-    expect(await runEvaluation(client, "p1")).toEqual({
-      error: "Valutazione fallita: kaputt",
-    });
+    expect(await runEvaluation(client, "p1")).toBeNull();
     expect(rpc).toHaveBeenCalledWith("fail_ai_evaluation", { p_id: "p1", p_error: "kaputt" });
   });
 });

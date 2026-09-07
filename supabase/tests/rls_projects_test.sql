@@ -3,7 +3,7 @@
 -- dall'admin del progetto e mai sulla propria riga, anon fuori.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(23);
 
 -- Setup (come superuser): Aldo admin di P1, Bice membro di P1, Ciro solo in P2.
 insert into auth.users (id, email)
@@ -87,6 +87,11 @@ select is(
 );
 select is(public.is_project_admin('00000000-0000-0000-0000-000000000211'), false,
   'is_project_admin è false per un contributor');
+delete from public.projects where id = '00000000-0000-0000-0000-000000000211';
+select is(
+  (select count(*)::int from public.projects where id = '00000000-0000-0000-0000-000000000211'), 1,
+  'un contributor non elimina il progetto (policy filtra)'
+);
 
 -- Sessione di Aldo (admin di P1, estraneo a P2)
 select set_config('request.jwt.claims',
@@ -152,6 +157,22 @@ select throws_ok(
   $$select public.request_comment_promotion('cccc0021-0000-0000-0000-000000000003')$$,
   'P0001', 'non membro del progetto',
   'un non-membro non usa le RPC di promozione sui propri vecchi commenti'
+);
+
+-- Eliminazione progetto (0023): l'admin cancella P1 e le proposte cascano.
+-- Ultimo blocco autenticato: P1 serve ai test precedenti.
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub": "aaaa0021-0000-0000-0000-000000000001", "role": "authenticated"}', true);
+select lives_ok(
+  $$delete from public.projects where id = '00000000-0000-0000-0000-000000000211'$$,
+  'l''admin elimina il proprio progetto'
+);
+reset role;
+select is(
+  (select count(*)::int from public.proposals
+    where project_id = '00000000-0000-0000-0000-000000000211'), 0,
+  'le proposte del progetto eliminato spariscono in cascata'
 );
 
 -- Anon: niente RPC

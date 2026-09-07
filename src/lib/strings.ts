@@ -64,6 +64,17 @@ export const STRINGS = {
     proposalCount: (n: number) => (n === 1 ? "1 proposta" : `${n} proposte`),
     noRepo: "nessuna repo collegata",
     settingsHeading: "Impostazioni progetto",
+    delete: {
+      heading: "Elimina progetto",
+      intro: "Cancella il progetto con tutte le sue proposte, i commenti e i membri.",
+      button: "Elimina progetto",
+      confirmBody:
+        "Il progetto e tutte le sue proposte verranno eliminati definitivamente. L’operazione è irreversibile.",
+      confirm: "Elimina definitivamente",
+      adminOnly: "Solo un admin del progetto può eliminarlo.",
+      failed: "Eliminazione non riuscita. Riprova.",
+    },
+    deleteConfirmHeading: (name: string) => `Eliminare “${name}”?`,
   },
 
   login: {
@@ -82,13 +93,36 @@ export const STRINGS = {
     nameLabel: "Nome",
     nameRequired: "Il nome è obbligatorio.",
     nameTooLong: "Il nome è troppo lungo (max 80 caratteri).",
+    email: {
+      heading: "Email",
+      intro:
+        "Per cambiarla riceverai un link di conferma sia sulla casella nuova sia su quella attuale: vanno cliccati entrambi.",
+      label: "Email",
+      submit: "Cambia email",
+      same: "È già la tua email.",
+      sent: (email: string) =>
+        `Link inviati a ${email} e alla casella attuale. Il cambio è effettivo quando li hai confermati entrambi.`,
+      failed: "Invio non riuscito. Riprova.",
+    },
+    delete: {
+      heading: "Elimina account",
+      intro:
+        "Esci da tutti i progetti; quelli in cui sei l’unico membro vengono eliminati con le loro proposte. Quello che hai scritto altrove resta, senza il tuo nome.",
+      button: "Elimina account",
+      confirmHeading: "Eliminare il tuo account?",
+      confirmBody: "L’operazione è irreversibile. Per rientrare servirà un nuovo invito.",
+      confirm: "Elimina definitivamente",
+      failed: "Eliminazione non riuscita. Riprova.",
+    },
+    deleteSoleAdmin: (projects: string) =>
+      `Sei l’unico admin di ${projects} e ci sono altri membri: nomina un altro admin o elimina il progetto, poi riprova.`,
   },
 
   members: {
     heading: "Membri",
     intro:
       "Chi può accedere a questo progetto. Gli invitati ricevono un'email con il link di accesso; chi ha già un account viene aggiunto subito.",
-    inviteEmailLabel: "Email da invitare",
+    inviteEmailLabel: "Invita tramite email",
     inviteAsAdmin: "Admin",
     invite: "Invita",
     invited: (email: string) => `Invito inviato a ${email}.`,
@@ -175,13 +209,24 @@ export const STRINGS = {
     titleRequired: "Il titolo è obbligatorio.",
     textTooLong: "Testo troppo lungo (max 20.000 caratteri per campo).",
     editAuth: "Solo l'autore o un admin può modificare la proposta.",
-    gitRefHeading: "Branch / PR",
-    gitRefEdit: "Modifica branch / PR",
-    gitRefLabel: "Branch o numero PR",
-    gitRefPlaceholder: "feature/nome-branch oppure 42",
-    gitRefHint: "Riferimento sulla repo collegata. Lascia vuoto per rimuoverlo.",
-    gitRefInvalid: "Riferimento non valido: niente spazi, max 200 caratteri.",
-    gitRefAuth: "Solo l'autore o un admin può collegare branch o PR.",
+    gitRef: {
+      heading: "Branch / PR",
+      edit: "Modifica branch / PR",
+      label: "Branch o numero PR",
+      placeholder: "feature/nome-branch oppure 42",
+      hint: "Riferimento sulla repo collegata. Lascia vuoto per rimuoverlo.",
+      invalid: "Riferimento non valido: niente spazi, max 200 caratteri.",
+      auth: "Solo l'autore o un admin può collegare branch o PR.",
+    },
+    taskUrl: {
+      heading: "Task ClickUp",
+      edit: "Modifica task ClickUp",
+      label: "Link al task",
+      placeholder: "https://app.clickup.com/t/…",
+      hint: "Incolla l'URL del task ClickUp. Lascia vuoto per rimuoverlo.",
+      invalid: "Link non valido: serve un URL https di app.clickup.com.",
+      auth: "Solo l'autore o un admin può collegare un task.",
+    },
     notEditable: "La proposta non è più modificabile.",
     deleteAuth: "Solo l'autore o un admin può eliminare la proposta.",
   },
@@ -227,8 +272,6 @@ export const STRINGS = {
     scanAuth: "Solo l'autore o un admin può lanciare lo scan duplicati.",
     startFailed: "Errore nell'avvio della valutazione. Riprova.",
     scanStartFailed: "Errore nell'avvio dello scan duplicati. Riprova.",
-    failed: (message: string) => `Valutazione fallita: ${message}`,
-    scanFailed: (message: string) => `Scan duplicati fallito: ${message}`,
     cueInProgress: "Valutazione AI in corso",
     cueFailed: "Valutazione AI fallita",
     cueCompleted: "Valutazione AI completata",

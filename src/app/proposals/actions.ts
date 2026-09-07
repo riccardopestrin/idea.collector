@@ -84,8 +84,8 @@ export async function updateProposalStatus(
 
 // Valuta una proposta con Claude sul contesto del repo collegato (RFC-003).
 // Admin-only. Usata dall'auto-trigger (move admin in in_valutazione) e dal
-// "Rilancia". Il fallimento non è mai bloccante: marca `fallita` e ritorna
-// l'errore; il move resta valido. force=true (Rilancia) salta l'idempotenza.
+// "Rilancia". Il fallimento non è mai bloccante: marca `fallita` sulla riga;
+// il move resta valido. force=true (Rilancia) salta l'idempotenza.
 export async function evaluateProposal(
   proposalId: string,
   force = false,
@@ -111,7 +111,7 @@ export async function evaluateProposal(
 
 // Scan anti-duplicato + competitor web (RFC-006). Proposer o admin; usata
 // dall'auto-trigger on-view (ProposalScanTrigger) e dal "Rilancia scansione".
-// Il fallimento non è mai bloccante: marca 'fallita' e ritorna l'errore.
+// Il fallimento non è mai bloccante: marca 'fallita' sulla riga.
 // force=true salta l'idempotenza (Rilancia, re-scan su edit).
 export async function runProposalScanAction(
   proposalId: string,

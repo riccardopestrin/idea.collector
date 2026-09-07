@@ -3,7 +3,8 @@
 import { useActionState } from "react";
 
 import { disconnectGithub, selectRepo, startGithubConnect } from "@/app/projects/actions";
-import { buttonClass, controlClass, displayClass, labelClass } from "@/lib/tokens";
+import { buttonClass, controlClass, labelClass, settingsSectionClass } from "@/lib/tokens";
+import { SettingsHeading } from "@/components/form/SettingsHeading";
 import { SubmitButton } from "@/components/form/SubmitButton";
 import type { InstallationRepo } from "@/lib/github/app";
 import { STRINGS } from "@/lib/strings";
@@ -41,9 +42,8 @@ export function GithubRepoSection({
     selectState?.error ?? disconnectState?.error ?? connectState?.error ?? loadError;
 
   return (
-    <section className="flex w-full max-w-lg flex-col gap-4 border-t border-ink pt-6">
-      <h2 className={`${displayClass} text-2xl`}>{STRINGS.github.heading}</h2>
-      <p className="text-sm text-foreground/60">{STRINGS.github.intro}</p>
+    <section className={settingsSectionClass}>
+      <SettingsHeading heading={STRINGS.github.heading} intro={STRINGS.github.intro} />
 
       {error && (
         <p role="alert" className="text-sm text-danger">

@@ -248,8 +248,14 @@ otp_expiry = 3600
 # default usa l'implicit flow (#access_token) che il Route Handler non vede.
 # Sul progetto remoto va replicato a mano: Dashboard → Auth → Email Templates.
 [auth.email.template.invite]
-subject = "Invito a Proposte feature"
+subject = "Invito a Idea Collector"
 content_path = "./supabase/templates/invite.html"
+
+# Cambio email (auth.updateUser): stesso schema dell'invito, type=email_change.
+# Con double_confirm_changes il link arriva a entrambe le caselle.
+[auth.email.template.email_change]
+subject = "Conferma il cambio email — Idea Collector"
+content_path = "./supabase/templates/email_change.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]

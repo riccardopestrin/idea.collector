@@ -37,3 +37,7 @@ export const labelClass = "font-mono text-xs uppercase tracking-widest";
 export const tagClass = "border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider";
 // Card che si "solleva" al hover (ombra dura, niente blur).
 export const liftClass = "lift hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard";
+// Dialog di conferma (<dialog> nativo): scheda centrata su sfondo scurito.
+export const confirmDialogClass = "m-auto w-full max-w-md border border-ink bg-paper p-6 text-ink shadow-hard-lg backdrop:bg-ink/60";
+// Sezione delle pagine impostazioni/profilo (membri, GitHub, email, elimina…).
+export const settingsSectionClass = "flex w-full max-w-lg flex-col gap-4 border-t border-ink pt-6";

@@ -62,7 +62,7 @@ describe("MembersSection", () => {
     const user = userEvent.setup();
     render(<MembersSection projectId="pr1" members={[me]} currentUserId="u1" />);
 
-    await user.type(screen.getByLabelText("Email da invitare"), "new@hint.app");
+    await user.type(screen.getByLabelText("Invita tramite email"), "new@hint.app");
     await user.click(screen.getByRole("checkbox", { name: "Admin" }));
     await user.click(screen.getByRole("button", { name: "Invita" }));
 
@@ -78,7 +78,7 @@ describe("MembersSection", () => {
     const user = userEvent.setup();
     render(<MembersSection projectId="pr1" members={[me]} currentUserId="u1" />);
 
-    await user.type(screen.getByLabelText("Email da invitare"), "old@hint.app");
+    await user.type(screen.getByLabelText("Invita tramite email"), "old@hint.app");
     await user.click(screen.getByRole("button", { name: "Invita" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("old@hint.app aggiunto al progetto.");
@@ -89,7 +89,7 @@ describe("MembersSection", () => {
     const user = userEvent.setup();
     render(<MembersSection projectId="pr1" members={[me]} currentUserId="u1" />);
 
-    await user.type(screen.getByLabelText("Email da invitare"), "new@hint.app");
+    await user.type(screen.getByLabelText("Invita tramite email"), "new@hint.app");
     await user.click(screen.getByRole("button", { name: "Invita" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Invito non riuscito. Riprova.");

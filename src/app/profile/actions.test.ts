@@ -1,23 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { updateName } from "./actions";
+import { deleteAccount, updateName } from "./actions";
 
-const { getUser, update, eq, from, revalidatePath } = vi.hoisted(() => {
-  const eq = vi.fn();
-  const update = vi.fn(() => ({ eq }));
-  return {
-    getUser: vi.fn(),
-    update,
-    eq,
-    from: vi.fn(() => ({ update })),
-    revalidatePath: vi.fn(),
-  };
-});
+const { getUser, update, eq, from, rpc, signOut, deleteUser, revalidatePath, redirect } =
+  vi.hoisted(() => {
+    const eq = vi.fn();
+    const update = vi.fn(() => ({ eq }));
+    return {
+      getUser: vi.fn(),
+      update,
+      eq,
+      from: vi.fn(() => ({ update })),
+      rpc: vi.fn(),
+      signOut: vi.fn(),
+      deleteUser: vi.fn(),
+      revalidatePath: vi.fn(),
+      redirect: vi.fn(),
+    };
+  });
 
 vi.mock("@/lib/supabase/server", () => ({
-  supabaseServer: async () => ({ auth: { getUser }, from }),
+  supabaseServer: async () => ({ auth: { getUser, signOut }, from, rpc }),
+}));
+vi.mock("@/lib/supabase/admin", () => ({
+  supabaseAdmin: () => ({ auth: { admin: { deleteUser } } }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath }));
+vi.mock("next/navigation", () => ({ redirect }));
 
 const formOf = (entries: Record<string, string>) => {
   const fd = new FormData();
@@ -76,5 +85,50 @@ describe("updateName", () => {
 
     expect(result).toEqual({ error: "Errore nel salvataggio. Riprova." });
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteAccount", () => {
+  beforeEach(() => {
+    getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } } });
+    rpc.mockReset().mockResolvedValue({ error: null });
+    deleteUser.mockReset().mockResolvedValue({ error: null });
+    signOut.mockReset().mockResolvedValue({ error: null });
+    redirect.mockReset();
+  });
+
+  it("runs the RPC, removes the auth user, signs out and lands on the login", async () => {
+    await deleteAccount();
+
+    expect(rpc).toHaveBeenCalledWith("delete_account");
+    expect(deleteUser).toHaveBeenCalledWith("u1");
+    expect(signOut).toHaveBeenCalled();
+    expect(redirect).toHaveBeenCalledWith("/login");
+  });
+
+  it("explains which projects block the deletion when the user is their only admin", async () => {
+    rpc.mockResolvedValue({ error: { message: "unico admin: Mobile, Web" } });
+
+    expect(await deleteAccount()).toEqual({
+      error:
+        "Sei l’unico admin di Mobile, Web e ci sono altri membri: nomina un altro admin o elimina il progetto, poi riprova.",
+    });
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("keeps the session when the auth user cannot be removed", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    deleteUser.mockResolvedValue({ error: { message: "boom" } });
+
+    expect(await deleteAccount()).toEqual({ error: "Eliminazione non riuscita. Riprova." });
+    expect(signOut).not.toHaveBeenCalled();
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("refuses without an authenticated user", async () => {
+    getUser.mockResolvedValue({ data: { user: null } });
+
+    expect(await deleteAccount()).toEqual({ error: "Sessione scaduta. Rientra e riprova." });
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

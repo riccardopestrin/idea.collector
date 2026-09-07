@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 
 import { runEvaluation } from "@/lib/ai/runEvaluation";
 import { runProposalScan } from "@/lib/ai/runProposalScan";
+import { parseTaskUrl } from "@/lib/clickup/taskUrl";
 import { parseGitRef } from "@/lib/github/gitRef";
 import { isProjectAdmin } from "@/lib/projects";
 import { STRINGS } from "@/lib/strings";
@@ -135,17 +136,35 @@ export async function submitRiceVote(
   return null;
 }
 
-// Collega (o scollega, input vuoto) il branch/PR su cui si lavora (migration
-// 0020). Proposer o admin, in qualsiasi stato: non è contenuto dell'idea, quindi
-// fuori dalla cristallizzazione. Policy "owner or admin update" come backstop.
+// Collega (o scollega, input vuoto) il branch/PR (migration 0020) o il task
+// ClickUp (0026) su cui si lavora. Proposer o admin, in qualsiasi stato: non è
+// contenuto dell'idea, quindi fuori dalla cristallizzazione. Policy "owner or
+// admin update" come backstop.
 export async function setGitRef(
   proposalId: string,
   _prev: UpdateProposalState,
   formData: FormData,
 ): Promise<UpdateProposalState> {
   const gitRef = parseGitRef(String(formData.get("git_ref") ?? ""));
-  if (gitRef === undefined) return { error: STRINGS.proposal.gitRefInvalid };
+  if (gitRef === undefined) return { error: STRINGS.proposal.gitRef.invalid };
+  return setWorkRef(proposalId, { git_ref: gitRef }, STRINGS.proposal.gitRef.auth);
+}
 
+export async function setTaskUrl(
+  proposalId: string,
+  _prev: UpdateProposalState,
+  formData: FormData,
+): Promise<UpdateProposalState> {
+  const taskUrl = parseTaskUrl(String(formData.get("task_url") ?? ""));
+  if (taskUrl === undefined) return { error: STRINGS.proposal.taskUrl.invalid };
+  return setWorkRef(proposalId, { task_url: taskUrl }, STRINGS.proposal.taskUrl.auth);
+}
+
+async function setWorkRef(
+  proposalId: string,
+  patch: { git_ref: string | null } | { task_url: string | null },
+  authError: string,
+): Promise<UpdateProposalState> {
   const supabase = await supabaseServer();
   const {
     data: { user },
@@ -162,15 +181,12 @@ export async function setGitRef(
     proposal.proposer_id !== user.id &&
     !(await isProjectAdmin(supabase, proposal.project_id, user.id))
   ) {
-    return { error: STRINGS.proposal.gitRefAuth };
+    return { error: authError };
   }
 
-  const { error } = await supabase
-    .from("proposals")
-    .update({ git_ref: gitRef })
-    .eq("id", proposalId);
+  const { error } = await supabase.from("proposals").update(patch).eq("id", proposalId);
   if (error) {
-    console.error("setGitRef:", error);
+    console.error("setWorkRef:", error);
     return { error: STRINGS.errors.saveFailed };
   }
 

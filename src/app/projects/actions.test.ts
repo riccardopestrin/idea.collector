@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createProject,
+  deleteProject,
   disconnectGithub,
   inviteMember,
   removeMember,
@@ -31,8 +32,12 @@ const {
   adminProfile,
 } = vi.hoisted(() => {
   const writeResult = { value: { error: null } as { error: unknown } };
+  // ogni .eq() è awaitable e concatenabile: project_members ne usa due, projects uno
+  type Chain = Promise<{ error: unknown }> & { eq: (...args: unknown[]) => Chain };
   const chain = () => {
-    const eq = vi.fn(() => ({ eq: vi.fn(() => Promise.resolve(writeResult.value)) }));
+    const eq: ReturnType<typeof vi.fn<() => Chain>> = vi.fn(
+      (): Chain => Object.assign(Promise.resolve(writeResult.value), { eq }),
+    );
     return { eq };
   };
   return {
@@ -253,6 +258,33 @@ describe("removeMember", () => {
     writeResult.value = { error: { message: "boom" } };
 
     expect(await removeMember("pr1", "u2")).toEqual({ error: "Operazione non riuscita. Riprova." });
+  });
+});
+
+describe("deleteProject", () => {
+  it("refuses a non-admin without touching the table", async () => {
+    isProjectAdmin.mockResolvedValue(false);
+
+    expect(await deleteProject("pr1")).toEqual({
+      error: "Solo un admin del progetto può eliminarlo.",
+    });
+    expect(membersDelete).not.toHaveBeenCalled();
+  });
+
+  it("deletes the project row and lands on the projects list", async () => {
+    await deleteProject("pr1");
+
+    const eq = membersDelete.mock.results[0]?.value.eq;
+    expect(eq).toHaveBeenCalledWith("id", "pr1");
+    expect(redirect).toHaveBeenCalledWith("/");
+  });
+
+  it("maps a delete failure to a generic message", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    writeResult.value = { error: { message: "boom" } };
+
+    expect(await deleteProject("pr1")).toEqual({ error: "Eliminazione non riuscita. Riprova." });
+    expect(redirect).not.toHaveBeenCalled();
   });
 });
 

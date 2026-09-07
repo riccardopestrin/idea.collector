@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -14 128 128">
-  <path d="M4 8h18v18H4Z M4 36h18v60H4Z" fill="#050609"/>
-  <path fill-rule="evenodd" d="M32 52a46 46 0 1 0 92 0a46 46 0 1 0-92 0Z M92 41A20 20 0 1 0 92 59H128V41Z" fill="#e3571b"/>
-  <path d="M102 45v10M110 45v10M118 45v10" stroke="#e3571b" stroke-width="3"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="1 -92 116 116">
+  <!-- "IC" in Archivo Black (glifi convertiti in path, tracking -0.025em come il wordmark): I paprika, C ink, quadrato carta dietro -->
+  <rect x="1" y="-92" width="116" height="116" fill="#fffcf4"/>
+  <path d="M29.5 0H7.4V-68.8H29.5Z" fill="#e3571b"/>
+  <path transform="translate(-2.5)" d="M77.1 1.2Q65.4 1.2 57.45-2.8Q49.5-6.8 45.45-14.75Q41.4-22.7 41.4-34.4Q41.4-52 50.45-61Q59.5-70 77.1-70Q87.1-70 94.55-66.65Q102-63.3 106.1-56.7Q110.2-50.1 110.2-40.5H89.1Q89.1-44.5 87.7-47.4Q86.3-50.3 83.65-51.9Q81-53.5 77-53.5Q72.3-53.5 69.45-51.5Q66.6-49.5 65.3-45.9Q64-42.3 64-37.6V-31.2Q64-26.5 65.35-22.9Q66.7-19.3 69.5-17.3Q72.3-15.3 76.8-15.3Q81.2-15.3 84.05-16.8Q86.9-18.3 88.35-21.15Q89.8-24 89.8-27.9H110.2Q110.2-18.5 106.3-12Q102.4-5.5 95-2.15Q87.6 1.2 77.1 1.2Z" fill="#050609"/>
 </svg>

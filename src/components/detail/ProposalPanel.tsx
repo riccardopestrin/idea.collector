@@ -1,7 +1,8 @@
 import Link from "next/link";
 
-import { GitRefSection } from "@/components/detail/GitRefSection";
+import { setGitRef, setTaskUrl } from "@/app/proposals/[id]/actions";
 import { ProposalDiscussion } from "@/components/detail/ProposalDiscussion";
+import { RefSection } from "@/components/detail/RefSection";
 import { ProposalScanTrigger } from "@/components/detail/ProposalScanTrigger";
 import { RiceVoteForm } from "@/components/detail/RiceVoteForm";
 import { SectionTitle } from "@/components/detail/SectionTitle";
@@ -18,6 +19,7 @@ import {
   type ProposalDetail,
   type VoteComponents,
 } from "@/lib/proposals";
+import { gitRefUrl } from "@/lib/github/gitRef";
 import { STRINGS } from "@/lib/strings";
 import { displayClass, labelClass, linkClass } from "@/lib/tokens";
 
@@ -196,11 +198,23 @@ export function ProposalPanel({
         )}
 
         {(detail.git_ref || isProposerOrAdmin) && (
-          <GitRefSection
-            proposalId={detail.id}
-            gitRef={detail.git_ref}
-            repo={repo ?? null}
+          <RefSection
+            texts={STRINGS.proposal.gitRef}
+            name="git_ref"
+            value={detail.git_ref}
+            href={detail.git_ref && repo ? gitRefUrl(detail.git_ref, repo) : null}
             canEdit={isProposerOrAdmin}
+            action={setGitRef.bind(null, detail.id)}
+          />
+        )}
+        {(detail.task_url || isProposerOrAdmin) && (
+          <RefSection
+            texts={STRINGS.proposal.taskUrl}
+            name="task_url"
+            value={detail.task_url}
+            href={detail.task_url}
+            canEdit={isProposerOrAdmin}
+            action={setTaskUrl.bind(null, detail.id)}
           />
         )}
 

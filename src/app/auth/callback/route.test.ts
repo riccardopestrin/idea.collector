@@ -26,6 +26,13 @@ describe("GET /auth/callback", () => {
     expect(res.headers.get("location")).toBe("http://localhost:3000/");
   });
 
+  it("verifies an email_change token_hash server-side", async () => {
+    const res = await call("http://localhost:3000/auth/callback?token_hash=th2&type=email_change");
+
+    expect(verifyOtp).toHaveBeenCalledWith({ type: "email_change", token_hash: "th2" });
+    expect(res.headers.get("location")).toBe("http://localhost:3000/");
+  });
+
   it("ignores a token_hash of another type", async () => {
     const res = await call("http://localhost:3000/auth/callback?token_hash=th1&type=recovery");
 

@@ -2,7 +2,7 @@ import { STRINGS } from "@/lib/strings";
 import { displayClass } from "@/lib/tokens";
 
 // Wordmark testuale "Idea Collector" (Idea in paprika). Il logo grafico arriverà
-// in seguito; il favicon in app/icon.svg resta la bozza attuale.
+// in seguito; il favicon in app/icon.svg è lo stesso "IC" in Archivo, glifi in path.
 export function Wordmark({ className = "text-sm" }: { className?: string }) {
   return (
     <span className={`${displayClass} tracking-tight ${className}`}>
