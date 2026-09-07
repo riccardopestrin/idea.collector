@@ -4,7 +4,6 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import { useState } from "react";
 
 import { getMarkdown, richTextExtensions } from "@/components/editor/extensions";
-import { controlClass } from "@/components/form/Field";
 
 const TOOLBAR = [
   { label: "H1", action: (e: ToolbarEditor) => e.chain().focus().toggleHeading({ level: 1 }).run() },
@@ -41,16 +40,16 @@ export function RichTextEditor({
   });
 
   return (
-    <div className={`${controlClass} p-0`}>
+    <div className="border border-ink bg-paper">
       <input type="hidden" name={name} value={markdown} />
-      <div className="flex gap-1 border-b border-border px-2 py-1">
+      <div className="flex gap-1 border-b border-ink px-2 py-1">
         {TOOLBAR.map(({ label, action }) => (
           <button
             key={label}
             type="button"
             disabled={!editor}
             onClick={() => editor && action(editor)}
-            className="min-w-7 rounded px-1.5 py-0.5 text-sm text-foreground/70 hover:bg-foreground/10"
+            className="min-w-7 px-1.5 py-0.5 font-mono text-xs text-foreground/70 hover:bg-ink hover:text-paper"
           >
             {label}
           </button>

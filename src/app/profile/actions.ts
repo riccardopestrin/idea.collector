@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 
 import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -9,6 +9,9 @@ type UpdateNameState = { error: string } | null;
 
 // Imposta/aggiorna profiles.name dell'utente corrente. La RLS "self update"
 // (+ grant colonna name) garantisce che possa scrivere solo la propria riga.
+// Niente redirect: il nome compare nell'header di ogni pagina, quindi si
+// rivalida tutto il layout e chi chiama resta dov'è (l'onboarding, rileggendo il
+// profilo ora completo, redirige da solo a "/").
 export async function updateName(
   _prev: UpdateNameState,
   formData: FormData
@@ -30,5 +33,6 @@ export async function updateName(
     .eq("id", user.id);
   if (error) return { error: STRINGS.errors.saveFailed };
 
-  redirect("/");
+  revalidatePath("/", "layout");
+  return null;
 }

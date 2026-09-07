@@ -15,6 +15,7 @@ import { SubmitButton } from "@/components/form/SubmitButton";
 import type { ProposalComment } from "@/lib/proposals";
 import { personLabel } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
+import { buttonClass, dangerLinkClass, linkClass, tagClass } from "@/lib/tokens";
 
 import { CommentForm, type PendingAnchor } from "./CommentForm";
 
@@ -50,10 +51,10 @@ export function CommentsSidebar({
 }) {
   const decides = currentUserId === proposerId || isAdmin === true;
   return (
-    <aside className="flex flex-col gap-3 lg:border-l lg:border-border lg:pl-5">
+    <aside className="flex flex-col gap-4 border-t border-ink pt-6 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
       <SectionTitle>{STRINGS.comments.heading}</SectionTitle>
       {comments.length === 0 ? (
-        <p className="text-sm text-foreground/60">{STRINGS.comments.empty}</p>
+        <p className="font-mono text-sm text-foreground/60">{STRINGS.comments.empty}</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {comments.map((comment) => (
@@ -117,24 +118,24 @@ function CommentItem({
 
   return (
     <li
-      className="rounded-lg border border-border p-3"
+      className="border border-ink p-3"
       // hover (mouse) e focus (tastiera, via bottoni interni) evidenziano l'ancora
       onMouseEnter={() => onHover(comment.id)}
       onMouseLeave={() => onHover(null)}
       onFocus={() => onHover(comment.id)}
       onBlur={() => onHover(null)}
     >
-      <p className="flex flex-wrap items-center gap-1.5 text-xs text-foreground/50">
+      <p className="flex flex-wrap items-center gap-1.5 font-mono text-xs text-foreground/50">
         {personLabel(comment.author)} ·{" "}
         {dateFormat.format(new Date(comment.created_at))}
         {comment.promotion_status !== "none" && (
-          <span className="rounded-full border border-border px-2 py-0.5 font-medium text-foreground/70">
+          <span className={`${tagClass} ${accepted ? "border-paprika text-paprika" : "border-ink text-foreground/70"}`}>
             {PROMOTION_BADGES[comment.promotion_status]}
           </span>
         )}
       </p>
       {comment.anchor_text && (
-        <blockquote className="mt-1 border-l-2 border-foreground/30 pl-2 text-xs text-foreground/60">
+        <blockquote className="mt-1 border-l-2 border-dust pl-2 text-xs text-foreground/60">
           <span className="line-clamp-3 whitespace-pre-wrap">
             {comment.anchor_text}
           </span>
@@ -151,12 +152,12 @@ function CommentItem({
         <>
           <p className="mt-1 whitespace-pre-wrap text-sm">{comment.body}</p>
           {(mine || canDelete || promotable || resolvable || revocable) && (
-            <div className="mt-2 flex flex-wrap gap-3 text-xs text-foreground/50">
+            <div className="mt-2 flex flex-wrap gap-3 font-mono text-xs text-foreground/60">
               {mine && (
                 <button
                   type="button"
                   onClick={() => setEditing(true)}
-                  className="underline underline-offset-2"
+                  className={linkClass}
                 >
                   {STRINGS.common.edit}
                 </button>
@@ -170,7 +171,7 @@ function CommentItem({
                     <button
                       type="button"
                       onClick={() => setConfirmingDelete(false)}
-                      className="underline underline-offset-2"
+                      className={linkClass}
                     >
                       {STRINGS.common.cancel}
                     </button>
@@ -179,7 +180,7 @@ function CommentItem({
                   <button
                     type="button"
                     onClick={() => setConfirmingDelete(true)}
-                    className="text-danger underline underline-offset-2"
+                    className={dangerLinkClass}
                   >
                     {STRINGS.common.delete}
                   </button>
@@ -232,7 +233,7 @@ function PromotionButton({
       <button
         type="submit"
         disabled={pending}
-        className="underline underline-offset-2 disabled:opacity-50"
+        className={linkClass}
       >
         {label}
       </button>
@@ -277,11 +278,7 @@ function CommentEditForm({
       )}
       <div className="flex gap-2">
         <SubmitButton pending={pending}>{STRINGS.common.save}</SubmitButton>
-        <button
-          type="button"
-          onClick={onDone}
-          className="rounded-md border border-border px-4 py-2 text-sm"
-        >
+        <button type="button" onClick={onDone} className={buttonClass}>
           {STRINGS.common.cancel}
         </button>
       </div>
@@ -300,7 +297,7 @@ function DeleteCommentButton({ commentId }: { commentId: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="text-danger underline underline-offset-2 disabled:opacity-50"
+        className={dangerLinkClass}
       >
         {STRINGS.comments.confirmDelete}
       </button>

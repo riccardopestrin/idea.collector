@@ -212,10 +212,14 @@ export function rankProposalsByScore(items: ProposalListItem[]): ProposalListIte
 }
 
 // Data layer: legge le proposte di un progetto con ricerca testo
-// (titolo/descrizione) e filtro stato opzionali. RLS resta il backstop.
+// (titolo/descrizione) e filtro stati opzionali (OR fra quelli passati). RLS resta il backstop.
 export async function listProposals(
   supabase: SupabaseClient,
-  { projectId, search, status }: { projectId: string; search?: string; status?: ProposalStatus },
+  {
+    projectId,
+    search,
+    statuses = [],
+  }: { projectId: string; search?: string; statuses?: ProposalStatus[] },
 ): Promise<ProposalListItem[]> {
   let query = supabase
     .from("proposals")
@@ -239,9 +243,9 @@ export async function listProposals(
     const safe = search.replace(/[,()*]/g, " ");
     query = query.or(`title.ilike.%${safe}%,description.ilike.%${safe}%`);
     // l'archivio è fuori dai risultati di ricerca, salvo filtro stato esplicito
-    if (!status) query = query.neq("status", "archiviata");
+    if (statuses.length === 0) query = query.neq("status", "archiviata");
   }
-  if (status) query = query.eq("status", status);
+  if (statuses.length > 0) query = query.in("status", statuses);
 
   // proposer è un embed to-one: PostgREST lo restituisce come oggetto singolo,
   // ma supabase-js senza tipi generati lo inferisce come array — corretto qui.

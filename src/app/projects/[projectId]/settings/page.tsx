@@ -6,6 +6,7 @@ import { type InstallationRepo, listInstallationRepos } from "@/lib/github/app";
 import { connectedRepo } from "@/lib/github/settings";
 import { listMembers } from "@/lib/projects";
 import { STRINGS } from "@/lib/strings";
+import { pageTitleClass } from "@/lib/tokens";
 
 import { loadProject } from "../project";
 
@@ -38,10 +39,12 @@ export default async function ProjectSettingsPage({
   const callbackFailed = (await searchParams).github === "error";
 
   return (
-    <main className="flex flex-1 flex-col items-center gap-8 p-6">
-      <div className="w-full max-w-lg">
-        <h1 className="text-xl font-semibold">{STRINGS.projects.settingsHeading}</h1>
-        <p className="text-sm text-foreground/60">{project.name}</p>
+    <main className="flex flex-1 flex-col items-center gap-10 p-6">
+      <div className="flex w-full max-w-lg flex-col gap-2">
+        <h1 className={pageTitleClass}>
+          {STRINGS.projects.settingsHeading}
+        </h1>
+        <p className="font-mono text-sm text-foreground/60">{project.name}</p>
       </div>
       <MembersSection projectId={project.id} members={members} currentUserId={user.id} />
       <GithubRepoSection

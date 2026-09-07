@@ -30,12 +30,14 @@ export default async function ProposalDetailPage({
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-6">
       <BackLink href={`/projects/${detail.project_id}`} label={STRINGS.nav.backToBoard} />
-      <ProposalPanel
-        detail={detail}
-        isAdmin={isAdmin}
-        currentUserId={user.id}
-        repo={connectedRepo(detail.project)}
-      />
+      <div className="border border-ink bg-paper">
+        <ProposalPanel
+          detail={detail}
+          isAdmin={isAdmin}
+          currentUserId={user.id}
+          repo={connectedRepo(detail.project)}
+        />
+      </div>
     </main>
   );
 }

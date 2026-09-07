@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 
 import { setGitRef } from "@/app/proposals/[id]/actions";
 import { SectionTitle } from "@/components/detail/SectionTitle";
-import { controlClass } from "@/components/form/Field";
+import { buttonClass, controlClass, labelClass, linkClass } from "@/lib/tokens";
 import { SubmitButton } from "@/components/form/SubmitButton";
 import { gitRefUrl } from "@/lib/github/gitRef";
 import { STRINGS } from "@/lib/strings";
@@ -41,7 +41,7 @@ export function GitRefSection({
             type="button"
             aria-label={STRINGS.proposal.gitRefEdit}
             onClick={() => setEditing(true)}
-            className="text-xs text-foreground/50 underline underline-offset-2"
+            className={`font-mono text-xs text-foreground/50 ${linkClass}`}
           >
             {STRINGS.common.edit}
           </button>
@@ -49,15 +49,15 @@ export function GitRefSection({
       </div>
       {editing ? (
         <form action={action} className="flex flex-col gap-2 text-sm">
-          <label className="flex flex-col gap-1" htmlFor="git_ref">
-            {STRINGS.proposal.gitRefLabel}
+          <label className="flex flex-col gap-1.5" htmlFor="git_ref">
+            <span className={labelClass}>{STRINGS.proposal.gitRefLabel}</span>
             <input
               id="git_ref"
               name="git_ref"
               type="text"
               defaultValue={gitRef ?? ""}
               placeholder={STRINGS.proposal.gitRefPlaceholder}
-              className={controlClass}
+              className={`${controlClass} font-mono`}
             />
           </label>
           <p className="text-xs text-foreground/50">{STRINGS.proposal.gitRefHint}</p>
@@ -68,11 +68,7 @@ export function GitRefSection({
           )}
           <div className="flex gap-2">
             <SubmitButton pending={pending}>{STRINGS.common.save}</SubmitButton>
-            <button
-              type="button"
-              onClick={() => setEditing(false)}
-              className="rounded-md border border-border px-4 py-2"
-            >
+            <button type="button" onClick={() => setEditing(false)} className={buttonClass}>
               {STRINGS.common.cancel}
             </button>
           </div>
@@ -84,7 +80,7 @@ export function GitRefSection({
               href={gitRefUrl(gitRef, repo)}
               target="_blank"
               rel="noopener noreferrer"
-              className="break-all font-mono text-foreground/80 underline underline-offset-2"
+              className={`break-all font-mono ${linkClass}`}
             >
               {gitRef}
             </a>
@@ -93,7 +89,7 @@ export function GitRefSection({
           )}
         </p>
       ) : (
-        <p className="text-sm text-foreground/50">—</p>
+        <p className="font-mono text-sm text-foreground/50">—</p>
       )}
     </section>
   );

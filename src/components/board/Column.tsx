@@ -1,6 +1,7 @@
 import type { ReactNode, Ref } from "react";
 
-import { BOARD_COLUMN_WIDTH } from "@/lib/tokens";
+import { CheckIcon, NoEntryIcon } from "@/components/icons";
+import { BOARD_COLUMN_WIDTH, labelClass } from "@/lib/tokens";
 
 // Segnale di drop durante il drag: consentito, vietato, o nessuno (fuori drag /
 // colonna d'origine). Deciso in Board.tsx dalla macchina a stati.
@@ -25,63 +26,29 @@ export function Column({
 }) {
   const ring =
     dropHint === "valid"
-      ? "ring-2 ring-green-500/60"
+      ? "ring-2 ring-ink"
       : dropHint === "invalid"
-        ? "ring-2 ring-red-500/60"
+        ? "ring-2 ring-paprika"
         : isOver
-          ? "ring-2 ring-foreground/40"
+          ? "ring-2 ring-dust"
           : "";
   return (
     <section
       ref={ref}
       aria-label={title}
-      className={`${BOARD_COLUMN_WIDTH} flex shrink-0 flex-col gap-3 rounded-lg bg-foreground/5 p-3 ${ring} ${
+      className={`${BOARD_COLUMN_WIDTH} flex shrink-0 flex-col border border-ink ${ring} ${
         dropHint === "invalid" ? "cursor-not-allowed" : ""
       }`}
     >
-      <h2 className="flex items-center justify-between px-1 text-sm font-semibold">
-        <span className="flex items-center gap-1.5">
+      <h2 className={`flex items-center justify-between border-b border-ink px-3 py-2 ${labelClass}`}>
+        <span className="flex items-center gap-2">
           {title}
-          {dropHint === "valid" && <CheckIcon />}
-          {dropHint === "invalid" && <NoEntryIcon />}
+          {dropHint === "valid" && <CheckIcon className="size-3.5" />}
+          {dropHint === "invalid" && <NoEntryIcon className="size-3.5 text-paprika" />}
         </span>
-        <span className="font-normal text-foreground/50">{count}</span>
+        <span className="text-foreground/50">{count}</span>
       </h2>
-      <ul className="flex min-h-24 flex-1 flex-col gap-3">{children}</ul>
+      <ul className="flex min-h-24 flex-1 flex-col gap-3 p-3">{children}</ul>
     </section>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 20 20"
-      className="h-4 w-4 text-green-600"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 10.5 8.5 15 16 5.5" />
-    </svg>
-  );
-}
-
-function NoEntryIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 20 20"
-      className="h-4 w-4 text-red-600"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-    >
-      <circle cx="10" cy="10" r="7.5" />
-      <path d="M5 5 15 15" />
-    </svg>
   );
 }

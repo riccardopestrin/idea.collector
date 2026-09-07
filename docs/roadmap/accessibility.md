@@ -1,4 +1,4 @@
-**Last updated:** 2026-07-09
+**Last updated:** 2026-09-07
 
 # Accessibility
 
@@ -221,6 +221,26 @@ Aggiungere `announcements` al `DndContext` di dnd-kit (onDragOver → "consentit
 
 #### Cronologia
 - 2026-07-09 — Flaggato durante review chain di `cardDirections` (Software Reviewer, confermato da Review Reviewer).
+
+### [A11Y-12] `aria-pressed` sui chip-link del filtro stati (attributo non valido su `link`)
+
+**Status:** non fissato — flaggato il 2026-09-07 durante review della PR `graphicDesign`.
+
+#### Dove
+- `src/components/filters/ProposalFilters.tsx` — i chip "Tutti gli stati" e uno per stato sono `<Link>` (`<a href>`) con `aria-pressed={active}`
+- `src/components/filters/ProposalFilters.test.tsx` — quattro asserzioni su `aria-pressed` da spostare insieme al fix
+
+#### Cosa c'è di sbagliato
+`aria-pressed` è ammesso solo sul ruolo `button`; su un `link` è un attributo proibito (ARIA in HTML), quindi gli screen reader lo ignorano o lo annunciano in modo incoerente. Lo stato "selezionato / non selezionato" dei chip cumulabili in OR non arriva agli utenti AT, che vedono solo una lista di link.
+
+#### Impatto user-visible
+Utenti screen reader non sanno quali stati siano attivi nel filtro della classifica; gli audit automatici (axe) segnalano ARIA non valida. Severità media.
+
+#### Fix raccomandato
+O `aria-current="true"` sui chip attivi (valido sui link, annuncia "corrente"), oppure trasformare i chip in `<button type="submit" name="status" value="…">` dentro il form GET, dove `aria-pressed` diventa legittimo (attenzione al submit di default con Invio nel campo di ricerca). Aggiornare le asserzioni del test di conseguenza.
+
+#### Cronologia
+- 2026-09-07 — Flaggato durante review chain di `graphicDesign` (Software Reviewer, confermato da Review Reviewer).
 
 ## Issue risolti
 

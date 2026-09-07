@@ -7,9 +7,12 @@ import type { ProposalStatus } from "@/lib/proposals";
 
 export const STRINGS = {
   app: {
-    title: "Proposte feature",
+    title: "Idea Collector",
+    // wordmark in due parti: la prima in paprika
+    brandAccent: "Idea",
+    brandRest: "Collector",
     description:
-      "Dashboard interna per raccogliere e prioritizzare le proposte di feature.",
+      "Raccogli, discuti e prioritizza le idee del tuo team.",
   },
 
   common: {
@@ -44,8 +47,8 @@ export const STRINGS = {
     ranking: "Classifica",
     settings: "Impostazioni",
     logout: "Esci",
-    backToBoard: "← Torna alla board",
-    backToProjects: "← Progetti",
+    backToBoard: "Torna alla board",
+    backToProjects: "Progetti",
   },
 
   projects: {
@@ -127,7 +130,7 @@ export const STRINGS = {
   },
 
   board: {
-    heading: "Proposte",
+    heading: "Board",
     newProposal: "Nuova proposta",
     noneMatchFilters: "Nessuna proposta corrisponde ai filtri.",
     noneYetCreate: "Nessuna proposta ancora. Crea la prima.",
@@ -144,8 +147,9 @@ export const STRINGS = {
     searchPlaceholder: "Cerca per titolo o descrizione…",
     clearSearch: "Cancella ricerca",
     allStatuses: "Tutti gli stati",
-    submit: "Filtra",
-    reset: "Azzera",
+    statusLabel: "Filtra per stato (più stati insieme)",
+    submit: "Cerca",
+    reset: "Reset",
   },
 
   card: {
@@ -241,7 +245,7 @@ export const STRINGS = {
     perTen: "/ 10",
     byLine: (name: string) => `di ${name}`,
     withLine: (names: string) => `con ${names}`,
-    // precede il «titolo» linkato nella frase "⚠️ Possibile duplicato (N% simile a «…» di …)".
+    // precede il «titolo» linkato nella frase "Possibile duplicato (N% simile a «…» di …)".
     dupLinkIntro: "a",
     similar: (pct: number) => `${pct}% simile`,
     linksHeading: "Link",
@@ -254,7 +258,7 @@ export const STRINGS = {
     historyHeading: "Cronologia stati",
     historyEmpty: "Nessuno spostamento ancora.",
     scanHeading: "Scansione duplicati",
-    dupWarning: "⚠️ Possibile duplicato",
+    dupWarning: "Possibile duplicato",
     dupBlockedHint:
       "Non può uscire da «Nuova» finché non la modifichi per differenziarla, la sposti in Rifiutata o la elimini.",
     scanInProgress: "Scansione delle idee simili in corso…",

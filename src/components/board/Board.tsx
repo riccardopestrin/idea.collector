@@ -98,7 +98,7 @@ export function Board({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       )}
@@ -206,7 +206,7 @@ function DraggableCard({
           ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
           : undefined
       }
-      className={`cursor-grab ${isDragging ? "z-10 opacity-70" : ""}`}
+      className={`cursor-grab ${isDragging ? "z-10 opacity-80" : ""}`}
     >
       <ProposalCard proposal={proposal} onDelete={onDelete} canRetryEval={canRetryEval} />
     </li>

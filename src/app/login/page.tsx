@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 
-import { controlClass } from "@/components/form/Field";
 import { SubmitButton } from "@/components/form/SubmitButton";
+import { Wordmark } from "@/components/nav/Wordmark";
 import { STRINGS } from "@/lib/strings";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { controlClass, displayClass, labelClass } from "@/lib/tokens";
 
 // Login passwordless con magic link (vedi ADR-0001). L'utente riceve un link via
 // email; cliccandolo atterra su /auth/callback che apre la sessione. Accesso solo
@@ -33,8 +34,11 @@ export default function LoginPage() {
 
   return (
     <main className="flex flex-1 items-center justify-center p-6">
-      <div className="flex w-full max-w-sm flex-col gap-4 rounded-xl border border-border p-8">
-        <h1 className="text-xl font-semibold">{STRINGS.login.heading}</h1>
+      <div className="flex w-full max-w-sm flex-col gap-6 border border-ink bg-paper p-8 shadow-hard-lg">
+        <div className="flex flex-col gap-4">
+          <Wordmark className="text-2xl" />
+          <h1 className={`${displayClass} text-4xl`}>{STRINGS.login.heading}</h1>
+        </div>
 
         {sent ? (
           <p role="status" className="text-sm">
@@ -48,10 +52,10 @@ export default function LoginPage() {
               e.preventDefault();
               void sendLink();
             }}
-            className="flex flex-col gap-4"
+            className="flex flex-col gap-5"
           >
-            <label className="flex flex-col gap-1 text-sm" htmlFor="email">
-              {STRINGS.login.emailLabel}
+            <label className="flex flex-col gap-1.5" htmlFor="email">
+              <span className={labelClass}>{STRINGS.login.emailLabel}</span>
               <input
                 id="email"
                 type="email"

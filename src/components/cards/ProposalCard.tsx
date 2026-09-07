@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { EvalStatusCue } from "@/components/evaluation/EvalStatusCue";
 import { RetryButton } from "@/components/evaluation/RetryButton";
+import { XIcon } from "@/components/icons";
 import {
   computeCompositeScore,
   formatScore,
@@ -11,6 +12,7 @@ import {
   type ProposalListItem,
 } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
+import { liftClass, tagClass } from "@/lib/tokens";
 
 // Card di una proposta. Presentazionale: riceve la riga già letta; il wrapper
 // (la <li> draggable della board) decide posizionamento e interazione.
@@ -31,7 +33,7 @@ export function ProposalCard({
 }) {
   const score = computeCompositeScore(proposal, proposal.votes).total;
   return (
-    <div className="relative flex flex-col gap-1 rounded-lg border border-border bg-background p-4">
+    <div className={`relative flex flex-col gap-2 border border-ink bg-paper p-4 ${liftClass}`}>
       {onDelete && (
         <button
           type="button"
@@ -40,9 +42,9 @@ export function ProposalCard({
           // il click non deve avviare il drag della <li> che ci ospita
           onPointerDown={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
-          className="absolute right-1 top-1 rounded p-1.5 leading-none text-foreground/40 hover:text-foreground"
+          className="absolute right-0 top-0 border-b border-l border-ink p-1.5 text-foreground/50 hover:bg-ink hover:text-paper"
         >
-          ×
+          <XIcon className="size-3" />
         </button>
       )}
       <Link
@@ -50,28 +52,24 @@ export function ProposalCard({
         // il click non deve avviare il drag della <li> che ci ospita
         onPointerDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
-        className="pr-6 font-medium underline-offset-2 hover:underline"
+        className="pr-6 font-medium leading-snug hover:text-paprika"
       >
         {proposal.title}
       </Link>
-      <span className="flex items-center gap-2 text-xs text-foreground/50">
+      <span className="flex flex-wrap items-center gap-2 font-mono text-xs text-foreground/60">
         {/* co-autori: proposer + autori dei contributi accettati (migration 0016) */}
         {STRINGS.card.byLine([proposal.proposer, ...proposal.contributors].map(personLabel).join(", "))}
         <EvalStatusCue status={proposal.ai_eval_status} />
         {/* RFC-006: bloccata in 'nuova' finché non differenziata o rifiutata */}
         {proposal.dup_flagged && (
-          <span className="rounded-full border border-danger/40 px-2 py-0.5 font-medium text-danger">
-            {STRINGS.card.dupBadge}
-          </span>
+          <span className={`${tagClass} border-paprika text-paprika`}>{STRINGS.card.dupBadge}</span>
         )}
         {showStatus && (
-          <span className="rounded-full border border-border px-2 py-0.5 font-medium text-foreground/70">
-            {STRINGS.status[proposal.status]}
-          </span>
+          <span className={`${tagClass} border-ink text-foreground/70`}>{STRINGS.status[proposal.status]}</span>
         )}
         {score !== null && (
           <span
-            className="ml-auto rounded-full border border-border px-2 py-0.5 font-medium text-foreground/80"
+            className={`ml-auto ${tagClass} border-ink bg-ink text-paper`}
             title={STRINGS.card.scoreTitle}
           >
             {formatScore(score)}

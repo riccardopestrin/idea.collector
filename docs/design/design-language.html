@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Idea Collector — Design language</title>
+<!--
+  Visual reference for the design language (branch graphicDesign, 2026-09-07).
+  Static page outside the build: open it in a browser.
+  The source of truth is the code: palette and global rules in src/app/globals.css,
+  shared classes in src/lib/tokens.ts, icons in src/components/icons.tsx.
+  If you change a value there, update it here too.
+-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@300..900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* ---- tokens (mirror of globals.css) ---- */
+  :root {
+    --ink: #050609;
+    --paprika: #e3571b;
+    --paper: #fffcf4;
+    --dust: #d1d1d1;
+    --font-display: Archivo, ui-sans-serif, sans-serif;
+    --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+    --shadow-hard: 4px 4px 0 var(--ink);
+    --shadow-hard-lg: 8px 8px 0 var(--ink);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-sans); font-size: 14px; line-height: 1.5; }
+  ::selection { background: var(--paprika); color: var(--paper); }
+  :focus-visible { outline: 2px solid var(--paprika); outline-offset: 2px; }
+  input { accent-color: var(--paprika); }
+  button, a, .lift { transition: color .15s ease-out, background-color .15s ease-out, border-color .15s ease-out, transform .15s ease-out, box-shadow .15s ease-out; }
+  @media (prefers-reduced-motion: reduce) { button, a, .lift { transition: none; } }
+  button:not(:disabled) { cursor: pointer; }
+
+  /* scrollbar (mirror of globals.css + ScrollbarReveal) */
+  @supports not selector(::-webkit-scrollbar) { * { scrollbar-width: thin; scrollbar-color: var(--ink) var(--paper); } }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--paper); }
+  ::-webkit-scrollbar-thumb { background: transparent; border-radius: 0; }
+  [data-scrolling]::-webkit-scrollbar-thumb { background: var(--ink); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--paprika); }
+  ::-webkit-scrollbar-corner { background: var(--paper); }
+
+  /* ---- page structure ---- */
+  .page { max-width: 1040px; margin: 0 auto; padding: 32px 24px 96px; display: flex; flex-direction: column; gap: 64px; }
+  .top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--ink); padding-bottom: 24px; }
+  .top h1 { margin: 0; }
+  section { display: flex; flex-direction: column; gap: 20px; }
+  section > h2 { margin: 0; border-bottom: 1px solid var(--ink); padding-bottom: 8px; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .spec { display: grid; grid-template-columns: 200px 1fr; gap: 24px; align-items: start; border-bottom: 1px solid var(--dust); padding: 16px 0; }
+  .spec:last-child { border-bottom: 0; }
+  @media (max-width: 720px) { .spec { grid-template-columns: 1fr; } }
+  p.lead { max-width: 65ch; margin: 0; color: rgba(5, 6, 9, .7); }
+  ul.rules { margin: 0; padding-left: 1.1em; max-width: 68ch; }
+  ul.rules li { margin: 4px 0; }
+  ul.rules li::marker { color: var(--paprika); }
+  code { font-family: var(--font-mono); font-size: 12px; background: var(--dust); padding: 1px 4px; }
+
+  /* ---- typography (mirror of tokens.ts) ---- */
+  .display { font-family: var(--font-display); text-transform: uppercase; letter-spacing: -0.02em; line-height: 1; }
+  .wordmark { font-family: var(--font-display); font-weight: 900; text-transform: uppercase; letter-spacing: -0.02em; font-size: 14px; }
+  .wordmark b { color: var(--paprika); font-weight: inherit; }
+  .page-title { font-family: var(--font-display); font-weight: 500; text-transform: uppercase; letter-spacing: -0.02em; line-height: 1; font-size: 60px; text-wrap: balance; }
+  .label { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .section-title { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(5, 6, 9, .7); margin: 0; }
+  .mute { color: rgba(5, 6, 9, .6); }
+  .mono { font-family: var(--font-mono); }
+
+  /* ---- components (mirror of tokens.ts) ---- */
+  .btn { border: 1px solid var(--ink); background: var(--paper); color: var(--ink); padding: 8px 16px; font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
+  .btn:hover { background: var(--ink); color: var(--paper); }
+  .btn-primary { background: var(--ink); color: var(--paper); }
+  .btn-primary:hover { background: var(--paprika); border-color: var(--paprika); color: var(--paper); }
+  .btn-danger { background: var(--paprika); border-color: var(--paprika); color: var(--paper); }
+  .btn-danger:hover { background: var(--ink); border-color: var(--ink); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn-icon { padding: 6px; }
+  .link { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; background: none; border: 0; padding: 0; font: inherit; }
+  .link:hover { color: var(--paprika); }
+  .link.danger { color: var(--paprika); }
+  .link.danger:hover { color: var(--ink); }
+  .navlink { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: inherit; text-decoration: none; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+  .navlink:hover { color: var(--paprika); }
+  .navlink[aria-current="page"] { text-decoration: underline; }
+  .tag { border: 1px solid var(--ink); padding: 2px 6px; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .tag.on { background: var(--ink); color: var(--paper); }
+  .tag.paprika { border-color: var(--paprika); color: var(--paprika); }
+  .chip { border: 1px solid var(--ink); padding: 4px 10px; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: inherit; text-decoration: none; }
+  .chip:hover { background: var(--ink); color: var(--paper); }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  .chip[aria-pressed="true"]:hover { background: var(--paprika); border-color: var(--paprika); }
+  .control { border: 1px solid var(--ink); background: var(--paper); padding: 8px 12px; font: inherit; font-size: 14px; color: inherit; width: 100%; max-width: 360px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .card { border: 1px solid var(--ink); background: var(--paper); padding: 16px; display: flex; flex-direction: column; gap: 8px; position: relative; text-decoration: none; color: inherit; }
+  .card.lift:hover { transform: translate(-2px, -2px); box-shadow: var(--shadow-hard); }
+  .card .x { position: absolute; top: 0; right: 0; border: 0; border-left: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--paper); padding: 6px; color: rgba(5, 6, 9, .5); }
+  .card .x:hover { background: var(--ink); color: var(--paper); }
+  .card .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 12px; color: rgba(5, 6, 9, .6); }
+  .column { border: 1px solid var(--ink); width: 260px; }
+  .column h3 { margin: 0; border-bottom: 1px solid var(--ink); padding: 8px 12px; display: flex; justify-content: space-between; font-weight: 500; }
+  .column ul { list-style: none; margin: 0; padding: 12px; min-height: 96px; }
+  .modal { border: 1px solid var(--ink); background: var(--paper); box-shadow: var(--shadow-hard-lg); padding: 32px; position: relative; max-width: 420px; }
+  .modal .x { position: absolute; top: 0; right: 0; border: 0; border-left: 1px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--paper); padding: 8px; }
+  .modal .x:hover { background: var(--ink); color: var(--paper); }
+  .cue { display: inline-block; width: 10px; height: 10px; vertical-align: middle; }
+  .cue.ok { background: var(--ink); }
+  .cue.ko { background: var(--paprika); }
+  .cue.run { border: 2px solid rgba(5, 6, 9, .25); border-top-color: var(--ink); animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .cue.run { animation: none; } }
+  .swatch { border: 1px solid var(--ink); display: flex; flex-direction: column; }
+  .swatch .fill { height: 96px; }
+  .swatch .info { padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--ink); }
+  .icons { display: flex; flex-wrap: wrap; gap: 16px; }
+  .icons figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; border: 1px solid var(--ink); padding: 16px; width: 120px; }
+  .icons svg { width: 24px; height: 24px; }
+  .icons figcaption { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+  .scrollbox { border: 1px solid var(--ink); height: 120px; overflow: auto; padding: 12px; max-width: 480px; }
+  .scrollbox .wide { width: 900px; height: 240px; background: repeating-linear-gradient(90deg, var(--dust) 0 1px, transparent 1px 40px); }
+  .weights { display: flex; flex-direction: column; border-top: 1px solid var(--ink); }
+  .weights .trial { display: grid; grid-template-columns: 160px 1fr; gap: 24px; align-items: start; border-bottom: 1px solid var(--ink); padding: 20px 0; }
+  .weights .trial.current { background: var(--ink); color: var(--paper); margin: 0 -24px; padding-left: 24px; padding-right: 24px; }
+  .weights .w { font-family: var(--font-mono); font-size: 28px; font-weight: 500; font-variant-numeric: tabular-nums; display: block; }
+  .weights .cls { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; opacity: .7; display: block; }
+  .weights .titles { display: flex; flex-direction: column; gap: 12px; font-size: 48px; }
+  @media (max-width: 720px) { .weights .trial { grid-template-columns: 1fr; } .weights .titles { font-size: 32px; } .page-title { font-size: 36px; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="top">
+    <div>
+      <div class="wordmark"><b>Idea</b> Collector</div>
+      <h1 class="page-title">Design language</h1>
+    </div>
+    <p class="lead">Brutalist, industrial, minimal. Visual reference for anyone touching the UI: every value below mirrors <code>globals.css</code>, <code>tokens.ts</code> and <code>icons.tsx</code>.</p>
+  </header>
+
+  <!-- ============================ PRINCIPLES ============================ -->
+  <section>
+    <h2 class="label">Principles</h2>
+    <ul class="rules">
+      <li><strong>Four colors, no gradients.</strong> No gradients, no blurred shadows, no decorative opacity. Transparency is only used for secondary text (ink at 50–70%).</li>
+      <li><strong>Sharp corners.</strong> No <code>border-radius</code>, ever. Solid 1px ink borders separate everything.</li>
+      <li><strong>Hard relief.</strong> The only shadow allowed is a solid offset: 4px for cards on hover, 8px for modals and dialogs.</li>
+      <li><strong>No emoji, no decorative characters.</strong> Icons are inline SVGs with a 2px stroke and square caps.</li>
+      <li><strong>The hover rule.</strong> Transparent turns ink; ink turns paprika; text links turn paprika. The paprika (destructive) button does the opposite and turns ink. 150ms transition, disabled under <code>prefers-reduced-motion</code>.</li>
+      <li><strong>Labels in uppercase mono.</strong> Section titles, meta, buttons and tags use uppercase, letter-spaced IBM Plex Mono. Running text uses IBM Plex Sans.</li>
+      <li><strong>Overlays, not breadcrumbs.</strong> Proposal detail, new proposal and profile open in a window above the current page; closing it leaves you where you were.</li>
+    </ul>
+  </section>
+
+  <!-- ============================ COLORS ============================ -->
+  <section>
+    <h2 class="label">Colors</h2>
+    <div class="grid">
+      <div class="swatch"><div class="fill" style="background:#050609"></div><div class="info"><span class="label">Ink</span><span class="mono">#050609</span><span class="mute">Text, borders, primary button, scrollbar thumb.</span></div></div>
+      <div class="swatch"><div class="fill" style="background:#e3571b"></div><div class="info"><span class="label">Paprika</span><span class="mono">#E3571B</span><span class="mute">Accent, hover, errors and warning states, focus ring, text selection, "Idea" in the wordmark.</span></div></div>
+      <div class="swatch"><div class="fill" style="background:#fffcf4"></div><div class="info"><span class="label">Paper</span><span class="mono">#FFFCF4</span><span class="mute">Background of everything: page, cards, modals, controls.</span></div></div>
+      <div class="swatch"><div class="fill" style="background:#d1d1d1"></div><div class="info"><span class="label">Dust</span><span class="mono">#D1D1D1</span><span class="mute">Secondary dividers, highlight of quoted passages in comments, loading placeholders.</span></div></div>
+    </div>
+    <p class="lead">In Tailwind: <code>ink</code>, <code>paprika</code>, <code>paper</code>, <code>dust</code>. The semantic aliases <code>foreground</code>, <code>background</code>, <code>border</code> and <code>danger</code> resolve to ink, paper, ink and paprika respectively.</p>
+  </section>
+
+  <!-- ============================ TYPOGRAPHY ============================ -->
+  <section>
+    <h2 class="label">Typography</h2>
+    <div class="spec">
+      <div><span class="label">Archivo</span><br><span class="mute">display · <code>font-display</code></span></div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="display" style="font-weight:900;font-size:24px">Wordmark, project names, proposal title, form headings — 900</div>
+        <div class="display" style="font-weight:500;font-size:40px">Page titles — 500</div>
+        <p class="lead">Variable font, 300–900. Uppercase, <code>tracking-tight</code>, <code>leading-none</code>. The page-title weight is under trial: see below.</p>
+      </div>
+    </div>
+    <div class="spec">
+      <div><span class="label">IBM Plex Sans</span><br><span class="mute">text · <code>font-sans</code></span></div>
+      <div style="display:flex;flex-direction:column;gap:8px;max-width:65ch">
+        <p style="margin:0;font-size:16px;font-weight:500">Card and comment titles (500)</p>
+        <p style="margin:0">Body, descriptions, comments, error messages (400). The only face meant to be read in paragraphs: 14px, line-height 1.5, lines around 65 characters.</p>
+      </div>
+    </div>
+    <div class="spec">
+      <div><span class="label">IBM Plex Mono</span><br><span class="mute">labels · <code>font-mono</code></span></div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <span class="label">Section titles · meta · buttons · tags (12px, uppercase, 0.1em tracking)</span>
+        <span class="mono">by Riccardo Pestrin · 5 Sep 2026, 11:32 · feature/branch-name · 7.4 / 10</span>
+        <p class="lead">For numbers, dates, git references, scores and anything that should read like a nameplate.</p>
+      </div>
+    </div>
+
+    <h3 class="section-title">Weight trials for page titles (60px on desktop)</h3>
+    <div class="weights">
+      <div class="trial"><div><span class="w">400</span><span class="cls">font-normal</span></div><div class="titles display" style="font-weight:400"><span>Progetti</span><span>Board</span><span>Classifica</span></div></div>
+      <div class="trial current"><div><span class="w">500</span><span class="cls">font-medium · in code now</span></div><div class="titles display" style="font-weight:500"><span>Progetti</span><span>Board</span><span>Classifica</span></div></div>
+      <div class="trial"><div><span class="w">600</span><span class="cls">font-semibold</span></div><div class="titles display" style="font-weight:600"><span>Progetti</span><span>Board</span><span>Classifica</span></div></div>
+      <div class="trial"><div><span class="w">700</span><span class="cls">font-bold</span></div><div class="titles display" style="font-weight:700"><span>Progetti</span><span>Board</span><span>Classifica</span></div></div>
+      <div class="trial"><div><span class="w">900</span><span class="cls">font-black · previous</span></div><div class="titles display" style="font-weight:900"><span>Progetti</span><span>Board</span><span>Classifica</span></div></div>
+    </div>
+    <p class="lead">To change the weight, swap the class in <code>pageTitleClass</code> inside <code>src/lib/tokens.ts</code>.</p>
+  </section>
+
+  <!-- ============================ BUTTONS ============================ -->
+  <section>
+    <h2 class="label">Buttons and links</h2>
+    <div class="spec">
+      <div><span class="label">Primary</span><br><span class="mute"><code>primaryButtonClass</code></span></div>
+      <div class="row"><button class="btn btn-primary">Crea proposta</button><button class="btn btn-primary"><svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M10 4v12M4 10h12"/></svg>Nuovo progetto</button><button class="btn btn-primary" disabled>Salva</button><span class="mute">ink → paprika on hover · disabled at 50%</span></div>
+    </div>
+    <div class="spec">
+      <div><span class="label">Secondary</span><br><span class="mute"><code>buttonClass</code></span></div>
+      <div class="row"><button class="btn">Cerca</button><button class="btn">Annulla</button><button class="btn">Esci</button><button class="btn btn-icon" aria-label="Back to projects"><svg viewBox="0 0 20 20" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M16 4v6a3 3 0 0 1-3 3H4M8 9l-4 4 4 4"/></svg></button><span class="mute">transparent → ink on hover</span></div>
+    </div>
+    <div class="spec">
+      <div><span class="label">Destructive</span><br><span class="mute">delete dialog only</span></div>
+      <div class="row"><button class="btn btn-danger">Elimina definitivamente</button><span class="mute">paprika → ink on hover</span></div>
+    </div>
+    <div class="spec">
+      <div><span class="label">Text actions</span><br><span class="mute"><code>linkClass</code></span></div>
+      <div class="row mono" style="font-size:12px"><button class="link">Modifica</button><button class="link danger">Elimina</button><button class="link">Proponi come contributo</button><a class="link" href="#">https://example.com/spec</a><span class="mute">underlined, paprika on hover · destructive actions do the opposite</span></div>
+    </div>
+    <div class="spec">
+      <div><span class="label">Project nav</span><br><span class="mute"><code>NavLink</code></span></div>
+      <div class="row" style="gap:20px"><a class="navlink" href="#" aria-current="page">Board</a><a class="navlink" href="#">Classifica</a><a class="navlink" href="#">Impostazioni</a><span class="mute">only the active item is underlined</span></div>
+    </div>
+  </section>
+
+  <!-- ============================ TAGS AND FILTERS ============================ -->
+  <section>
+    <h2 class="label">Tags, chips and states</h2>
+    <div class="spec">
+      <div><span class="label">Tags</span><br><span class="mute"><code>tagClass</code></span></div>
+      <div class="row"><span class="tag">Admin</span><span class="tag">Nuova</span><span class="tag on">7,4</span><span class="tag paprika">possibile duplicato</span><span class="tag paprika">contributo</span><span class="mute">square, 10px mono · score on ink · warnings in paprika</span></div>
+    </div>
+    <div class="spec">
+      <div><span class="label">Status filter</span><br><span class="mute">chips combine in OR</span></div>
+      <div class="row" style="gap:6px"><a class="chip" href="#" aria-pressed="false">Tutti gli stati</a><a class="chip" href="#" aria-pressed="true">Nuova</a><a class="chip" href="#" aria-pressed="true">In Valutazione</a><a class="chip" href="#" aria-pressed="false">Approvata</a><a class="chip" href="#" aria-pressed="false">In Sviluppo</a><a class="chip" href="#" aria-pressed="false">Rilasciata</a><a class="chip" href="#" aria-pressed="false">Archiviata</a><a class="chip" href="#" aria-pressed="false">Rifiutata</a></div>
+    </div>
+    <div class="spec">
+      <div><span class="label">AI evaluation cue</span><br><span class="mute"><code>EvalStatusCue</code></span></div>
+      <div class="row mono" style="font-size:12px"><span><span class="cue run"></span> running</span><span><span class="cue ok"></span> completed</span><span><span class="cue ko"></span> failed</span><span class="mute">10px squares, never circles</span></div>
+    </div>
+  </section>
+
+  <!-- ============================ FORMS ============================ -->
+  <section>
+    <h2 class="label">Forms</h2>
+    <div class="grid">
+      <label class="field"><span class="label">Titolo</span><input class="control" value="Esportazione CSV della board"></label>
+      <label class="field"><span class="label">Email</span><input class="control" type="email" placeholder="name@company.com"></label>
+      <label class="field"><span class="label">Link (uno per riga)</span><textarea class="control" rows="3">https://example.com/spec</textarea></label>
+    </div>
+    <p class="lead">Uppercase mono label above the control, control in Plex Sans with a 1px ink border on paper (<code>controlClass</code>). Errors in paprika below the field, with <code>role="alert"</code>. Visible 2px paprika focus ring.</p>
+  </section>
+
+  <!-- ============================ SURFACES ============================ -->
+  <section>
+    <h2 class="label">Surfaces</h2>
+    <div class="row" style="align-items:flex-start;gap:32px">
+      <div class="column">
+        <h3 class="label">Nuova <span class="mute">1</span></h3>
+        <ul>
+          <li><a class="card lift" href="#"><button class="x" type="button" aria-label="Delete"><svg viewBox="0 0 20 20" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M5 5l10 10M15 5L5 15"/></svg></button><span style="font-weight:500;padding-right:24px">Esportazione CSV della board</span><span class="meta">di Riccardo Pestrin <span class="cue ok"></span><span class="tag on" style="margin-left:auto">7,4</span></span></a></li>
+        </ul>
+      </div>
+      <div class="modal">
+        <button class="x" type="button" aria-label="Close"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
+        <div class="display" style="font-weight:900;font-size:30px;margin-bottom:16px">Profilo</div>
+        <label class="field"><span class="label">Nome</span><input class="control" value="Riccardo Pestrin"></label>
+        <div style="margin-top:16px"><button class="btn btn-primary">Salva</button></div>
+      </div>
+    </div>
+    <p class="lead">Column: 1px border, mono header with count, no fill. Card: 1px border, lifts 2px with a 4px hard shadow on hover (<code>liftClass</code>); the X in the top-right corner is set into the border. Modals and dialogs: 1px border, 8px hard shadow, ink backdrop at 60%, X in the corner.</p>
+  </section>
+
+  <!-- ============================ ICONS ============================ -->
+  <section>
+    <h2 class="label">Icons</h2>
+    <div class="icons">
+      <figure><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M5 5l10 10M15 5L5 15"/></svg><figcaption>XIcon</figcaption></figure>
+      <figure><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M10 4v12M4 10h12"/></svg><figcaption>PlusIcon</figcaption></figure>
+      <figure><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M16 10H4M9 5l-5 5 5 5"/></svg><figcaption>ArrowLeftIcon</figcaption></figure>
+      <figure><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M16 4v6a3 3 0 0 1-3 3H4M8 9l-4 4 4 4"/></svg><figcaption>CornerDownLeftIcon</figcaption></figure>
+      <figure><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M7 4l6 6-6 6"/></svg><figcaption>ChevronRightIcon</figcaption></figure>
+      <figure><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 10.5 8.5 15 16 5.5"/></svg><figcaption>CheckIcon</figcaption></figure>
+      <figure><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><rect x="3" y="3" width="14" height="14"/><path d="M5 5l10 10"/></svg><figcaption>NoEntryIcon</figcaption></figure>
+      <figure><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M10 3 18 17H2Z M10 8v4M10 14.5v.5"/></svg><figcaption>WarningIcon</figcaption></figure>
+    </div>
+    <p class="lead">20×20 grid, 2px stroke, <code>stroke-linecap: square</code>, <code>stroke-linejoin: miter</code>, <code>currentColor</code>, <code>aria-hidden</code>: meaning comes from the surrounding text or the container's <code>aria-label</code>. New icons go in <code>src/components/icons.tsx</code> in the same style.</p>
+  </section>
+
+  <!-- ============================ SCROLLBAR ============================ -->
+  <section>
+    <h2 class="label">Scrollbar</h2>
+    <div class="scrollbox" id="scrollbox"><div class="wide"><span class="label mute">Scroll inside this box, horizontally or vertically.</span></div></div>
+    <p class="lead">8px, rectangular ink thumb on a paper track, paprika on hover. Invisible at rest and shown only while scrolling: <code>ScrollbarReveal</code> marks the element with <code>data-scrolling</code> and clears it after 800ms. Firefox uses its own thin scrollbar with the same colors.</p>
+  </section>
+
+  <!-- ============================ LAYOUT ============================ -->
+  <section>
+    <h2 class="label">Layout and spacing</h2>
+    <ul class="rules">
+      <li>Header with an ink bottom border: wordmark on the left; inside a project, back arrow, mono project name and nav; profile and "Esci" on the right. Wraps below 700px.</li>
+      <li>Page padding 24px; page title followed by the primary button, right-aligned on the same row.</li>
+      <li>Board: 320px columns (<code>BOARD_COLUMN_WIDTH</code>) with a 16px gap (<code>BOARD_GAP</code>), horizontal scroll inside the container, never on the page.</li>
+      <li>Single-column forms, max width 32rem, 20px gap between fields. Detail panel in two columns above 1024px: content and comments separated by a vertical border.</li>
+      <li>Spacing through flex and grid <code>gap</code>, not per-element margins. No inline values: shared dimensions live in <code>tokens.ts</code>.</li>
+    </ul>
+  </section>
+
+</div>
+<script>
+  // Same behavior as src/components/ScrollbarReveal.tsx, for the demo above.
+  (function () {
+    var timers = new WeakMap();
+    document.addEventListener("scroll", function (e) {
+      var el = e.target instanceof Element ? e.target : document.documentElement;
+      el.setAttribute("data-scrolling", "");
+      clearTimeout(timers.get(el));
+      timers.set(el, setTimeout(function () { el.removeAttribute("data-scrolling"); }, 800));
+    }, { capture: true, passive: true });
+  })();
+</script>
+</body>
+</html>

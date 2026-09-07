@@ -1,17 +1,21 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
 
+import { ScrollbarReveal } from "@/components/ScrollbarReveal";
 import { STRINGS } from "@/lib/strings";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Display (titoli) / sans (testo) / mono (etichette, numeri, bottoni): vedi globals.css.
+const archivo = Archivo({ subsets: ["latin"], variable: "--font-archivo" });
+const plexSans = IBM_Plex_Sans({
+  weight: ["400", "500", "600"],
   subsets: ["latin"],
+  variable: "--font-plex-sans",
 });
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const plexMono = IBM_Plex_Mono({
+  weight: ["400", "500"],
   subsets: ["latin"],
+  variable: "--font-plex-mono",
 });
 
 export const metadata: Metadata = {
@@ -29,9 +33,10 @@ export default function RootLayout({
   return (
     <html
       lang="it"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${archivo.variable} ${plexSans.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <ScrollbarReveal />
         {children}
         {modal}
       </body>

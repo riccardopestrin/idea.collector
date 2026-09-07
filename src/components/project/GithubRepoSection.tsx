@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 
 import { disconnectGithub, selectRepo, startGithubConnect } from "@/app/projects/actions";
-import { controlClass } from "@/components/form/Field";
+import { buttonClass, controlClass, displayClass, labelClass } from "@/lib/tokens";
 import { SubmitButton } from "@/components/form/SubmitButton";
 import type { InstallationRepo } from "@/lib/github/app";
 import { STRINGS } from "@/lib/strings";
@@ -41,8 +41,8 @@ export function GithubRepoSection({
     selectState?.error ?? disconnectState?.error ?? connectState?.error ?? loadError;
 
   return (
-    <section className="flex w-full max-w-lg flex-col gap-3 border-t border-border pt-6">
-      <h2 className="text-lg font-semibold">{STRINGS.github.heading}</h2>
+    <section className="flex w-full max-w-lg flex-col gap-4 border-t border-ink pt-6">
+      <h2 className={`${displayClass} text-2xl`}>{STRINGS.github.heading}</h2>
       <p className="text-sm text-foreground/60">{STRINGS.github.intro}</p>
 
       {error && (
@@ -61,13 +61,13 @@ export function GithubRepoSection({
         <>
           {repos.length > 0 && (
             <form action={selectAction} className="flex flex-col gap-3">
-              <label className="flex flex-col gap-1 text-sm" htmlFor="repo">
-                {STRINGS.github.repoSelectLabel}
+              <label className="flex flex-col gap-1.5" htmlFor="repo">
+                <span className={labelClass}>{STRINGS.github.repoSelectLabel}</span>
                 <select
                   id="repo"
                   name="repo"
                   defaultValue={selectedRepo ?? ""}
-                  className={controlClass}
+                  className={`${controlClass} font-mono`}
                 >
                   {!selectedRepo && <option value="">{STRINGS.github.repoPlaceholder}</option>}
                   {repos.map((r) => (
@@ -83,14 +83,14 @@ export function GithubRepoSection({
           {selectedRepo && (
             <p className="text-sm text-foreground/80">
               {STRINGS.github.connectedRepoPrefix}
-              <span className="font-medium">{selectedRepo}</span>
+              <span className="font-mono font-medium">{selectedRepo}</span>
             </p>
           )}
           <form action={disconnectAction}>
             <button
               type="submit"
               disabled={disconnectPending}
-              className={`${controlClass} text-sm disabled:opacity-50`}
+              className={buttonClass}
             >
               {STRINGS.github.disconnect}
             </button>

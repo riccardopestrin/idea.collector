@@ -3,71 +3,94 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { controlClass } from "@/components/form/Field";
+import { XIcon } from "@/components/icons";
 import { PROPOSAL_STATUSES, type ProposalStatus } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
+import { buttonClass, controlClass, labelClass, linkClass, tagClass } from "@/lib/tokens";
 
 // Form filtri lista (GET): la pagina legge q/status dai searchParams. Client per
-// gestire la × che pulisce il campo; "Azzera" torna alla lista piena via resetHref.
+// gestire la × che pulisce il campo; "Reset" torna alla lista piena (basePath).
 // showStatus=false nella board (la suddivisione in colonne è già il filtro stato).
+// Gli stati sono chip-link cumulabili in OR (`status=a,b`): un click aggiunge o
+// toglie lo stato, "Tutti gli stati" azzera la selezione. Il campo hidden li
+// conserva quando si cerca per testo.
 export function ProposalFilters({
   search,
-  status,
+  statuses = [],
   showStatus = true,
-  resetHref = "/",
+  basePath,
 }: {
   search: string;
-  status?: ProposalStatus;
+  statuses?: ProposalStatus[];
   showStatus?: boolean;
-  resetHref?: string;
+  // pagina che ospita i filtri: base di ogni chip e del reset
+  basePath: string;
 }) {
   const [q, setQ] = useState(search);
-  const hasFilters = Boolean(search || status);
+  const hasFilters = Boolean(search || statuses.length > 0);
+  const hrefFor = (next: ProposalStatus[]) => ({
+    pathname: basePath,
+    query: { ...(search && { q: search }), ...(next.length > 0 && { status: next.join(",") }) },
+  });
+  const toggled = (s: ProposalStatus) =>
+    statuses.includes(s) ? statuses.filter((x) => x !== s) : [...statuses, s];
+  const chipClass = (active: boolean) =>
+    `${tagClass} border-ink px-2.5 py-1 ${
+      active ? "bg-ink text-paper hover:border-paprika hover:bg-paprika" : "hover:bg-ink hover:text-paper"
+    }`;
 
   return (
-    <form method="get" className="flex flex-wrap items-center gap-2 text-sm">
-      <div className="relative min-w-48 flex-1">
-        <input
-          type="text"
-          name="q"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={STRINGS.filters.searchPlaceholder}
-          className={`w-full ${controlClass} pr-9`}
-        />
-        {q && (
-          <button
-            type="button"
-            onClick={() => setQ("")}
-            aria-label={STRINGS.filters.clearSearch}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-lg leading-none text-foreground/50 hover:text-foreground"
-          >
-            ×
-          </button>
+    <div className="flex flex-col gap-3">
+      <form method="get" className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-48 flex-1 sm:max-w-md">
+          <input
+            type="text"
+            name="q"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={STRINGS.filters.searchPlaceholder}
+            className={`w-full ${controlClass} pr-9`}
+          />
+          {q && (
+            <button
+              type="button"
+              onClick={() => setQ("")}
+              aria-label={STRINGS.filters.clearSearch}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-foreground/50 hover:text-ink"
+            >
+              <XIcon className="size-3.5" />
+            </button>
+          )}
+        </div>
+        {statuses.length > 0 && <input type="hidden" name="status" value={statuses.join(",")} />}
+        <button type="submit" className={buttonClass}>
+          {STRINGS.filters.submit}
+        </button>
+        {hasFilters && (
+          <Link href={basePath} className={`px-2 ${labelClass} ${linkClass}`}>
+            {STRINGS.filters.reset}
+          </Link>
         )}
-      </div>
+      </form>
       {showStatus && (
-        <select
-          name="status"
-          defaultValue={status ?? ""}
-          className={controlClass}
-        >
-          <option value="">{STRINGS.filters.allStatuses}</option>
-          {PROPOSAL_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {STRINGS.status[s]}
-            </option>
-          ))}
-        </select>
+        <nav aria-label={STRINGS.filters.statusLabel} className="flex flex-wrap gap-1.5">
+          <Link
+            href={hrefFor([])}
+            aria-pressed={statuses.length === 0}
+            className={chipClass(statuses.length === 0)}
+          >
+            {STRINGS.filters.allStatuses}
+          </Link>
+          {PROPOSAL_STATUSES.map((s) => {
+            const active = statuses.includes(s);
+            return (
+              <Link key={s} href={hrefFor(toggled(s))} aria-pressed={active} className={chipClass(active)}>
+                {STRINGS.status[s]}
+              </Link>
+            );
+          })}
+        </nav>
       )}
-      <button type="submit" className="rounded-md border border-border px-4 py-2">
-        {STRINGS.filters.submit}
-      </button>
-      {hasFilters && (
-        <Link href={resetHref} className="rounded-md px-3 py-2 text-foreground/70 hover:text-foreground">
-          {STRINGS.filters.reset}
-        </Link>
-      )}
-    </form>
+    </div>
   );
 }

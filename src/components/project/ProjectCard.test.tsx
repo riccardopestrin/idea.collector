@@ -16,7 +16,7 @@ const base: ProjectListItem = {
 
 describe("ProjectCard", () => {
   it("links to the project board and shows repo, proposal count and role", () => {
-    render(<ProjectCard project={base} />);
+    render(<ProjectCard project={base} index={0} />);
 
     expect(screen.getByRole("link", { name: /Mobile/ })).toHaveAttribute("href", "/projects/pr1");
     expect(screen.getByText("acme/app")).toBeInTheDocument();
@@ -27,6 +27,7 @@ describe("ProjectCard", () => {
   it("falls back to 'nessuna repo' and the singular count", () => {
     render(
       <ProjectCard
+        index={0}
         project={{ ...base, github_owner: null, github_repo: null, role: "contributor", proposalCount: 1 }}
       />,
     );

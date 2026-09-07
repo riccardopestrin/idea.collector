@@ -136,16 +136,18 @@ function fakeBuilder(data: unknown) {
   const or = vi.fn();
   const eq = vi.fn();
   const neq = vi.fn();
+  const inFilter = vi.fn();
   const builder = {
     select: vi.fn(() => builder),
     order: vi.fn(() => builder),
     or: or.mockImplementation(() => builder),
     eq: eq.mockImplementation(() => builder),
     neq: neq.mockImplementation(() => builder),
+    in: inFilter.mockImplementation(() => builder),
     overrideTypes: vi.fn(() => Promise.resolve({ data })),
   };
   const supabase = { from: vi.fn(() => builder) } as unknown as SupabaseClient;
-  return { supabase, or, eq, neq };
+  return { supabase, or, eq, neq, inFilter };
 }
 
 describe("listProposals", () => {
@@ -174,12 +176,12 @@ describe("listProposals", () => {
   });
 
   it("searches inside the archive when the status filter asks for it", async () => {
-    const { supabase, neq, eq } = fakeBuilder([row]);
+    const { supabase, neq, inFilter } = fakeBuilder([row]);
 
-    await listProposals(supabase, { projectId: "pr1", search: "mappa", status: "archiviata" });
+    await listProposals(supabase, { projectId: "pr1", search: "mappa", statuses: ["archiviata"] });
 
     expect(neq).not.toHaveBeenCalled();
-    expect(eq).toHaveBeenCalledWith("status", "archiviata");
+    expect(inFilter).toHaveBeenCalledWith("status", ["archiviata"]);
   });
 
   it("scopes to the project and does not filter further when no search or status is given", async () => {
@@ -195,12 +197,12 @@ describe("listProposals", () => {
     expect(eq).toHaveBeenCalledWith("project_id", "pr1");
   });
 
-  it("filters by status when given", async () => {
-    const { supabase, eq } = fakeBuilder([row]);
+  it("filters by any of the given statuses (OR)", async () => {
+    const { supabase, inFilter } = fakeBuilder([row]);
 
-    await listProposals(supabase, { projectId: "pr1", status: "approvata" });
+    await listProposals(supabase, { projectId: "pr1", statuses: ["approvata", "in_sviluppo"] });
 
-    expect(eq).toHaveBeenCalledWith("status", "approvata");
+    expect(inFilter).toHaveBeenCalledWith("status", ["approvata", "in_sviluppo"]);
   });
 
   it("returns an empty array when the query yields no data", async () => {

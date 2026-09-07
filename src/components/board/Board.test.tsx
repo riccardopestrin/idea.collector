@@ -188,10 +188,10 @@ describe("Board", () => {
 
     act(() => dnd.onDragStart?.({ active: { id: "1" } }));
     expect(screen.getByRole("region", { name: "In Valutazione" }).className).toContain(
-      "ring-green-500/60",
+      "ring-ink",
     );
     expect(screen.getByRole("region", { name: "Approvata" }).className).toContain(
-      "ring-red-500/60",
+      "ring-paprika",
     );
     // colonna d'origine: nessun hint
     expect(screen.getByRole("region", { name: "Nuova" }).className).not.toContain("ring-2");

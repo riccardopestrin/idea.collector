@@ -2,11 +2,13 @@ import { ProposalCard } from "@/components/cards/ProposalCard";
 import { ProposalFilters } from "@/components/filters/ProposalFilters";
 import { isProposalStatus, listProposals, rankProposalsByScore } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
+import { displayClass, pageTitleClass } from "@/lib/tokens";
 
 import { loadProject } from "../project";
 
 // Classifica del progetto: le proposte elencate per voto composito decrescente,
-// a prescindere dallo stato (che resta visibile sulla card). Ricerca e filtro stato restano.
+// a prescindere dallo stato (che resta visibile sulla card). Ricerca e filtro stati
+// (più d'uno in OR, `status=a,b` nell'URL) restano.
 export default async function Ranking({
   params,
   searchParams,
@@ -18,35 +20,38 @@ export default async function Ranking({
 
   const { q, status } = await searchParams;
   const search = (q ?? "").trim();
-  const statusFilter = isProposalStatus(status) ? status : undefined;
+  // String(): con la chiave ripetuta (?status=a&status=b) Next passa un array
+  const statuses = String(status ?? "").split(",").filter(isProposalStatus);
 
   const proposals = await listProposals(supabase, {
     projectId: project.id,
     search,
-    status: statusFilter,
+    statuses,
   });
   const ranked = rankProposalsByScore(proposals);
 
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-6">
-      <h1 className="text-xl font-semibold">{STRINGS.nav.ranking}</h1>
+      <h1 className={pageTitleClass}>
+        {STRINGS.nav.ranking}
+      </h1>
 
       <ProposalFilters
         search={search}
-        status={statusFilter}
-        resetHref={`/projects/${project.id}/ranking`}
+        statuses={statuses}
+        basePath={`/projects/${project.id}/ranking`}
       />
 
       {ranked.length === 0 ? (
-        <p className="text-sm text-foreground/70">
-          {search || statusFilter ? STRINGS.board.noneMatchFilters : STRINGS.board.noneYet}
+        <p className="font-mono text-sm text-foreground/70">
+          {search || statuses.length > 0 ? STRINGS.board.noneMatchFilters : STRINGS.board.noneYet}
         </p>
       ) : (
-        <ol className="flex flex-col gap-3">
+        <ol className="flex max-w-4xl flex-col gap-3">
           {ranked.map((proposal, i) => (
-            <li key={proposal.id} className="flex items-center gap-3">
-              <span className="w-6 shrink-0 text-right text-sm font-medium text-foreground/50">
-                {i + 1}
+            <li key={proposal.id} className="flex items-stretch gap-3">
+              <span className={`flex w-12 shrink-0 items-center justify-center border border-ink ${displayClass} text-xl`}>
+                {String(i + 1).padStart(2, "0")}
               </span>
               <div className="flex-1">
                 <ProposalCard proposal={proposal} showStatus />

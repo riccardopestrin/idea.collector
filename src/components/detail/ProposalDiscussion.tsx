@@ -13,6 +13,7 @@ import { SubmitButton } from "@/components/form/SubmitButton";
 import type { AnchorField } from "@/lib/anchors";
 import type { ProposalComment } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
+import { buttonClass } from "@/lib/tokens";
 
 type ProposalDefaults = {
   title: string;
@@ -77,21 +78,21 @@ export function ProposalDiscussion({
       : undefined;
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex items-start justify-between gap-2">
+    <div className="flex flex-col gap-6">
+      <div className="flex items-start justify-between gap-4 border-b border-ink pb-5">
         {header}
         {canEdit && (
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="shrink-0 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-foreground/5"
+            className={`shrink-0 ${buttonClass}`}
           >
             {STRINGS.common.edit}
           </button>
         )}
       </div>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="flex min-w-0 flex-col gap-5">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="flex min-w-0 flex-col gap-6">
           {defaults.description && (
             <section className="flex flex-col gap-1">
               <SectionTitle>{STRINGS.proposal.descriptionLabel}</SectionTitle>
@@ -149,7 +150,7 @@ function EditProposalForm({
   );
 
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form action={action} className="flex flex-col gap-5">
       <Field label={STRINGS.proposal.titleLabel} name="title" required defaultValue={defaults.title} />
       <RichTextField
         label={STRINGS.proposal.descriptionLabel}
@@ -174,11 +175,7 @@ function EditProposalForm({
       )}
       <div className="flex gap-2">
         <SubmitButton pending={pending}>{STRINGS.common.save}</SubmitButton>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-md border border-border px-4 py-2 text-sm"
-        >
+        <button type="button" onClick={onClose} className={buttonClass}>
           {STRINGS.common.cancel}
         </button>
       </div>

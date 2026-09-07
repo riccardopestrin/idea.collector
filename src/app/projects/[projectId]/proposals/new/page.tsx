@@ -15,7 +15,7 @@ export default async function NewProposalPage({
 
   return (
     <main className="flex flex-1 justify-center p-6">
-      <div className="flex w-full max-w-lg flex-col gap-4">
+      <div className="flex w-full max-w-lg flex-col gap-6">
         <BackLink href={`/projects/${project.id}`} label={STRINGS.nav.backToBoard} />
         <NewProposalForm projectId={project.id} />
       </div>

@@ -1,8 +1,8 @@
 import type { AiEvalStatus } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
 
-// Cue visivo dello stato di valutazione AI (RFC-003): rotella = in corso,
-// pallino verde = completata, rosso = fallita. Condiviso da card e pannello.
+// Cue visivo dello stato di valutazione AI (RFC-003): quadrato che ruota = in
+// corso, quadrato pieno nero = completata, paprika = fallita. Condiviso da card e pannello.
 export function EvalStatusCue({ status }: { status: AiEvalStatus }) {
   if (status === "assente") return null;
   if (status === "in_corso") {
@@ -10,7 +10,7 @@ export function EvalStatusCue({ status }: { status: AiEvalStatus }) {
       <span
         role="status"
         aria-label={STRINGS.evaluation.cueInProgress}
-        className="inline-block size-3 shrink-0 animate-spin rounded-full border-2 border-foreground/25 border-t-foreground"
+        className="inline-block size-2.5 shrink-0 animate-spin border-2 border-ink/25 border-t-ink"
       />
     );
   }
@@ -19,7 +19,7 @@ export function EvalStatusCue({ status }: { status: AiEvalStatus }) {
     <span
       role="img"
       aria-label={failed ? STRINGS.evaluation.cueFailed : STRINGS.evaluation.cueCompleted}
-      className={`inline-block size-2.5 shrink-0 rounded-full ${failed ? "bg-danger" : "bg-emerald-500"}`}
+      className={`inline-block size-2.5 shrink-0 ${failed ? "bg-danger" : "bg-ink"}`}
     />
   );
 }

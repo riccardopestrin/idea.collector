@@ -6,6 +6,7 @@ import { ProposalScanTrigger } from "@/components/detail/ProposalScanTrigger";
 import { RiceVoteForm } from "@/components/detail/RiceVoteForm";
 import { SectionTitle } from "@/components/detail/SectionTitle";
 import { EvalStatusCue } from "@/components/evaluation/EvalStatusCue";
+import { ChevronRightIcon, WarningIcon } from "@/components/icons";
 import { RetryButton } from "@/components/evaluation/RetryButton";
 import {
   acceptedContributorIds,
@@ -18,6 +19,7 @@ import {
   type VoteComponents,
 } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
+import { displayClass, labelClass, linkClass } from "@/lib/tokens";
 
 const dateFormat = new Intl.DateTimeFormat("it-IT", {
   dateStyle: "medium",
@@ -46,7 +48,7 @@ function ReportText({ text }: { text: string }) {
             href={part}
             target="_blank"
             rel="noopener noreferrer"
-            className="break-all text-foreground/80 underline underline-offset-2"
+            className={`break-all ${linkClass}`}
           >
             {part}
           </a>
@@ -98,7 +100,7 @@ export function ProposalPanel({
     !hasVoted;
 
   return (
-    <article className="p-6">
+    <article className="p-6 sm:p-8">
       <ProposalDiscussion
         proposalId={detail.id}
         defaults={{
@@ -114,12 +116,12 @@ export function ProposalPanel({
         proposerId={detail.proposer_id}
         isAdmin={isAdmin}
         header={
-          <header className="flex flex-col gap-1 pr-6">
-            <h1 className="flex items-center gap-2 text-xl font-semibold">
+          <header className="flex flex-col gap-2 pr-8">
+            <h1 className={`flex flex-wrap items-center gap-3 ${displayClass} text-3xl tracking-tight`}>
               {detail.title}
               <EvalStatusCue status={detail.ai_eval_status} />
             </h1>
-            <p className="text-sm text-foreground/60">
+            <p className={`${labelClass} text-foreground/60`}>
               {STRINGS.status[detail.status]} · {STRINGS.panel.byLine(personLabel(detail.proposer))}
               {/* dedupe per author_id, non per label: due omonimi restano distinti */}
               {contributions.length > 0 &&
@@ -137,29 +139,29 @@ export function ProposalPanel({
           <section className="flex flex-col gap-3">
             <SectionTitle>{STRINGS.panel.contributions}</SectionTitle>
             {contributions.map((c) => (
-              <div key={c.id} className="flex flex-col gap-1 border-l-2 border-border pl-3">
+              <div key={c.id} className="flex flex-col gap-1 border-l-2 border-paprika pl-3">
                 <p className="whitespace-pre-wrap text-sm">{c.body}</p>
-                <p className="text-xs text-foreground/50">— {personLabel(c.author)}</p>
+                <p className="font-mono text-xs text-foreground/50">— {personLabel(c.author)}</p>
               </div>
             ))}
           </section>
         )}
         {composite.total !== null && (
-          <section className="flex flex-col gap-2 rounded-lg border border-border p-4">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm text-foreground/60">
+          <section className="flex flex-col gap-3 border border-ink p-4">
+            <div className="flex flex-col gap-1">
+              <span className={`${labelClass} text-foreground/60`}>
                 {STRINGS.panel.totalVote} ·{" "}
                 {claudeTotal !== null ? STRINGS.panel.claudePlusUsers : STRINGS.panel.usersOnly}
               </span>
-              <span className="text-4xl font-semibold">{formatScore(composite.total)}</span>
-              <span className="text-xs text-foreground/50">{STRINGS.panel.outOf10}</span>
+              <span className={`${displayClass} text-6xl`}>{formatScore(composite.total)}</span>
+              <span className="font-mono text-xs text-foreground/50">{STRINGS.panel.outOf10}</span>
             </div>
             {componentAverages.length > 0 && (
-              <dl className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
+              <dl className="grid grid-cols-2 border-t border-ink pt-3 font-mono text-xs sm:grid-cols-4">
                 {componentAverages.map(({ field, value }) => (
-                  <div key={field} className="flex flex-col">
-                    <dt className="text-foreground/50">{COMPONENT_LABELS[field]}</dt>
-                    <dd className="font-medium text-foreground/80">{formatScore(value)}</dd>
+                  <div key={field} className="flex flex-col gap-0.5">
+                    <dt className="uppercase tracking-wider text-foreground/50">{COMPONENT_LABELS[field]}</dt>
+                    <dd className="text-base font-medium">{formatScore(value)}</dd>
                   </div>
                 ))}
               </dl>
@@ -172,7 +174,7 @@ export function ProposalPanel({
         {detail.links.length > 0 && (
           <section className="flex flex-col gap-1">
             <SectionTitle>{STRINGS.panel.linksHeading}</SectionTitle>
-            <ul className="flex flex-col gap-1 text-sm">
+            <ul className="flex flex-col gap-1 font-mono text-sm">
               {detail.links.map((link) => (
                 <li key={link} className="break-all">
                   {isHttpUrl(link) ? (
@@ -180,7 +182,7 @@ export function ProposalPanel({
                       href={link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-foreground/80 underline underline-offset-2"
+                      className={linkClass}
                     >
                       {link}
                     </a>
@@ -204,7 +206,7 @@ export function ProposalPanel({
 
         {/* Rilancia anche su in_corso: recupera valutazioni orfane di un crash (0011) */}
         {detail.ai_eval_status === "fallita" && (
-          <section className="flex flex-col gap-2 rounded-lg border border-danger/40 p-3">
+          <section className="flex flex-col gap-2 border border-danger p-3">
             <p role="alert" className="text-sm text-danger">
               {STRINGS.panel.evalFailed(detail.ai_eval_error)}
             </p>
@@ -212,8 +214,8 @@ export function ProposalPanel({
           </section>
         )}
         {detail.ai_eval_status === "in_corso" && isAdmin && (
-          <section className="flex flex-col gap-2 rounded-lg border border-border p-3">
-            <p className="text-sm text-foreground/70">{STRINGS.panel.evalInProgress}</p>
+          <section className="flex flex-col gap-2 border border-dust p-3">
+            <p className="font-mono text-sm text-foreground/70">{STRINGS.panel.evalInProgress}</p>
             <RetryButton proposalId={detail.id} />
           </section>
         )}
@@ -222,8 +224,8 @@ export function ProposalPanel({
           <section className="flex flex-col gap-2">
             <SectionTitle>{STRINGS.panel.claudeVote}</SectionTitle>
             <div>
-              <span className="text-2xl font-semibold">{formatScore(claudeTotal)}</span>
-              <span className="text-sm text-foreground/50"> {STRINGS.panel.outOf10}</span>
+              <span className={`${displayClass} text-3xl`}>{formatScore(claudeTotal)}</span>
+              <span className="font-mono text-xs text-foreground/50"> {STRINGS.panel.outOf10}</span>
             </div>
             {detail.ai_rationale && (
               <p className="whitespace-pre-wrap text-sm text-foreground/70">
@@ -236,14 +238,14 @@ export function ProposalPanel({
         {detail.votes.length > 0 && (
           <section className="flex flex-col gap-2">
             <SectionTitle>{STRINGS.panel.userVotes} ({detail.votes.length})</SectionTitle>
-            <ul className="flex flex-col gap-1 text-sm">
+            <ul className="flex flex-col divide-y divide-dust border-y border-dust text-sm">
               {detail.votes.map((vote) => {
                 const voteScore = computeVoteScore(vote);
                 return (
-                  <li key={vote.id} className="flex items-center justify-between gap-4">
+                  <li key={vote.id} className="flex items-center justify-between gap-4 py-1.5">
                     <span className="text-foreground/80">{personLabel(vote.voter)}</span>
                     {voteScore !== null && (
-                      <span className="font-medium text-foreground">
+                      <span className="font-mono font-medium text-foreground">
                         {formatScore(voteScore)}
                         <span className="text-xs text-foreground/50"> {STRINGS.panel.perTen}</span>
                       </span>
@@ -265,16 +267,14 @@ export function ProposalPanel({
         )}
 
         <details className="group flex flex-col gap-1">
-          <summary className="flex cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden">
-            <span aria-hidden className="text-foreground/50 transition-transform group-open:rotate-90">
-              ▸
-            </span>
+          <summary className="flex w-fit list-none items-center gap-1.5 hover:text-paprika [&::-webkit-details-marker]:hidden">
+            <ChevronRightIcon className="size-3 text-foreground/50 transition-transform group-open:rotate-90" />
             <SectionTitle>{STRINGS.panel.historyHeading}</SectionTitle>
           </summary>
           {detail.status_history.length === 0 ? (
             <p className="mt-1 text-sm text-foreground/60">{STRINGS.panel.historyEmpty}</p>
           ) : (
-            <ul className="mt-1 flex flex-col gap-1 text-sm">
+            <ul className="mt-2 flex flex-col gap-1 font-mono text-xs">
               {detail.status_history.map((entry) => (
                 <li key={entry.id} className="text-foreground/80">
                   {entry.from_status ? `${STRINGS.status[entry.from_status]} → ` : ""}
@@ -302,8 +302,9 @@ export function ProposalPanel({
               <EvalStatusCue status={detail.dup_scan_status} />
             </span>
             {detail.dup_flagged && (
-              <div className="flex flex-col gap-1 rounded-lg border border-danger/40 p-3">
+              <div className="flex flex-col gap-1 border border-danger p-3">
                 <p role="alert" className="text-sm text-danger">
+                  <WarningIcon className="mr-1.5 inline size-4 align-[-3px]" />
                   {STRINGS.panel.dupWarning}
                   {detail.dup_similarity !== null &&
                     ` (${STRINGS.panel.similar(detail.dup_similarity)}`}
@@ -313,7 +314,7 @@ export function ProposalPanel({
                       {STRINGS.panel.dupLinkIntro}{" "}
                       <Link
                         href={`/proposals/${detail.dup_match.id}`}
-                        className="underline underline-offset-2"
+                        className={linkClass}
                       >
                         «{detail.dup_match.title}»
                       </Link>{" "}
@@ -330,7 +331,7 @@ export function ProposalPanel({
                 'assente' niente messaggio: nulla sta girando. */}
             {(detail.dup_scan_status === "in_corso" ||
               (canScan && detail.dup_scan_status === "assente")) && (
-              <p className="text-sm text-foreground/60">{STRINGS.panel.scanInProgress}</p>
+              <p className="font-mono text-sm text-foreground/60">{STRINGS.panel.scanInProgress}</p>
             )}
             {detail.dup_report && <ReportText text={detail.dup_report} />}
             {detail.dup_scan_status === "fallita" && (

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { updateName } from "./actions";
 
-const { getUser, update, eq, from, redirect } = vi.hoisted(() => {
+const { getUser, update, eq, from, revalidatePath } = vi.hoisted(() => {
   const eq = vi.fn();
   const update = vi.fn(() => ({ eq }));
   return {
@@ -10,14 +10,14 @@ const { getUser, update, eq, from, redirect } = vi.hoisted(() => {
     update,
     eq,
     from: vi.fn(() => ({ update })),
-    redirect: vi.fn(),
+    revalidatePath: vi.fn(),
   };
 });
 
 vi.mock("@/lib/supabase/server", () => ({
   supabaseServer: async () => ({ auth: { getUser }, from }),
 }));
-vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("next/cache", () => ({ revalidatePath }));
 
 const formOf = (entries: Record<string, string>) => {
   const fd = new FormData();
@@ -30,7 +30,7 @@ describe("updateName", () => {
     getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } } });
     update.mockClear();
     eq.mockReset().mockResolvedValue({ error: null });
-    redirect.mockReset();
+    revalidatePath.mockReset();
   });
 
   it("rejects an empty name without touching the database", async () => {
@@ -49,13 +49,15 @@ describe("updateName", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("updates the current user's row with the trimmed name and redirects home", async () => {
-    await updateName(null, formOf({ name: "  Riccardo  " }));
+  it("updates the current user's row with the trimmed name, revalidates the layout and stays put", async () => {
+    const result = await updateName(null, formOf({ name: "  Riccardo  " }));
+
+    expect(result).toBeNull();
 
     expect(from).toHaveBeenCalledWith("profiles");
     expect(update).toHaveBeenCalledWith({ name: "Riccardo" });
     expect(eq).toHaveBeenCalledWith("id", "u1");
-    expect(redirect).toHaveBeenCalledWith("/");
+    expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
   });
 
   it("refuses to write when there is no authenticated user", async () => {
@@ -73,6 +75,6 @@ describe("updateName", () => {
     const result = await updateName(null, formOf({ name: "Riccardo" }));
 
     expect(result).toEqual({ error: "Errore nel salvataggio. Riprova." });
-    expect(redirect).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

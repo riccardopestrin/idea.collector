@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { evaluateProposal, runProposalScanAction } from "@/app/proposals/actions";
-import { controlClass } from "@/components/form/Field";
+import { smallButtonClass } from "@/lib/tokens";
 import { STRINGS } from "@/lib/strings";
 
 // "Rilancia" su un run AI fallito (o in_corso orfano di un crash, 0011):
@@ -40,7 +40,7 @@ export function RetryButton({
             if (result) setError(result.error);
           })
         }
-        className={`${controlClass} w-fit text-xs disabled:opacity-50`}
+        className={`${smallButtonClass} w-fit`}
       >
         {KINDS[kind].label}
       </button>

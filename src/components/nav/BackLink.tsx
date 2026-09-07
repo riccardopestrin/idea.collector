@@ -1,10 +1,14 @@
 import Link from "next/link";
 
-// Link di ritorno in cima alle pagine secondarie (profilo, dettaglio, nuova
-// proposta): la destinazione dipende dal contesto (lista progetti o board).
+import { ArrowLeftIcon } from "@/components/icons";
+import { labelClass, linkClass } from "@/lib/tokens";
+
+// Link di ritorno in cima alle pagine secondarie (dettaglio, nuova proposta,
+// nuovo progetto): la destinazione dipende dal contesto (lista progetti o board).
 export function BackLink({ href, label }: { href: string; label: string }) {
   return (
-    <Link href={href} className="text-sm text-foreground/70 underline-offset-2 hover:underline">
+    <Link href={href} className={`inline-flex w-fit items-center gap-1.5 ${labelClass} ${linkClass}`}>
+      <ArrowLeftIcon className="size-3.5" />
       {label}
     </Link>
   );

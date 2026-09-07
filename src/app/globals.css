@@ -1,28 +1,112 @@
 @import "tailwindcss";
 
+/* Palette fissa (brutalista/industriale): nessuna variante dark, nessuna sfumatura. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --border: rgba(0, 0, 0, 0.1);
-  --danger: #dc2626;
+  --ink: #050609;
+  --paprika: #e3571b;
+  --paper: #fffcf4;
+  --dust: #d1d1d1;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-border: var(--border);
-  --color-danger: var(--danger);
-  /* I --font-geist-* li inietta next/font su <html> (vedi layout.tsx); il fallback
-     copre il caso in cui non siano ancora disponibili. */
-  --font-sans: var(--font-geist-sans, ui-sans-serif, system-ui, sans-serif);
-  --font-mono: var(--font-geist-mono, ui-monospace, monospace);
+  --color-ink: var(--ink);
+  --color-paprika: var(--paprika);
+  --color-paper: var(--paper);
+  --color-dust: var(--dust);
+  /* alias semantici usati dalle utility esistenti (text-foreground/60, border-border…) */
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-border: var(--ink);
+  --color-danger: var(--paprika);
+  /* I --font-* li inietta next/font su <html> (vedi layout.tsx). */
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-display: var(--font-archivo), var(--font-plex-sans), sans-serif;
+  /* ombra "dura": niente blur, è il rilievo delle card al hover */
+  --shadow-hard: 4px 4px 0 var(--ink);
+  --shadow-hard-lg: 8px 8px 0 var(--ink);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --border: rgba(255, 255, 255, 0.15);
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: var(--paprika);
+  color: var(--paper);
+}
+
+:focus-visible {
+  outline: 2px solid var(--paprika);
+  outline-offset: 2px;
+}
+
+input {
+  accent-color: var(--paprika);
+}
+
+/* Scrollbar: cursore nero rettangolare e sottile, traccia del colore della pagina.
+   Le proprietà standard solo dove mancano le pseudo-classi webkit (Firefox): in
+   Chrome la loro sola presenza disattiva ::-webkit-scrollbar e torna la thumb tonda. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ink) var(--paper);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--paper);
+}
+
+/* La thumb è invisibile finché l'elemento non scorre (data-scrolling, vedi
+   ScrollbarReveal.tsx); passandoci sopra si rivela comunque. */
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 0;
+}
+
+[data-scrolling]::-webkit-scrollbar-thumb {
+  background: var(--ink);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--paprika);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--paper);
+}
+
+/* Affordance di click: puntatore su bottoni attivi e select (i link <a> lo hanno già). */
+button:not(:disabled),
+select,
+summary {
+  cursor: pointer;
+}
+
+/* Micro-animazione uniforme di ogni bottone/link/card: il "cosa" cambia lo
+   decidono le classi hover: dei token (src/lib/tokens.ts). */
+button,
+a,
+.lift {
+  transition-property: color, background-color, border-color, transform, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  a,
+  .lift {
+    transition: none;
   }
 }
 
@@ -32,18 +116,6 @@
 .rich-text h2 { font-size: 1.125rem; font-weight: 600; margin: 0.5em 0 0.25em; }
 .rich-text h3 { font-size: 1rem; font-weight: 600; margin: 0.5em 0 0.25em; }
 .rich-text p { margin: 0.25em 0; }
-.rich-text ul { list-style: disc; padding-left: 1.25rem; margin: 0.25em 0; }
+.rich-text ul { list-style: square; padding-left: 1.25rem; margin: 0.25em 0; }
 .rich-text ol { list-style: decimal; padding-left: 1.25rem; margin: 0.25em 0; }
-.rich-text .anchor-highlight { background: rgba(115, 115, 115, 0.25); border-radius: 2px; }
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-/* Affordance di click: puntatore su bottoni attivi e select (i link <a> lo hanno già). */
-button:not(:disabled),
-select {
-  cursor: pointer;
-}
+.rich-text .anchor-highlight { background: var(--dust); }

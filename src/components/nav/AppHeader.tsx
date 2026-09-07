@@ -1,17 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { CornerDownLeftIcon } from "@/components/icons";
+import { NavLink } from "@/components/nav/NavLink";
+import { Wordmark } from "@/components/nav/Wordmark";
 import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
-
-const linkClass = "text-foreground/70 underline-offset-2 hover:underline";
+import { buttonClass } from "@/lib/tokens";
 
 type HeaderProject = { id: string; name: string; isAdmin: boolean };
 
 // Header condiviso: brand (→ lista progetti), profilo, logout. Dentro un
-// progetto aggiunge il ritorno alla lista, il nome e la nav Board/Classifica
-// (+ Impostazioni per l'admin). UI-hiding: l'autorizzazione vera è nella
-// pagina impostazioni, nelle Server Action e nelle RLS.
+// progetto aggiunge il nome e la nav Board/Classifica (+ Impostazioni per
+// l'admin). UI-hiding: l'autorizzazione vera è nella pagina impostazioni,
+// nelle Server Action e nelle RLS. Il link profilo apre l'overlay
+// @modal/(.)profile: si resta sulla pagina corrente.
 export function AppHeader({
   profileLabel,
   project,
@@ -27,37 +30,40 @@ export function AppHeader({
   }
 
   return (
-    <header className="flex items-center justify-between border-b border-border px-6 py-4 text-sm">
-      <div className="flex items-center gap-4">
-        <Link href="/" className="font-semibold">
-          {STRINGS.app.title}
+    <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-ink px-6 py-3">
+      <div className="flex min-w-0 items-center gap-6">
+        <Link href="/" className="shrink-0 hover:text-paprika">
+          <Wordmark />
         </Link>
         {project && (
-          <>
-            <Link href="/" className={linkClass}>
-              {STRINGS.nav.backToProjects}
+          <nav aria-label={project.name} className="flex min-w-0 items-center gap-5">
+            <Link
+              href="/"
+              aria-label={STRINGS.nav.backToProjects}
+              title={STRINGS.nav.backToProjects}
+              className="-mr-3 border border-ink p-1 hover:bg-ink hover:text-paper"
+            >
+              <CornerDownLeftIcon className="size-3" />
             </Link>
-            <span className="font-medium">{project.name}</span>
-            <Link href={`/projects/${project.id}`} className={linkClass}>
+            <span className="truncate font-mono text-sm font-medium">{project.name}</span>
+            <NavLink href={`/projects/${project.id}`}>
               {STRINGS.nav.board}
-            </Link>
-            <Link href={`/projects/${project.id}/ranking`} className={linkClass}>
+            </NavLink>
+            <NavLink href={`/projects/${project.id}/ranking`}>
               {STRINGS.nav.ranking}
-            </Link>
+            </NavLink>
             {project.isAdmin && (
-              <Link href={`/projects/${project.id}/settings`} className={linkClass}>
+              <NavLink href={`/projects/${project.id}/settings`}>
                 {STRINGS.nav.settings}
-              </Link>
+              </NavLink>
             )}
-          </>
+          </nav>
         )}
       </div>
-      <div className="flex items-center gap-4">
-        <Link href="/profile" className={linkClass}>
-          {profileLabel}
-        </Link>
+      <div className="flex shrink-0 items-center gap-4">
+        <NavLink href="/profile">{profileLabel}</NavLink>
         <form action={logout}>
-          <button type="submit" className="rounded-md border border-border px-3 py-1.5">
+          <button type="submit" className={buttonClass}>
             {STRINGS.nav.logout}
           </button>
         </form>

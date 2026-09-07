@@ -2,8 +2,10 @@ import Link from "next/link";
 
 import { Board } from "@/components/board/Board";
 import { ProposalFilters } from "@/components/filters/ProposalFilters";
+import { PlusIcon } from "@/components/icons";
 import { listProposals } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
+import { pageTitleClass, primaryButtonClass } from "@/lib/tokens";
 
 import { loadProject } from "./project";
 
@@ -25,20 +27,21 @@ export default async function ProjectBoard({
 
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{STRINGS.board.heading}</h1>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <h1 className={pageTitleClass}>{STRINGS.board.heading}</h1>
         <Link
           href={`/projects/${project.id}/proposals/new`}
-          className="rounded-md bg-foreground px-4 py-2 text-sm text-background"
+          className={`inline-flex items-center gap-2 ${primaryButtonClass}`}
         >
+          <PlusIcon className="size-3.5" />
           {STRINGS.board.newProposal}
         </Link>
       </div>
 
-      <ProposalFilters search={search} showStatus={false} resetHref={`/projects/${project.id}`} />
+      <ProposalFilters search={search} showStatus={false} basePath={`/projects/${project.id}`} />
 
       {proposals.length === 0 && (
-        <p className="text-sm text-foreground/70">
+        <p className="font-mono text-sm text-foreground/70">
           {search ? STRINGS.board.noneMatchFilters : STRINGS.board.noneYetCreate}
         </p>
       )}

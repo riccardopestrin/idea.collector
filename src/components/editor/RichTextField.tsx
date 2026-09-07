@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-import { controlClass } from "@/components/form/Field";
+import { controlClass, labelClass } from "@/lib/tokens";
 
 // Client-only (ADR-0005): Tiptap in SSR causa hydration mismatch su Next 16.
 // Fallback primo paint: box vuoto della stessa altezza.
@@ -22,8 +22,8 @@ export function RichTextField({
   defaultValue?: string | null;
 }) {
   return (
-    <div className="flex flex-col gap-1 text-sm">
-      <span>{label}</span>
+    <div className="flex flex-col gap-1.5">
+      <span className={labelClass}>{label}</span>
       <RichTextEditor name={name} defaultValue={defaultValue} />
     </div>
   );

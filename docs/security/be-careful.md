@@ -236,7 +236,7 @@ Solo un rischio di manutenzione, nessun impatto runtime.
 
 ## `2026-07-01-font` Font Geist caricati ma mai renderizzati
 
-**Status:** non fissato — non si verifica nell'attuale use case (solo spreco di byte).
+**Status:** ✅ risolto 2026-09-07 — branch `graphicDesign`: redesign brutalista, `body { font-family: var(--font-sans) }` e font sostituiti (Archivo variabile / IBM Plex Sans / IBM Plex Mono via `next/font/google`); Geist rimosso.
 
 ### Dove
 - [src/app/globals.css:29-33](../../src/app/globals.css) — `body { font-family: Arial, ... }` scavalca `--font-sans`

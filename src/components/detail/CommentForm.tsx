@@ -7,6 +7,7 @@ import { Field } from "@/components/form/Field";
 import { SubmitButton } from "@/components/form/SubmitButton";
 import type { AnchorField } from "@/lib/anchors";
 import { STRINGS } from "@/lib/strings";
+import { linkClass } from "@/lib/tokens";
 
 export type PendingAnchor = {
   field: AnchorField;
@@ -39,14 +40,14 @@ export function CommentForm({
   return (
     <form action={action} className="flex flex-col gap-2">
       {pendingAnchor && (
-        <div className="flex flex-col gap-1 rounded-md border border-border bg-foreground/5 p-2">
-          <blockquote className="line-clamp-3 whitespace-pre-wrap border-l-2 border-foreground/30 pl-2 text-xs text-foreground/60">
+        <div className="flex flex-col gap-1 border border-dust p-2">
+          <blockquote className="line-clamp-3 whitespace-pre-wrap border-l-2 border-paprika pl-2 text-xs text-foreground/60">
             {pendingAnchor.quote}
           </blockquote>
           <button
             type="button"
             onClick={onCancelAnchor}
-            className="self-start text-xs text-foreground/50 underline underline-offset-2"
+            className={`self-start font-mono text-xs text-foreground/50 ${linkClass}`}
           >
             {STRINGS.common.cancel}
           </button>

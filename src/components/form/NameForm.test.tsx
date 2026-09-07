@@ -6,10 +6,14 @@ import { updateName } from "@/app/profile/actions";
 import { NameForm } from "./NameForm";
 
 vi.mock("@/app/profile/actions", () => ({ updateName: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ back }) }));
+
+const back = vi.fn();
 
 describe("NameForm", () => {
   beforeEach(() => {
     vi.mocked(updateName).mockReset().mockResolvedValue(null);
+    back.mockReset();
   });
 
   it("renders the heading and prefills the field with the current name", () => {
@@ -23,6 +27,19 @@ describe("NameForm", () => {
     render(<NameForm heading="Come ti chiami?" />);
 
     expect(screen.getByLabelText("Nome")).toHaveValue("");
+  });
+
+  it("goes back after a successful save only when asked to", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<NameForm heading="Profilo" defaultName="R" />);
+
+    await user.click(screen.getByRole("button", { name: "Salva" }));
+    await vi.waitFor(() => expect(updateName).toHaveBeenCalledTimes(1));
+    expect(back).not.toHaveBeenCalled();
+
+    rerender(<NameForm heading="Profilo" defaultName="R" backOnSave />);
+    await user.click(screen.getByRole("button", { name: "Salva" }));
+    await vi.waitFor(() => expect(back).toHaveBeenCalledTimes(1));
   });
 
   it("submits the typed name to the action and shows its error", async () => {

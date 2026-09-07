@@ -126,7 +126,7 @@ export function RichTextViewer({
               if (captured) onComment(captured);
               editor.commands.setTextSelection(to); // collassa → nasconde il bubble
             }}
-            className="rounded-md border border-border bg-background px-2 py-1 text-xs shadow-sm"
+            className="border border-ink bg-ink px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-paper hover:bg-paprika"
           >
             {STRINGS.common.comment}
           </button>
