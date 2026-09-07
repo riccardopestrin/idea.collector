@@ -35,7 +35,7 @@ _SEC-2 e SEC-3 (RLS su `profiles`/`proposals`) risolte il 2026-07-01 da `0003_lo
 
 **Fix when touched:** Show a generic, non-distinguishing confirmation after `sendCode()` (e.g. "Se l'indirizzo è abilitato, riceverai un codice") regardless of the Supabase result, and only surface real errors for the verify step. Supabase's server-side rate limiting already throttles brute-force probing.
 
-### SEC-5 — No DB length constraint on `profiles.name` (LOW)
+### SEC-5 — No DB length constraint on `profiles.name` (LOW) — ✅ resolved 2026-09-07
 
 **Where:** [`src/app/profile/actions.ts`](../../src/app/profile/actions.ts) (app-side 80-char cap) vs. `supabase/migrations/0003_lock_privileged_columns.sql` (column grant on `name` with no `CHECK`).
 
@@ -43,7 +43,7 @@ _SEC-2 e SEC-3 (RLS su `profiles`/`proposals`) risolte il 2026-07-01 da `0003_lo
 
 **Impact:** Low. RLS keeps the write self-scoped and the name is rendered via JSX (auto-escaped), so the worst case is a user storing an oversized name that degrades their own header/proposal-card display and wastes storage. No cross-user or privilege impact.
 
-**Fix:** migration ready in [`supabase/migrations/0008_profiles_name_length_check.sql`](../../supabase/migrations/0008_profiles_name_length_check.sql) (`CHECK (char_length(name) <= 80)`; a NULL name passes the check). Awaiting owner apply to the database.
+**Fix:** migration ready in [`supabase/migrations/0008_profiles_name_length_check.sql`](../../supabase/migrations/0008_profiles_name_length_check.sql) (`CHECK (char_length(name) <= 80)`; a NULL name passes the check). Applied to the remote database, confirmed by the owner on 2026-09-07.
 
 ### SEC-6 — `ai_eval_error` grezzo esposto a tutti gli autenticati (LOW)
 
