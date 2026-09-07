@@ -27,8 +27,9 @@ describe("NewProposalForm", () => {
 
     expect(screen.getByLabelText(/titolo/i)).toBeRequired();
     expect(screen.getByLabelText(/descrizione/i)).not.toBeRequired();
-    expect(screen.getByLabelText(/problema/i)).not.toBeRequired();
     expect(screen.getByLabelText(/link/i)).not.toBeRequired();
+    // un solo body: niente più campo "problema" in creazione
+    expect(screen.queryByLabelText(/problema/i)).not.toBeInTheDocument();
   });
 
   it("shows the error the action returns", async () => {
@@ -57,6 +58,7 @@ describe("NewProposalForm", () => {
     expect(formData.get("title")).toBe("Mappa offline");
     expect(formData.get("links")).toBe("https://example.com");
     expect(formData.has("description")).toBe(true);
-    expect(formData.has("problem")).toBe(true);
+    // il body "problema" non è più nel form di creazione
+    expect(formData.has("problem")).toBe(false);
   });
 });

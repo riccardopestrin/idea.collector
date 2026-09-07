@@ -22,17 +22,27 @@ type ToolbarEditor = NonNullable<ReturnType<typeof useEditor>>;
 export function RichTextEditor({
   name,
   defaultValue,
+  tall = false,
+  fill = false,
 }: {
   name: string;
   defaultValue?: string | null;
+  // tall: area più alta (es. edit proposta). fill: body principale della nuova
+  // proposta — riempie l'altezza rimasta nel modal (max-h-90vh) tolti gli altri
+  // campi (~29rem), così il modal è quasi a tutta pagina SENZA scroll.
+  tall?: boolean;
+  fill?: boolean;
 }) {
   const [markdown, setMarkdown] = useState(defaultValue ?? "");
+  const minHeight = fill ? "min-h-[calc(90vh_-_29rem)]" : tall ? "min-h-64" : "min-h-24";
   const editor = useEditor({
     extensions: richTextExtensions,
     content: defaultValue ?? "",
     immediatelyRender: false,
     editorProps: {
-      attributes: { class: "rich-text min-h-24 outline-none px-3 py-2 text-sm" },
+      attributes: {
+        class: `rich-text ${minHeight} outline-none px-3 py-2 text-sm`,
+      },
     },
     onUpdate: ({ editor }) => {
       setMarkdown(getMarkdown(editor));

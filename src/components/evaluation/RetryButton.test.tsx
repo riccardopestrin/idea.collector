@@ -21,7 +21,7 @@ describe("RetryButton", () => {
     const user = userEvent.setup();
     render(<RetryButton proposalId="p1" />);
 
-    await user.click(screen.getByRole("button", { name: "Rilancia valutazione" }));
+    await user.click(screen.getByRole("button", { name: "Rilancia la valutazione AI" }));
 
     expect(evaluateProposal).toHaveBeenCalledWith("p1", true);
     expect(runProposalScanAction).not.toHaveBeenCalled();
@@ -53,7 +53,7 @@ describe("RetryButton", () => {
       </div>,
     );
 
-    await user.click(screen.getByRole("button", { name: "Rilancia valutazione" }));
+    await user.click(screen.getByRole("button", { name: "Rilancia la valutazione AI" }));
     expect(onPointerDown).not.toHaveBeenCalled();
   });
 });

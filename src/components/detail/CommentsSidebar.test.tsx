@@ -190,7 +190,7 @@ describe("CommentsSidebar", () => {
     const onCancel = vi.fn();
     const user = userEvent.setup();
     renderSidebar({
-      pendingAnchor: { field: "problem", quote: "vista di notte", occurrence: 2 },
+      pendingAnchor: { field: "description", quote: "vista di notte", occurrence: 2 },
       onCancelAnchor: onCancel,
     });
 
@@ -200,7 +200,7 @@ describe("CommentsSidebar", () => {
 
     const formData = vi.mocked(addComment).mock.calls[0][2];
     expect(formData.get("body")).toBe("Concordo");
-    expect(formData.get("anchor_field")).toBe("problem");
+    expect(formData.get("anchor_field")).toBe("description");
     expect(formData.get("anchor_text")).toBe("vista di notte");
     expect(formData.get("anchor_occurrence")).toBe("2");
     // a commento salvato la modalità ancorata si chiude

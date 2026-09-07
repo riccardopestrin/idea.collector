@@ -5,7 +5,11 @@
 // con la proiezione del doc ProseMirror (src/components/editor/anchoring.ts):
 // l'invariante è coperta dai test round-trip.
 
-export const ANCHOR_FIELDS = ["description", "problem"] as const;
+// Un solo body ancorabile: la descrizione. 'problem' è deprecato (via dal form,
+// dall'edit, dal dettaglio e dai prompt AI); eventuali commenti storici ancorati
+// a 'problem' semplicemente non risolvono più (getProposalDetail li tratta come
+// orfani). La colonna DB resta, non si elimina.
+export const ANCHOR_FIELDS = ["description"] as const;
 export type AnchorField = (typeof ANCHOR_FIELDS)[number];
 
 export function isAnchorField(value: string): value is AnchorField {

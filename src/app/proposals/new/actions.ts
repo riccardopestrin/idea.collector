@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 
 import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -38,5 +38,7 @@ export async function createProposal(
 
   revalidatePath(`/projects/${projectId}`); // altrimenti la board mostra la cache senza la nuova proposta
   // RFC-006: si atterra sul dettaglio, dove ProposalScanTrigger avvia lo scan.
-  redirect(`/proposals/${data.id}`);
+  // replace (non push, default delle Server Action): sostituisce la voce ".../new"
+  // nella history, così chiudendo il dettaglio non riappare il form di creazione.
+  redirect(`/proposals/${data.id}`, RedirectType.replace);
 }

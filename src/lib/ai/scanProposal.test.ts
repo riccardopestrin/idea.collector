@@ -117,7 +117,7 @@ describe("findLocalDuplicate", () => {
     const client = {} as Anthropic; // qualsiasi accesso farebbe fallire il test
     const result = await findLocalDuplicate(
       client,
-      { title: "Idea", description: null, problem: null },
+      { title: "Idea", description: null },
       [],
     );
     expect(result).toEqual({ matchId: null, similarity: 0, summary: "" });

@@ -532,10 +532,14 @@ describe("updateProposalStatus", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("rejects a transition the state machine forbids without touching the database", async () => {
+  it("allows a jump the old state machine forbade, now that movement is free (#9)", async () => {
     const result = await updateProposalStatus("p1", "nuova", "approvata");
-    expect(result).toEqual({ error: "Spostamento non consentito." });
-    expect(rpc).not.toHaveBeenCalled();
+    expect(result).toBeNull();
+    expect(rpc).toHaveBeenCalledWith("move_proposal", {
+      p_id: "p1",
+      p_from: "nuova",
+      p_to: "approvata",
+    });
   });
 
   it("refuses to write when there is no authenticated user", async () => {
@@ -707,15 +711,30 @@ describe("evaluateProposal", () => {
     expect(runEvaluation).not.toHaveBeenCalled();
   });
 
-  it("refuses a non-admin (the proposer included)", async () => {
+  it("returns not-found when the proposal is hidden by RLS (non-member)", async () => {
+    tables.proposals.row = null;
+    expect(await evaluateProposal("p1")).toEqual({ error: "Proposta non trovata." });
+    expect(runEvaluation).not.toHaveBeenCalled();
+  });
+
+  // #9: l'auto-trigger (force=false) può partire da qualsiasi membro (la prima
+  // uscita da 'nuova'), non più solo dall'admin.
+  it("delegates the auto-trigger (force=false) for any member", async () => {
     tables.project_members.row = { role: "contributor" };
-    expect(await evaluateProposal("p1")).toEqual({
+    expect(await evaluateProposal("p1")).toBeNull();
+    expect(runEvaluation).toHaveBeenCalledWith(expect.anything(), "p1", false);
+  });
+
+  // il "Rilancia" (force=true) riscrive i punteggi via service-role: resta admin-only.
+  it("refuses the force retry to a non-admin member", async () => {
+    tables.project_members.row = { role: "contributor" };
+    expect(await evaluateProposal("p1", true)).toEqual({
       error: "Solo un admin può lanciare la valutazione AI.",
     });
     expect(runEvaluation).not.toHaveBeenCalled();
   });
 
-  it("delegates to runEvaluation for an admin, forwarding force", async () => {
+  it("delegates the force retry for an admin, forwarding force", async () => {
     tables.project_members.row = { role: "admin" };
     expect(await evaluateProposal("p1", true)).toBeNull();
     expect(runEvaluation).toHaveBeenCalledWith(expect.anything(), "p1", true);

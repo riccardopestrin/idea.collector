@@ -4,7 +4,7 @@ import type { ProposalListItem } from "@/lib/proposals";
 
 import { STRINGS } from "@/lib/strings";
 
-import { BOARD_COLUMNS, canMoveTo, groupByStatus } from "./board";
+import { BOARD_COLUMNS, groupByStatus } from "./board";
 
 const proposal = (id: string, status: ProposalListItem["status"]): ProposalListItem => ({
   id,
@@ -64,35 +64,3 @@ describe("STRINGS.status", () => {
   });
 });
 
-describe("canMoveTo", () => {
-  it("allows the forward flow steps", () => {
-    expect(canMoveTo("nuova", "in_valutazione")).toBe(true);
-    expect(canMoveTo("in_valutazione", "approvata")).toBe(true);
-    expect(canMoveTo("approvata", "in_sviluppo")).toBe(true);
-    expect(canMoveTo("in_sviluppo", "rilasciata")).toBe(true);
-  });
-
-  it("lets every non-rejected state move to rifiutata", () => {
-    for (const from of BOARD_COLUMNS) {
-      if (from === "rifiutata") continue;
-      expect(canMoveTo(from, "rifiutata")).toBe(true);
-    }
-  });
-
-  it("makes rifiutata terminal — no transition leaves it (only DELETE)", () => {
-    for (const to of BOARD_COLUMNS) expect(canMoveTo("rifiutata", to)).toBe(false);
-  });
-
-  it("forbids skipping forward and jumping into nuova", () => {
-    expect(canMoveTo("nuova", "approvata")).toBe(false);
-    expect(canMoveTo("nuova", "in_sviluppo")).toBe(false);
-    expect(canMoveTo("in_valutazione", "in_sviluppo")).toBe(false);
-    expect(canMoveTo("archiviata", "nuova")).toBe(false);
-  });
-
-  it("lets archiviata re-enter the active flow", () => {
-    expect(canMoveTo("archiviata", "in_valutazione")).toBe(true);
-    expect(canMoveTo("archiviata", "approvata")).toBe(true);
-    expect(canMoveTo("archiviata", "in_sviluppo")).toBe(true);
-  });
-});

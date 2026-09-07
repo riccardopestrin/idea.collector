@@ -10,7 +10,6 @@ import { AI_MODEL, assertCompleted, completedText } from "@/lib/ai/anthropic";
 export type ScanInput = {
   title: string;
   description: string | null;
-  problem: string | null;
 };
 
 export type CandidateIdea = {
@@ -89,7 +88,6 @@ function proposalText(proposal: ScanInput): string {
     "<proposta>",
     `Titolo: ${proposal.title}`,
     proposal.description ? `Descrizione: ${proposal.description}` : null,
-    proposal.problem ? `Problema / motivazione: ${proposal.problem}` : null,
     "</proposta>",
   ]
     .filter(Boolean)

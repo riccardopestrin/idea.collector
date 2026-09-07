@@ -1,4 +1,4 @@
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-08
 
 # Security Review
 
@@ -134,6 +134,16 @@ _SEC-2 e SEC-3 (RLS su `profiles`/`proposals`) risolte il 2026-07-01 da `0003_lo
 **Impact:** Low. Sull'hosted Supabase Secure email change è attivo per default; il prerequisito (furto di sessione) dà già accesso completo ai dati e la casella attuale riceve comunque la notifica.
 
 **Fix (checklist owner sul remoto):** (1) Dashboard → Authentication → Providers → Email: "Secure email change" attivo; (2) Email Templates → "Change Email Address": subject e HTML di `supabase/templates/email_change.html`; (3) verificare il flusso end-to-end in prod (click sulla nuova casella, poi sulla vecchia, poi `profiles.email` aggiornata dal trigger 0025). Solo se il modello di minaccia cresce: chiedere un OTP fresco prima di abilitare il form.
+
+### SEC-18 — Il realtime cross-utente dipende dall'enforcement RLS di Supabase Realtime (LOW)
+
+**Where:** [`supabase/migrations/0030_realtime_publication.sql`](../../supabase/migrations/0030_realtime_publication.sql) (add table + `replica identity full` su `proposals`, `status_history`, `comments`, `rice_votes`, `projects`, `project_members`), [`src/components/RealtimeRefresh.tsx`](../../src/components/RealtimeRefresh.tsx) (client anon con JWT utente, `channel.on("postgres_changes", { event: "*", ... })` su tutte, debounce → `router.refresh()`), policy `member read` di [`0021_projects.sql`](../../supabase/migrations/0021_projects.sql) (le figlie ereditano via `exists (select 1 from proposals p where p.id = proposal_id)`, filtrato dalla RLS di `proposals`).
+
+**Issue:** Realtime `postgres_changes` rivaluta la SELECT policy della tabella per ogni subscriber, quindi lo scoping per progetto è rispettato **a patto che** (a) RLS resti abilitata su tutte e sei le tabelle pubblicate e (b) l'enforcement RLS di postgres_changes sia attivo — entrambi default sull'hosted Supabase, ma condizioni remote non versionate qui (stessa classe di config-dependency di SEC-17). `replica identity full` è necessario perché Realtime possa valutare la RLS sui DELETE (serve la riga OLD) e far sparire live le righe eliminate, ma come effetto mette l'**intera riga** OLD/NEW nel payload consegnato al browser: `comments.body`, i quattro fattori di `rice_votes`, `internal_notes`/`ai_*` di `proposals`. Non è un'esposizione nuova — quelle righe sono già interamente leggibili dai membri del progetto via PostgREST e nessuna colonna ha una restrizione SELECT column-level che il full-row payload aggirerebbe — ma fissa il vincolo: qualunque futura colonna sensibile a livello di riga finirebbe nel payload realtime per ogni membro.
+
+**Impact:** Low. Con la config di default nessun percorso d'attacco: un subscriber riceve solo eventi delle righe che la sua SELECT policy già gli mostra. Il rischio è di regressione remota (RLS disabilitata su una tabella pubblicata, o enforcement postgres_changes spento → broadcast a ogni autenticato) e di scoping: aggiungere in futuro una tabella/colonna con visibilità più fine richiede di riverificare che la RLS regga anche sul canale realtime.
+
+**Fix when touched:** Nessuna azione richiesta oggi. Alla prossima modifica dell'area: (1) checklist owner sul remoto — RLS abilitata su tutte le tabelle in `supabase_realtime`, Realtime authorization attiva; (2) prima di aggiungere una tabella alla publication verificare che abbia una SELECT policy scoping-per-progetto (mai `using (true)`); (3) se una colonna deve restare nascosta a un sottoinsieme di membri, non basta la column-grant PostgREST — il full-row payload la trasmetterebbe: escluderla dalla tabella pubblicata o rivalutare `replica identity`.
 
 ### SEC-4 — Vulnerable transitive `postcss` via `next` (LOW)
 

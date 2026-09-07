@@ -18,7 +18,6 @@ import { buttonClass } from "@/lib/tokens";
 type ProposalDefaults = {
   title: string;
   description: string | null;
-  problem: string | null;
   links: string[];
 };
 
@@ -37,6 +36,7 @@ export function ProposalDiscussion({
   isAdmin,
   header,
   children,
+  fill = false,
 }: {
   proposalId: string;
   defaults: ProposalDefaults;
@@ -48,6 +48,8 @@ export function ProposalDiscussion({
   isAdmin?: boolean;
   header: ReactNode;
   children: ReactNode;
+  // fill: pannello ad altezza piena — la griglia riempie, le due colonne scrollano
+  fill?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [pendingAnchor, setPendingAnchor] = useState<PendingAnchor | null>(null);
@@ -78,7 +80,7 @@ export function ProposalDiscussion({
       : undefined;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={`flex flex-col gap-6 ${fill ? "min-h-0 flex-1" : ""}`}>
       <div className="flex items-start justify-between gap-4 border-b border-ink pb-5">
         {header}
         {canEdit && (
@@ -91,8 +93,9 @@ export function ProposalDiscussion({
           </button>
         )}
       </div>
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="flex min-w-0 flex-col gap-6">
+      {/* fill: la griglia riempie l'altezza e ogni colonna scrolla per conto suo */}
+      <div className={`grid gap-10 lg:grid-cols-[minmax(0,1fr)_32rem] ${fill ? "min-h-0 flex-1" : ""}`}>
+        <div className={`flex min-w-0 flex-col gap-8 ${fill ? "min-h-0 overflow-y-auto" : ""}`}>
           {defaults.description && (
             <section className="flex flex-col gap-1">
               <SectionTitle>{STRINGS.proposal.descriptionLabel}</SectionTitle>
@@ -103,29 +106,21 @@ export function ProposalDiscussion({
               />
             </section>
           )}
-          {defaults.problem && (
-            <section className="flex flex-col gap-1">
-              <SectionTitle>{STRINGS.proposal.problemLabel}</SectionTitle>
-              <RichTextViewer
-                value={defaults.problem}
-                anchors={anchorsFor("problem")}
-                onComment={onComment("problem")}
-              />
-            </section>
-          )}
           {children}
         </div>
-        <CommentsSidebar
-          proposalId={proposalId}
-          comments={comments}
-          canComment={canComment}
-          currentUserId={currentUserId}
-          proposerId={proposerId}
-          isAdmin={isAdmin}
-          pendingAnchor={pendingAnchor}
-          onCancelAnchor={() => setPendingAnchor(null)}
-          onHoverComment={setHoveredId}
-        />
+        <div className={fill ? "min-h-0 overflow-y-auto" : undefined}>
+          <CommentsSidebar
+            proposalId={proposalId}
+            comments={comments}
+            canComment={canComment}
+            currentUserId={currentUserId}
+            proposerId={proposerId}
+            isAdmin={isAdmin}
+            pendingAnchor={pendingAnchor}
+            onCancelAnchor={() => setPendingAnchor(null)}
+            onHoverComment={setHoveredId}
+          />
+        </div>
       </div>
     </div>
   );
@@ -156,11 +151,7 @@ function EditProposalForm({
         label={STRINGS.proposal.descriptionLabel}
         name="description"
         defaultValue={defaults.description}
-      />
-      <RichTextField
-        label={STRINGS.proposal.problemLabel}
-        name="problem"
-        defaultValue={defaults.problem}
+        tall
       />
       <Field
         label={STRINGS.proposal.linksLabel}

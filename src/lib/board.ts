@@ -7,23 +7,11 @@ export const BOARD_COLUMNS = [
   "rilasciata", "rifiutata", "archiviata",
 ] as const satisfies readonly ProposalStatus[];
 
-// Macchina a stati della board (branch cardDirections): transizioni consentite
-// per il drag. DELETE non è una colonna — è l'azione trash, disponibile su ogni
-// card (autore/admin) da qualsiasi stato, con conferma. 'rifiutata' è terminale
-// (solo DELETE): è la safeguard prima della cancellazione irreversibile.
-export const ALLOWED_TRANSITIONS: Record<ProposalStatus, readonly ProposalStatus[]> = {
-  nuova: ["in_valutazione", "rifiutata"],
-  in_valutazione: ["approvata", "rifiutata", "archiviata"],
-  approvata: ["in_sviluppo", "rifiutata"],
-  in_sviluppo: ["rilasciata", "archiviata", "rifiutata"],
-  rilasciata: ["rifiutata"],
-  rifiutata: [],
-  archiviata: ["in_valutazione", "approvata", "in_sviluppo", "rifiutata"],
-};
-
-export function canMoveTo(from: ProposalStatus, to: ProposalStatus): boolean {
-  return ALLOWED_TRANSITIONS[from].includes(to);
-}
+// #9: libertà assoluta di spostamento — ogni card va in qualsiasi altro stato
+// (basta from !== to), per tutti gli utenti. Non c'è più una macchina a stati
+// che vincola il drag; l'accountability resta la status_history. DELETE è a parte
+// (azione trash, autore/admin, con conferma). Il blocco duplicati (RFC-006) è
+// enforced fuori di qui (updateProposalStatus + move_proposal), non dal drag.
 
 // Raggruppa le proposte per colonna preservando l'ordine di arrivo (la query
 // ordina già per created_at). Ogni colonna esiste sempre, anche vuota.

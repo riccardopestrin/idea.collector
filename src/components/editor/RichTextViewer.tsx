@@ -72,7 +72,7 @@ export function RichTextViewer({
       editable: false,
       immediatelyRender: false,
       editorProps: {
-        attributes: { class: "rich-text text-sm text-foreground/80" },
+        attributes: { class: "rich-text text-base text-foreground/80" },
       },
     },
     // l'editor viene ricreato solo quando cambia il contenuto; le ancore si
@@ -105,7 +105,7 @@ export function RichTextViewer({
   }, [editor, onComment]);
 
   if (!editor) {
-    return <div className="whitespace-pre-wrap text-sm text-foreground/80">{value}</div>;
+    return <div className="whitespace-pre-wrap text-base text-foreground/80">{value}</div>;
   }
 
   return (

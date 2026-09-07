@@ -19,14 +19,10 @@ import {
   type ProposalDetail,
   type VoteComponents,
 } from "@/lib/proposals";
+import { formatDateTime } from "@/lib/dates";
 import { gitRefUrl } from "@/lib/github/gitRef";
 import { STRINGS } from "@/lib/strings";
 import { displayClass, labelClass, linkClass } from "@/lib/tokens";
-
-const dateFormat = new Intl.DateTimeFormat("it-IT", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
 
 // Ordine e label dei fattori RICE-10 mostrati come medie in alto (effort = Ease).
 const COMPONENT_LABELS = STRINGS.rice.factors;
@@ -71,12 +67,15 @@ export function ProposalPanel({
   isAdmin,
   currentUserId,
   repo,
+  fill = false,
 }: {
   detail: ProposalDetail;
   isAdmin?: boolean;
   currentUserId?: string;
   // repo GitHub collegata al progetto (projects, 0021): serve per linkare git_ref
   repo?: { owner: string; name: string } | null;
+  // fill: il pannello riempie l'altezza del modal (le due colonne scrollano)
+  fill?: boolean;
 }) {
   const composite = computeCompositeScore(detail, detail.votes);
   const claudeTotal = composite.claudeTotal;
@@ -91,24 +90,23 @@ export function ProposalPanel({
   // commenti promossi a contributo: parte dell'idea, resi sotto il body
   const contributions = detail.comments.filter((c) => c.promotion_status === "accepted");
   const contributorIds = acceptedContributorIds(detail.comments);
-  // hasVoted da solo non basta: il voto di un contributore accepted è sospeso
-  // (filtrato in getProposalDetail), ma da co-autore non deve rivotare.
-  const hasVoted = detail.votes.some((vote) => vote.voter_id === currentUserId);
+  // #9c: si può votare in ogni stato tranne 'nuova'. #8: il voto è modificabile,
+  // quindi chi ha già votato vede il form precompilato invece di esserne escluso.
+  const myVote = detail.votes.find((vote) => vote.voter_id === currentUserId) ?? null;
   const canVote =
-    detail.status === "in_valutazione" &&
+    detail.status !== "nuova" &&
     currentUserId !== undefined &&
     currentUserId !== detail.proposer_id &&
-    !contributorIds.has(currentUserId) &&
-    !hasVoted;
+    !contributorIds.has(currentUserId);
 
   return (
-    <article className="p-6 sm:p-8">
+    <article className={`p-8 sm:p-10 ${fill ? "flex min-h-0 flex-1 flex-col" : ""}`}>
       <ProposalDiscussion
+        fill={fill}
         proposalId={detail.id}
         defaults={{
           title: detail.title,
           description: detail.description,
-          problem: detail.problem,
           links: detail.links,
         }}
         canEdit={canEdit}
@@ -123,7 +121,7 @@ export function ProposalPanel({
               {detail.title}
               <EvalStatusCue status={detail.ai_eval_status} />
             </h1>
-            <p className={`${labelClass} text-foreground/60`}>
+            <p className="font-mono text-sm uppercase tracking-widest text-foreground/60">
               {STRINGS.status[detail.status]} · {STRINGS.panel.byLine(personLabel(detail.proposer))}
               {/* dedupe per author_id, non per label: due omonimi restano distinti */}
               {contributions.length > 0 &&
@@ -132,7 +130,7 @@ export function ProposalPanel({
                     .map(personLabel)
                     .join(", "),
                 )}`}{" "}
-              · {dateFormat.format(new Date(detail.created_at))}
+              · {formatDateTime(detail.created_at)}
             </p>
           </header>
         }
@@ -171,7 +169,9 @@ export function ProposalPanel({
           </section>
         )}
 
-        {canVote && <RiceVoteForm proposalId={detail.id} />}
+        {canVote && (
+          <RiceVoteForm proposalId={detail.id} status={detail.status} existingVote={myVote} />
+        )}
 
         {detail.links.length > 0 && (
           <section className="flex flex-col gap-1">
@@ -295,7 +295,7 @@ export function ProposalPanel({
                   {STRINGS.status[entry.to_status]}
                   <span className="text-foreground/50">
                     {" "}
-                    · {personLabel(entry.author)} · {dateFormat.format(new Date(entry.created_at))}
+                    · {personLabel(entry.author)} · {formatDateTime(entry.created_at)}
                   </span>
                 </li>
               ))}

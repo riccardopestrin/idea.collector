@@ -1,8 +1,9 @@
 import { ProposalCard } from "@/components/cards/ProposalCard";
 import { ProposalFilters } from "@/components/filters/ProposalFilters";
+import { ProjectHeading } from "@/components/project/ProjectHeading";
 import { isProposalStatus, listProposals, rankProposalsByScore } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
-import { displayClass, pageTitleClass } from "@/lib/tokens";
+import { displayClass } from "@/lib/tokens";
 
 import { loadProject } from "../project";
 
@@ -16,7 +17,7 @@ export default async function Ranking({
   params: Promise<{ projectId: string }>;
   searchParams: Promise<{ q?: string; status?: string }>;
 }) {
-  const { supabase, project } = await loadProject((await params).projectId);
+  const { supabase, project, role } = await loadProject((await params).projectId);
 
   const { q, status } = await searchParams;
   const search = (q ?? "").trim();
@@ -32,9 +33,7 @@ export default async function Ranking({
 
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-6">
-      <h1 className={pageTitleClass}>
-        {STRINGS.nav.ranking}
-      </h1>
+      <ProjectHeading project={{ id: project.id, name: project.name, isAdmin: role === "admin" }} />
 
       <ProposalFilters
         search={search}

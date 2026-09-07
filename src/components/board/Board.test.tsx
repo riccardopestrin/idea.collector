@@ -132,25 +132,24 @@ describe("Board", () => {
     expect(within(inSviluppo).queryByText("Mappa offline")).not.toBeInTheDocument();
   });
 
-  it("moves a dropped card through updateProposalStatus when the transition is allowed", async () => {
+  it("moves a dropped card via updateProposalStatus and does not eval a move that stays out of 'nuova'", async () => {
     render(
-      <Board proposals={[proposal("1", "nuova", "Mia")]} userId="u1" isAdmin={false} />,
+      <Board proposals={[proposal("1", "approvata", "Mia")]} userId="u1" isAdmin={false} />,
     );
 
-    drag("1", "in_valutazione");
+    drag("1", "in_sviluppo");
     await flush();
 
-    expect(updateProposalStatus).toHaveBeenCalledWith("1", "nuova", "in_valutazione");
-    // non-admin: il move non lancia la valutazione AI
+    expect(updateProposalStatus).toHaveBeenCalledWith("1", "approvata", "in_sviluppo");
+    // non parte da 'nuova': niente auto-eval
     expect(evaluateProposal).not.toHaveBeenCalled();
   });
 
-  it("ignores a drop the state machine forbids, on the origin column, or outside", async () => {
+  it("ignores a drop on the origin column or outside any column (#9: every other target is valid)", async () => {
     render(
       <Board proposals={[proposal("1", "nuova", "Mia")]} userId="u1" isAdmin={false} />,
     );
 
-    drag("1", "approvata"); // nuova → approvata: transizione vietata
     drag("1", "nuova"); // colonna d'origine
     drag("1", null); // drop fuori da ogni colonna
     await flush();
@@ -158,13 +157,13 @@ describe("Board", () => {
     expect(updateProposalStatus).not.toHaveBeenCalled();
   });
 
-  it("auto-triggers the AI evaluation when an admin drops into 'in_valutazione'", async () => {
-    render(<Board proposals={[proposal("1", "nuova", "Mia")]} userId="u1" isAdmin />);
+  it("auto-triggers the AI evaluation on the first move out of 'nuova', for any user (#9)", async () => {
+    render(<Board proposals={[proposal("1", "nuova", "Mia")]} userId="u1" isAdmin={false} />);
 
-    drag("1", "in_valutazione");
+    drag("1", "approvata");
     await flush();
 
-    expect(updateProposalStatus).toHaveBeenCalledWith("1", "nuova", "in_valutazione");
+    expect(updateProposalStatus).toHaveBeenCalledWith("1", "nuova", "approvata");
     expect(evaluateProposal).toHaveBeenCalledWith("1");
   });
 
@@ -181,17 +180,18 @@ describe("Board", () => {
     expect(evaluateProposal).not.toHaveBeenCalled();
   });
 
-  it("marks the target columns with a valid/invalid drop hint during a drag", () => {
+  it("marks every non-origin column with the valid drop hint during a drag (#9: free movement)", () => {
     render(
       <Board proposals={[proposal("1", "nuova", "Mia")]} userId="u1" isAdmin={false} />,
     );
 
     act(() => dnd.onDragStart?.({ active: { id: "1" } }));
+    // ogni colonna diversa dall'origine è un target valido
     expect(screen.getByRole("region", { name: "In Valutazione" }).className).toContain(
       "ring-ink",
     );
     expect(screen.getByRole("region", { name: "Approvata" }).className).toContain(
-      "ring-paprika",
+      "ring-ink",
     );
     // colonna d'origine: nessun hint
     expect(screen.getByRole("region", { name: "Nuova" }).className).not.toContain("ring-2");

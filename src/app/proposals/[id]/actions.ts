@@ -36,7 +36,7 @@ export async function updateProposal(
 
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("proposer_id, project_id, status, title, description, problem")
+    .select("proposer_id, project_id, status, title, description")
     .eq("id", proposalId)
     .maybeSingle();
   if (!proposal) return { error: STRINGS.errors.proposalNotFound };
@@ -64,9 +64,7 @@ export async function updateProposal(
 
   // Re-run AI solo se il testo è cambiato davvero: evita chiamate Claude inutili.
   const textChanged =
-    fields.title !== proposal.title ||
-    fields.description !== proposal.description ||
-    fields.problem !== proposal.problem;
+    fields.title !== proposal.title || fields.description !== proposal.description;
   if (proposal.status === "in_valutazione" && textChanged) {
     await runEvaluation(supabase, proposalId, true);
   }
@@ -79,9 +77,10 @@ export async function updateProposal(
   return null;
 }
 
-// Voto RICE di un utente (migration 0015). Autorizzazione nel service, RLS come
-// backstop: solo in 'in_valutazione', mai la propria proposta, un voto solo e
-// immutabile (unique + assenza di policy update/delete).
+// Voto RICE di un utente (migration 0015, rettifica #8/#9). Autorizzazione nel
+// service, RLS come backstop: consentito in ogni stato tranne 'nuova', mai la
+// propria proposta. Un voto per utente (unique) ma MODIFICABILE: upsert +
+// policy update di 0028. L'avviso quando non è 'in_valutazione' è lato UI (#9d).
 export async function submitRiceVote(
   proposalId: string,
   _prev: UpdateProposalState,
@@ -99,8 +98,8 @@ export async function submitRiceVote(
     .eq("id", proposalId)
     .maybeSingle();
   if (!proposal) return { error: STRINGS.errors.proposalNotFound };
-  if (proposal.status !== "in_valutazione") {
-    return { error: STRINGS.rice.onlyInEvaluation };
+  if (proposal.status === "nuova") {
+    return { error: STRINGS.rice.notWhileNew };
   }
   if (proposal.proposer_id === user.id) {
     return { error: STRINGS.rice.ownProposal };
@@ -122,12 +121,15 @@ export async function submitRiceVote(
   const parsed = parseVoteFields(formData);
   if ("error" in parsed) return { error: parsed.error };
 
+  // upsert sul vincolo (proposal_id, voter_id): primo voto = insert, successivi
+  // = update del proprio voto (#8, editabile).
   const { error } = await supabase
     .from("rice_votes")
-    .insert({ proposal_id: proposalId, voter_id: user.id, ...parsed.fields });
+    .upsert(
+      { proposal_id: proposalId, voter_id: user.id, ...parsed.fields },
+      { onConflict: "proposal_id,voter_id" },
+    );
   if (error) {
-    // 23505 = unique_violation: ha già votato (voto immutabile).
-    if (error.code === "23505") return { error: STRINGS.rice.alreadyVoted };
     console.error("submitRiceVote:", error);
     return { error: STRINGS.errors.saveFailed };
   }

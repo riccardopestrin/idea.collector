@@ -9,7 +9,7 @@ export default async function NewProposalModal({
   params: Promise<{ projectId: string }>;
 }) {
   return (
-    <DetailModal narrow>
+    <DetailModal size="md">
       <div className="p-8">
         <NewProposalForm projectId={(await params).projectId} />
       </div>

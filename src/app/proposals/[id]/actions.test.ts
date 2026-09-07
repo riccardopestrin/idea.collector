@@ -15,6 +15,7 @@ const { getUser, tables, refresh, runEvaluation, runProposalScan, updateResult, 
       maybeSingle: vi.fn(() => Promise.resolve({ data: builder.row })),
       update: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve(updateResult.value)) })),
       insert: vi.fn(() => Promise.resolve(insertResult.value)),
+      upsert: vi.fn(() => Promise.resolve(insertResult.value)),
     };
     return builder;
   };
@@ -181,21 +182,27 @@ describe("submitRiceVote", () => {
     expect(await submitRiceVote("p1", null, voteForm())).toEqual({
       error: "Sessione scaduta. Rientra e riprova.",
     });
-    expect(tables.rice_votes.insert).not.toHaveBeenCalled();
+    expect(tables.rice_votes.upsert).not.toHaveBeenCalled();
   });
 
   it("returns not-found when the proposal does not exist", async () => {
     tables.proposals.row = null;
     expect(await submitRiceVote("p1", null, voteForm())).toEqual({ error: "Proposta non trovata." });
-    expect(tables.rice_votes.insert).not.toHaveBeenCalled();
+    expect(tables.rice_votes.upsert).not.toHaveBeenCalled();
   });
 
-  it("rejects a vote when the proposal is not in valutazione", async () => {
-    tables.proposals.row = { proposer_id: "u1", status: "approvata" };
+  it("rejects a vote when the proposal is still in 'nuova'", async () => {
+    tables.proposals.row = { proposer_id: "u1", status: "nuova" };
     expect(await submitRiceVote("p1", null, voteForm())).toEqual({
-      error: "Puoi votare solo le proposte in valutazione.",
+      error: "Non puoi votare una proposta in «Nuova».",
     });
-    expect(tables.rice_votes.insert).not.toHaveBeenCalled();
+    expect(tables.rice_votes.upsert).not.toHaveBeenCalled();
+  });
+
+  it("allows a vote in any state other than 'nuova' (#9c)", async () => {
+    tables.proposals.row = { proposer_id: "u1", status: "approvata" };
+    expect(await submitRiceVote("p1", null, voteForm())).toBeNull();
+    expect(tables.rice_votes.upsert).toHaveBeenCalled();
   });
 
   it("forbids the proposer from voting their own idea", async () => {
@@ -203,7 +210,7 @@ describe("submitRiceVote", () => {
     expect(await submitRiceVote("p1", null, voteForm())).toEqual({
       error: "Non puoi votare la tua stessa proposta.",
     });
-    expect(tables.rice_votes.insert).not.toHaveBeenCalled();
+    expect(tables.rice_votes.upsert).not.toHaveBeenCalled();
   });
 
   it("forbids an accepted contributor (now a co-author) from voting", async () => {
@@ -211,7 +218,7 @@ describe("submitRiceVote", () => {
     expect(await submitRiceVote("p1", null, voteForm())).toEqual({
       error: "Come contributore accettato sei co-autore: non puoi votare.",
     });
-    expect(tables.rice_votes.insert).not.toHaveBeenCalled();
+    expect(tables.rice_votes.upsert).not.toHaveBeenCalled();
     // il guard vale solo se la query filtra proprio su questi tre criteri:
     // senza promotion_status=accepted bloccherebbe qualsiasi commentatore
     expect(tables.comments.eq).toHaveBeenCalledWith("proposal_id", "p1");
@@ -223,31 +230,19 @@ describe("submitRiceVote", () => {
     expect(await submitRiceVote("p1", null, voteForm({ impact: "" }))).toEqual({
       error: "Assegna un valore da 1 a 10 a ogni parametro.",
     });
-    expect(tables.rice_votes.insert).not.toHaveBeenCalled();
+    expect(tables.rice_votes.upsert).not.toHaveBeenCalled();
   });
 
-  it("inserts a valid vote and refreshes", async () => {
+  it("upserts the vote on the (proposal, voter) key so it can be edited (#8)", async () => {
     expect(await submitRiceVote("p1", null, voteForm())).toBeNull();
-    expect(tables.rice_votes.insert).toHaveBeenCalledWith({
-      proposal_id: "p1",
-      voter_id: "u2",
-      reach: 5,
-      impact: 7,
-      confidence: 6,
-      effort: 3,
-    });
+    expect(tables.rice_votes.upsert).toHaveBeenCalledWith(
+      { proposal_id: "p1", voter_id: "u2", reach: 5, impact: 7, confidence: 6, effort: 3 },
+      { onConflict: "proposal_id,voter_id" },
+    );
     expect(refresh).toHaveBeenCalled();
   });
 
-  it("maps a unique-violation to a friendly 'already voted' error", async () => {
-    insertResult.value = { error: { code: "23505" } };
-    expect(await submitRiceVote("p1", null, voteForm())).toEqual({
-      error: "Hai già votato questa proposta.",
-    });
-    expect(refresh).not.toHaveBeenCalled();
-  });
-
-  it("returns a generic error on any other insert failure", async () => {
+  it("returns a generic error on an upsert failure", async () => {
     insertResult.value = { error: { code: "12345", message: "boom" } };
     vi.spyOn(console, "error").mockImplementation(() => {});
     expect(await submitRiceVote("p1", null, voteForm())).toEqual({

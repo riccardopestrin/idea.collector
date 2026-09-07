@@ -18,8 +18,9 @@ export function NewProposalForm({ projectId }: { projectId: string }) {
     <form action={action} className="flex w-full flex-col gap-5">
       <h1 className={`${displayClass} text-3xl`}>{STRINGS.board.newProposal}</h1>
       <Field label={STRINGS.proposal.titleLabel} name="title" required />
-      <RichTextField label={STRINGS.proposal.descriptionLabel} name="description" />
-      <RichTextField label={STRINGS.proposal.problemLabel} name="problem" />
+      {/* un solo body: la descrizione riempie l'altezza del modal (fill). Il campo
+          "problema" è deprecato ovunque. */}
+      <RichTextField label={STRINGS.proposal.descriptionLabel} name="description" fill />
       <Field label={STRINGS.proposal.linksLabel} name="links" multiline />
       {state?.error && (
         <p role="alert" className="text-sm text-danger">

@@ -19,15 +19,16 @@ function fakeBuilder(data: unknown) {
 }
 
 describe("listProjects", () => {
-  it("maps the caller's membership and the proposal count onto each project", async () => {
+  it("maps the membership + count and orders by the caller's manual position (#6)", async () => {
+    // pr1 arriva per primo dal DB ma ha position 1; pr2 ha position 0 → pr2 sale
     const { supabase, eq } = fakeBuilder([
       {
         id: "pr1", name: "Mobile", github_owner: "acme", github_repo: "app",
-        members: [{ role: "admin" }], proposals: [{ count: 3 }],
+        members: [{ role: "admin", position: 1 }], proposals: [{ count: 3 }],
       },
       {
         id: "pr2", name: "Web", github_owner: null, github_repo: null,
-        members: [{ role: "contributor" }], proposals: [],
+        members: [{ role: "contributor", position: 0 }], proposals: [],
       },
     ]);
 
@@ -35,9 +36,10 @@ describe("listProjects", () => {
 
     // il filtro sull'embed tiene solo la membership di chi guarda
     expect(eq).toHaveBeenCalledWith("members.user_id", "u1");
+    // ordinati per position; position non è esposta nel risultato
     expect(projects).toEqual([
-      { id: "pr1", name: "Mobile", github_owner: "acme", github_repo: "app", role: "admin", proposalCount: 3 },
       { id: "pr2", name: "Web", github_owner: null, github_repo: null, role: "contributor", proposalCount: 0 },
+      { id: "pr1", name: "Mobile", github_owner: "acme", github_repo: "app", role: "admin", proposalCount: 3 },
     ]);
   });
 

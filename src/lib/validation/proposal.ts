@@ -8,7 +8,6 @@ export const TEXT_FIELD_MAX = 20_000;
 export type ProposalFields = {
   title: string;
   description: string | null;
-  problem: string | null;
   links: string[];
 };
 
@@ -23,8 +22,7 @@ export function parseProposalFields(
     return value === "" ? null : value;
   };
   const description = optional("description");
-  const problem = optional("problem");
-  if ((description?.length ?? 0) > TEXT_FIELD_MAX || (problem?.length ?? 0) > TEXT_FIELD_MAX) {
+  if ((description?.length ?? 0) > TEXT_FIELD_MAX) {
     return { error: STRINGS.proposal.textTooLong };
   }
 
@@ -33,5 +31,5 @@ export function parseProposalFields(
     .map((line) => line.trim())
     .filter(Boolean);
 
-  return { fields: { title, description, problem, links } };
+  return { fields: { title, description, links } };
 }

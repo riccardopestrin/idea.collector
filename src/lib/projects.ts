@@ -19,6 +19,9 @@ export type ProjectListItem = Pick<Project, "id" | "name" | "github_owner" | "gi
   proposalCount: number;
 };
 
+// tie-break dell'ordine manuale (#6): position poi created_at, entrambi crescenti.
+type OrderedMembership = { role: Role; position: number };
+
 export type Member = {
   id: string;
   email: string;
@@ -34,23 +37,28 @@ export async function listProjects(
 ): Promise<ProjectListItem[]> {
   const { data } = await supabase
     .from("projects")
-    .select("id, name, github_owner, github_repo, members:project_members(role), proposals(count)")
+    .select("id, name, github_owner, github_repo, members:project_members(role, position), proposals(count)")
     // filtro sull'embed (path con l'alias): tiene solo la membership di chi guarda
     .eq("members.user_id", userId)
+    // ordine di creazione = tie-break stabile a parità di position (#6)
     .order("created_at", { ascending: true })
     .overrideTypes<
       (Pick<Project, "id" | "name" | "github_owner" | "github_repo"> & {
-        members: { role: Role }[];
+        members: OrderedMembership[];
         proposals: { count: number }[];
       })[],
       { merge: false }
     >();
-  return (data ?? []).map(({ members, proposals, ...project }) => ({
-    ...project,
-    // la RLS garantisce che chi vede il progetto ne è membro: l'indice è sicuro
-    role: members[0].role,
-    proposalCount: proposals[0]?.count ?? 0,
-  }));
+  return (data ?? [])
+    // #6: ordine manuale per-utente; sort stabile → tie-break su created_at (già asc)
+    .slice()
+    .sort((a, b) => a.members[0].position - b.members[0].position)
+    .map(({ members, proposals, ...project }) => ({
+      ...project,
+      // la RLS garantisce che chi vede il progetto ne è membro: l'indice è sicuro
+      role: members[0].role,
+      proposalCount: proposals[0]?.count ?? 0,
+    }));
 }
 
 // null se non esiste o se l'utente non ne è membro (RLS): stesso esito, notFound.

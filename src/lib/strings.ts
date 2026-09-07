@@ -53,20 +53,25 @@ export const STRINGS = {
 
   projects: {
     heading: "Progetti",
-    intro: "Ogni progetto ha la sua bacheca, la sua classifica e la sua repo GitHub.",
+    intro: "La lista dei tuoi progetti. Per crearne uno, clicca su Nuovo Progetto",
     newProject: "Nuovo progetto",
     nameLabel: "Nome del progetto",
     nameRequired: "Il nome è obbligatorio.",
     nameTooLong: "Il nome è troppo lungo (max 80 caratteri).",
     connectRepo: "Collega subito una repo GitHub (si apre la pagina Impostazioni)",
     create: "Crea progetto",
-    noneYet: "Nessun progetto ancora. Crea il primo: sarai il suo admin.",
+    noneYet: "Nessun progetto ancora. Crea il primo: sarai amministratore.",
     proposalCount: (n: number) => (n === 1 ? "1 proposta" : `${n} proposte`),
-    noRepo: "nessuna repo collegata",
+    noRepo: "nessuna repository collegata a questo progetto",
     settingsHeading: "Impostazioni progetto",
+    rename: {
+      heading: "Nome del progetto",
+      intro: "Cambia il nome mostrato.",
+      adminOnly: "Solo un admin del progetto può rinominarlo.",
+    },
     delete: {
       heading: "Elimina progetto",
-      intro: "Cancella il progetto con tutte le sue proposte, i commenti e i membri.",
+      intro: "Cancella il progetto con tutte le sue proposte.",
       button: "Elimina progetto",
       confirmBody:
         "Il progetto e tutte le sue proposte verranno eliminati definitivamente. L’operazione è irreversibile.",
@@ -121,7 +126,7 @@ export const STRINGS = {
   members: {
     heading: "Membri",
     intro:
-      "Chi può accedere a questo progetto. Gli invitati ricevono un'email con il link di accesso; chi ha già un account viene aggiunto subito.",
+      "Chi può accedere a questo progetto. Gli invitati ricevono un'email con il link di accesso.",
     inviteEmailLabel: "Invita tramite email",
     inviteAsAdmin: "Admin",
     invite: "Invita",
@@ -146,7 +151,7 @@ export const STRINGS = {
   github: {
     heading: "Repository progetto",
     intro:
-      "La valutazione AI confronta le proposte con il contesto di questo repository (accesso in sola lettura via GitHub App).",
+      "La valutazione AI confronta le proposte con il contesto di questa repository (accesso in sola lettura via GitHub App).",
     connect: "Connetti GitHub",
     repoSelectLabel: "Repo del progetto",
     repoPlaceholder: "— scegli una repo —",
@@ -170,7 +175,6 @@ export const STRINGS = {
     noneYetCreate: "Nessuna proposta ancora. Crea la prima.",
     noneYet: "Nessuna proposta ancora.",
     invalidStatus: "Stato non valido.",
-    moveNotAllowed: "Spostamento non consentito.",
     movedByOther:
       "La proposta è stata spostata da qualcun altro. Ricarica la pagina.",
     dupBlocked:
@@ -203,7 +207,6 @@ export const STRINGS = {
   proposal: {
     titleLabel: "Titolo",
     descriptionLabel: "Descrizione",
-    problemLabel: "Problema / motivazione",
     linksLabel: "Link (uno per riga)",
     create: "Crea proposta",
     titleRequired: "Il titolo è obbligatorio.",
@@ -275,7 +278,7 @@ export const STRINGS = {
     cueInProgress: "Valutazione AI in corso",
     cueFailed: "Valutazione AI fallita",
     cueCompleted: "Valutazione AI completata",
-    retryEval: "Rilancia valutazione",
+    retryEval: "Rilancia la valutazione AI",
     retryScan: "Rilancia scansione",
   },
 
@@ -317,13 +320,16 @@ export const STRINGS = {
       confidence: "Confidence",
       effort: "Ease",
     },
-    legend: "1 = minimo · 10 = massimo. Il voto è definitivo e non modificabile.",
+    legend: "1 = minimo · 10 = massimo. Puoi aggiornare il tuo voto in seguito.",
     submit: "Invia voto",
+    update: "Aggiorna voto",
+    // #9d: avviso quando si vota una card non «In Valutazione»
+    warnNotInEval: "Sei sicuro di voler votare? La proposta non è «In Valutazione».",
     invalid: "Assegna un valore da 1 a 10 a ogni parametro.",
-    onlyInEvaluation: "Puoi votare solo le proposte in valutazione.",
+    // #9c: voto consentito ovunque tranne che in «Nuova»
+    notWhileNew: "Non puoi votare una proposta in «Nuova».",
     ownProposal: "Non puoi votare la tua stessa proposta.",
     contributorCoAuthor: "Come contributore accettato sei co-autore: non puoi votare.",
-    alreadyVoted: "Hai già votato questa proposta.",
   },
 } as const;
 

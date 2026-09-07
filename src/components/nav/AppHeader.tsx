@@ -8,13 +8,13 @@ import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
 import { buttonClass } from "@/lib/tokens";
 
-type HeaderProject = { id: string; name: string; isAdmin: boolean };
+type HeaderProject = { id: string; name: string };
 
 // Header condiviso: brand (→ lista progetti), profilo, logout. Dentro un
-// progetto aggiunge il nome e la nav Board/Classifica (+ Impostazioni per
-// l'admin). UI-hiding: l'autorizzazione vera è nella pagina impostazioni,
-// nelle Server Action e nelle RLS. Il link profilo apre l'overlay
-// @modal/(.)profile: si resta sulla pagina corrente.
+// progetto aggiunge la freccina di ritorno alla lista e la nav Board/Classifica.
+// Il nome del progetto e la rotella impostazioni vivono nel titolo di pagina
+// (ProjectHeading), non qui. Il link profilo apre l'overlay @modal/(.)profile:
+// si resta sulla pagina corrente.
 export function AppHeader({
   profileLabel,
   project,
@@ -41,22 +41,16 @@ export function AppHeader({
               href="/"
               aria-label={STRINGS.nav.backToProjects}
               title={STRINGS.nav.backToProjects}
-              className="-mr-3 border border-ink p-1 hover:bg-ink hover:text-paper"
+              className="border border-ink p-1 hover:bg-ink hover:text-paper"
             >
               <CornerDownLeftIcon className="size-3" />
             </Link>
-            <span className="truncate font-mono text-sm font-medium">{project.name}</span>
             <NavLink href={`/projects/${project.id}`}>
               {STRINGS.nav.board}
             </NavLink>
             <NavLink href={`/projects/${project.id}/ranking`}>
               {STRINGS.nav.ranking}
             </NavLink>
-            {project.isAdmin && (
-              <NavLink href={`/projects/${project.id}/settings`}>
-                {STRINGS.nav.settings}
-              </NavLink>
-            )}
           </nav>
         )}
       </div>

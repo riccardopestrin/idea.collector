@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import "./globals.css";
 
+import { RealtimeRefresh } from "@/components/RealtimeRefresh";
 import { ScrollbarReveal } from "@/components/ScrollbarReveal";
 import { STRINGS } from "@/lib/strings";
 
@@ -37,6 +38,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ScrollbarReveal />
+        <RealtimeRefresh />
         {children}
         {modal}
       </body>

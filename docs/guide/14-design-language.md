@@ -114,4 +114,4 @@ riflettila nella pagina HTML di riferimento), non inline nel componente.
 
 ---
 
-Precedente: [← 13. Contribuire](13-contribuire.md) · [Torna all'indice](README.md)
+Precedente: [← 13. Contribuire](13-contribuire.md) · Prossimo: [15. Runbook — cambiare account Supabase →](15-runbook-cambio-account-supabase.md)

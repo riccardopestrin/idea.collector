@@ -17,7 +17,7 @@ import { deleteProposal, evaluateProposal, updateProposalStatus } from "@/app/pr
 import { Column, type DropHint } from "@/components/board/Column";
 import { DeleteProposalDialog } from "@/components/board/DeleteProposalDialog";
 import { ProposalCard } from "@/components/cards/ProposalCard";
-import { BOARD_COLUMNS, canMoveTo, groupByStatus } from "@/lib/board";
+import { BOARD_COLUMNS, groupByStatus } from "@/lib/board";
 import type { ProposalListItem, ProposalStatus } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
 import { BOARD_GAP } from "@/lib/tokens";
@@ -55,11 +55,12 @@ export function Board({
         setError(result.error);
         return;
       }
-      // Auto-trigger RFC-003: il move di un admin in "in_valutazione" lancia la
-      // valutazione AI FUORI dalla transition: il move è già committato e la UI
-      // non resta pending per i ~30s della chiamata a Claude. L'esito arriva
-      // via ai_eval_status (refresh dell'azione); qui solo l'eventuale errore.
-      if (isAdmin && toStatus === "in_valutazione") {
+      // Auto-trigger RFC-003 (rettifica #9): la PRIMA uscita da "nuova" verso
+      // qualunque stato lancia la valutazione AI, per qualsiasi utente. force=false
+      // → l'idempotenza in runEvaluation fa sì che parta una volta sola. Fuori
+      // dalla transition: il move è già committato e la UI non resta pending per
+      // i ~30s di Claude; l'esito arriva via ai_eval_status (refresh), qui l'errore.
+      if (proposal.status === "nuova") {
         void evaluateProposal(proposal.id).then((evalResult) => {
           if (evalResult) setError(evalResult.error);
         });
@@ -77,10 +78,8 @@ export function Board({
     if (!over) return;
     const toStatus = over.id as ProposalStatus;
     const proposal = optimisticProposals.find((p) => p.id === String(active.id));
-    // drop su una colonna non consentita: la card torna indietro, nessun errore
-    if (!proposal || proposal.status === toStatus || !canMoveTo(proposal.status, toStatus)) {
-      return;
-    }
+    // #9: ogni colonna è un target valido; solo il drop sull'origine è no-op
+    if (!proposal || proposal.status === toStatus) return;
     move(proposal, toStatus);
   }
 
@@ -150,11 +149,10 @@ export function Board({
   );
 }
 
-// Spunta/divieto per una colonna durante il drag: null quando non si trascina o
-// sulla colonna d'origine, "valid" se la transizione è consentita, altrimenti "invalid".
+// Spunta per una colonna durante il drag: null quando non si trascina o sulla
+// colonna d'origine, "valid" altrimenti (#9: ogni altra colonna è un target valido).
 function columnDropHint(dragged: ProposalStatus | null, column: ProposalStatus): DropHint {
-  if (dragged === null || dragged === column) return null;
-  return canMoveTo(dragged, column) ? "valid" : "invalid";
+  return dragged === null || dragged === column ? null : "valid";
 }
 
 // Wrapper che lega il droppable di @dnd-kit alla Column presentazionale.

@@ -3,9 +3,10 @@ import Link from "next/link";
 import { Board } from "@/components/board/Board";
 import { ProposalFilters } from "@/components/filters/ProposalFilters";
 import { PlusIcon } from "@/components/icons";
+import { ProjectHeading } from "@/components/project/ProjectHeading";
 import { listProposals } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
-import { pageTitleClass, primaryButtonClass } from "@/lib/tokens";
+import { primaryButtonClass } from "@/lib/tokens";
 
 import { loadProject } from "./project";
 
@@ -27,16 +28,18 @@ export default async function ProjectBoard({
 
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className={pageTitleClass}>{STRINGS.board.heading}</h1>
-        <Link
-          href={`/projects/${project.id}/proposals/new`}
-          className={`inline-flex items-center gap-2 ${primaryButtonClass}`}
-        >
-          <PlusIcon className="size-3.5" />
-          {STRINGS.board.newProposal}
-        </Link>
-      </div>
+      <ProjectHeading
+        project={{ id: project.id, name: project.name, isAdmin: role === "admin" }}
+        action={
+          <Link
+            href={`/projects/${project.id}/proposals/new`}
+            className={`inline-flex items-center gap-2 ${primaryButtonClass}`}
+          >
+            <PlusIcon className="size-3.5" />
+            {STRINGS.board.newProposal}
+          </Link>
+        }
+      />
 
       <ProposalFilters search={search} showStatus={false} basePath={`/projects/${project.id}`} />
 

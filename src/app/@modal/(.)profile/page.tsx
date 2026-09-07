@@ -21,7 +21,7 @@ export default async function ProfileModal() {
   const profile = await getProfile(supabase, user.id);
 
   return (
-    <DetailModal narrow>
+    <DetailModal size="sm">
       <div className="flex flex-col gap-8 p-8">
         <NameForm
           heading={STRINGS.profile.heading}

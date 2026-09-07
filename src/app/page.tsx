@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { PlusIcon } from "@/components/icons";
 import { AppHeader } from "@/components/nav/AppHeader";
-import { ProjectCard } from "@/components/project/ProjectCard";
+import { ProjectList } from "@/components/project/ProjectList";
 import { getProfile } from "@/lib/profiles";
 import { listProjects } from "@/lib/projects";
 import { STRINGS } from "@/lib/strings";
@@ -47,13 +47,7 @@ export default async function ProjectsPage() {
         {projects.length === 0 ? (
           <p className="font-mono text-sm text-foreground/70">{STRINGS.projects.noneYet}</p>
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project, i) => (
-              <li key={project.id}>
-                <ProjectCard project={project} index={i} />
-              </li>
-            ))}
-          </ul>
+          <ProjectList projects={projects} />
         )}
       </main>
     </>

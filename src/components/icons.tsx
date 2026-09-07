@@ -30,6 +30,16 @@ export function PlusIcon(props: IconProps) {
   );
 }
 
+export function SettingsIcon(props: IconProps) {
+  // impostazioni: dado esagonale con foro (industrial-minimal, non una "rotella-sole")
+  return (
+    <svg {...base} {...props}>
+      <path d="M17.5 10 13.75 16.5 6.25 16.5 2.5 10 6.25 3.5 13.75 3.5Z" />
+      <circle cx="10" cy="10" r="2.5" />
+    </svg>
+  );
+}
+
 export function ArrowLeftIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>

@@ -63,7 +63,6 @@ export type ProposalDetail = VoteComponents & {
   id: string;
   title: string;
   description: string | null;
-  problem: string | null;
   status: ProposalStatus;
   ai_eval_status: AiEvalStatus;
   ai_eval_error: string | null;
@@ -289,7 +288,7 @@ export async function getProposalDetail(
   const { data } = await supabase
     .from("proposals")
     .select(
-      `id, title, description, problem, status, reach, impact, confidence,
+      `id, title, description, status, reach, impact, confidence,
        effort, ai_rationale, ai_eval_status, ai_eval_error, dup_scan_status,
        dup_scan_error, dup_flagged, dup_similarity, dup_report, links, git_ref,
        task_url, internal_notes, created_at, proposer_id, project_id,
@@ -313,11 +312,9 @@ export async function getProposalDetail(
   if (!data) return null;
 
   // Risoluzione ancore server-side (ADR-0005): N-esima occorrenza della quote
-  // nella proiezione plain-text del campo corrente; assente → orfano.
-  const plain = {
-    description: markdownToPlainText(data.description ?? ""),
-    problem: markdownToPlainText(data.problem ?? ""),
-  };
+  // nella proiezione plain-text della descrizione; assente → orfano. 'problem' è
+  // deprecato: un commento storico ancorato lì non è più risolvibile (orfano).
+  const plainDescription = markdownToPlainText(data.description ?? "");
   // sospensione derivata: i voti dei contributori accepted escono dal pannello
   // e dal composito (migration 0016 — reintegro automatico al revoke)
   const contributorIds = acceptedContributorIds(data.comments);
@@ -327,10 +324,10 @@ export async function getProposalDetail(
     comments: data.comments.map((comment) => ({
       ...comment,
       anchor_resolved:
-        comment.anchor_field !== null &&
+        comment.anchor_field === "description" &&
         comment.anchor_text !== null &&
         comment.anchor_occurrence !== null &&
-        resolveAnchor(plain[comment.anchor_field], {
+        resolveAnchor(plainDescription, {
           text: comment.anchor_text,
           occurrence: comment.anchor_occurrence,
         }) !== null,

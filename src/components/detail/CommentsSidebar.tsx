@@ -12,17 +12,13 @@ import {
 import { SectionTitle } from "@/components/detail/SectionTitle";
 import { Field } from "@/components/form/Field";
 import { SubmitButton } from "@/components/form/SubmitButton";
+import { formatDateTime } from "@/lib/dates";
 import type { ProposalComment } from "@/lib/proposals";
 import { personLabel } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
 import { buttonClass, dangerLinkClass, linkClass, tagClass } from "@/lib/tokens";
 
 import { CommentForm, type PendingAnchor } from "./CommentForm";
-
-const dateFormat = new Intl.DateTimeFormat("it-IT", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
 
 // Colonna commenti (RFC-004 Fase C/D): lista + form, con supporto alla
 // modalità ancorata (citazione sopra la textarea). Un'ancora che non risolve
@@ -56,7 +52,7 @@ export function CommentsSidebar({
       {comments.length === 0 ? (
         <p className="font-mono text-sm text-foreground/60">{STRINGS.comments.empty}</p>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-4">
           {comments.map((comment) => (
             <CommentItem
               key={comment.id}
@@ -118,16 +114,16 @@ function CommentItem({
 
   return (
     <li
-      className="border border-ink p-3"
+      className="border border-ink p-4"
       // hover (mouse) e focus (tastiera, via bottoni interni) evidenziano l'ancora
       onMouseEnter={() => onHover(comment.id)}
       onMouseLeave={() => onHover(null)}
       onFocus={() => onHover(comment.id)}
       onBlur={() => onHover(null)}
     >
-      <p className="flex flex-wrap items-center gap-1.5 font-mono text-xs text-foreground/50">
+      <p className="flex flex-wrap items-center gap-1.5 font-mono text-sm text-foreground/50">
         {personLabel(comment.author)} ·{" "}
-        {dateFormat.format(new Date(comment.created_at))}
+        {formatDateTime(comment.created_at)}
         {comment.promotion_status !== "none" && (
           <span className={`${tagClass} ${accepted ? "border-paprika text-paprika" : "border-ink text-foreground/70"}`}>
             {PROMOTION_BADGES[comment.promotion_status]}
@@ -135,7 +131,7 @@ function CommentItem({
         )}
       </p>
       {comment.anchor_text && (
-        <blockquote className="mt-1 border-l-2 border-dust pl-2 text-xs text-foreground/60">
+        <blockquote className="mt-1 border-l-2 border-dust pl-2 text-sm text-foreground/60">
           <span className="line-clamp-3 whitespace-pre-wrap">
             {comment.anchor_text}
           </span>
@@ -150,9 +146,9 @@ function CommentItem({
         <CommentEditForm comment={comment} onDone={() => setEditing(false)} />
       ) : (
         <>
-          <p className="mt-1 whitespace-pre-wrap text-sm">{comment.body}</p>
+          <p className="mt-1.5 whitespace-pre-wrap text-base">{comment.body}</p>
           {(mine || canDelete || promotable || resolvable || revocable) && (
-            <div className="mt-2 flex flex-wrap gap-3 font-mono text-xs text-foreground/60">
+            <div className="mt-3 flex flex-wrap gap-3 font-mono text-sm text-foreground/60">
               {mine && (
                 <button
                   type="button"

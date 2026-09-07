@@ -6,6 +6,8 @@ import {
   disconnectGithub,
   inviteMember,
   removeMember,
+  renameProject,
+  reorderProjects,
   selectRepo,
   setMemberRole,
   startGithubConnect,
@@ -23,6 +25,7 @@ const {
   writeResult,
   redirect,
   refresh,
+  revalidatePath,
   cookieSet,
   isProjectAdmin,
   listInstallationRepos,
@@ -49,6 +52,7 @@ const {
     writeResult,
     redirect: vi.fn(),
     refresh: vi.fn(),
+    revalidatePath: vi.fn(),
     cookieSet: vi.fn(),
     isProjectAdmin: vi.fn(),
     listInstallationRepos: vi.fn(),
@@ -78,7 +82,7 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 vi.mock("next/navigation", () => ({ redirect }));
-vi.mock("next/cache", () => ({ refresh }));
+vi.mock("next/cache", () => ({ refresh, revalidatePath }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ set: cookieSet }) }));
 vi.mock("@/lib/projects", () => ({ isProjectAdmin, ROLES: ["admin", "contributor"] }));
 vi.mock("@/lib/github/app", () => ({ listInstallationRepos }));
@@ -153,6 +157,55 @@ describe("createProject", () => {
       error: "Sessione scaduta. Rientra e riprova.",
     });
     expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("reorderProjects", () => {
+  it("persists the new order via reorder_projects for the current user", async () => {
+    expect(await reorderProjects(["pr2", "pr1"])).toBeNull();
+    expect(rpc).toHaveBeenCalledWith("reorder_projects", { p_ids: ["pr2", "pr1"] });
+    expect(revalidatePath).toHaveBeenCalledWith("/");
+  });
+
+  it("refuses without a session and never calls the RPC", async () => {
+    getUser.mockResolvedValue({ data: { user: null } });
+    expect(await reorderProjects(["pr1"])).toEqual({
+      error: "Sessione scaduta. Rientra e riprova.",
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("maps an RPC failure to a generic error", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
+    expect(await reorderProjects(["pr1"])).toEqual({
+      error: "Errore nel salvataggio. Riprova.",
+    });
+  });
+});
+
+describe("renameProject", () => {
+  it("updates the name (trimmed) for an admin and revalidates", async () => {
+    expect(await renameProject("pr1", null, formOf({ name: "  Mobile  " }))).toBeNull();
+
+    expect(membersUpdate).toHaveBeenCalledWith({ name: "Mobile" });
+    expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
+  });
+
+  it("refuses a non-admin without writing", async () => {
+    isProjectAdmin.mockResolvedValue(false);
+
+    expect(await renameProject("pr1", null, formOf({ name: "Mobile" }))).toEqual({
+      error: "Solo un admin del progetto può rinominarlo.",
+    });
+    expect(membersUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty name without writing", async () => {
+    expect(await renameProject("pr1", null, formOf({ name: "   " }))).toEqual({
+      error: "Il nome è obbligatorio.",
+    });
+    expect(membersUpdate).not.toHaveBeenCalled();
   });
 });
 

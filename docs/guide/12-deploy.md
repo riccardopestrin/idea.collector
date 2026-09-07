@@ -25,6 +25,9 @@ Il progetto remoto è già linkato (`supabase/.temp/project-ref`).
   Ricorda: `supabase/migrations/` è owner-locked; il push al remoto è parte del
   rilascio (owner).
 
+> Per spostare l'app su **un altro progetto/account Supabase** (fork o nuovo
+> tenant) segui il [capitolo 15 — Runbook cambio account Supabase](15-runbook-cambio-account-supabase.md).
+
 ## 12.2 Variabili d'ambiente di produzione
 
 Su Vercel (Project → Settings → Environment Variables) vanno gli stessi nomi di

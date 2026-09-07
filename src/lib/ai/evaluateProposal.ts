@@ -17,7 +17,6 @@ export type RiceScores = {
 export type ProposalInput = {
   title: string;
   description: string | null;
-  problem: string | null;
   links: string[];
   // commenti promossi a contributo (migration 0016): parte dell'idea da valutare
   contributions: { author: string | null; body: string }[];
@@ -104,7 +103,6 @@ export async function evaluateWithClaude(
     `<proposta>`,
     `Titolo: ${proposal.title}`,
     proposal.description ? `Descrizione: ${proposal.description}` : null,
-    proposal.problem ? `Problema / motivazione: ${proposal.problem}` : null,
     proposal.links.length ? `Link: ${proposal.links.join(" ")}` : null,
     ...proposal.contributions.map(
       (c) => `Contributo di ${c.author ?? "un membro"}: ${c.body}`,

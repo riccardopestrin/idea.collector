@@ -3,7 +3,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { refresh } from "next/cache";
 
-import { canMoveTo } from "@/lib/board";
 import { runEvaluation } from "@/lib/ai/runEvaluation";
 import { runProposalScan } from "@/lib/ai/runProposalScan";
 import { isAnchorField, markdownToPlainText, resolveAnchor } from "@/lib/anchors";
@@ -33,11 +32,8 @@ export async function updateProposalStatus(
     return { error: STRINGS.board.invalidStatus };
   }
   if (fromStatus === toStatus) return null;
-  // Macchina a stati (branch cardDirections): guard qui per il messaggio; il
-  // backstop è in move_proposal (migration 0018).
-  if (!canMoveTo(fromStatus, toStatus)) {
-    return { error: STRINGS.board.moveNotAllowed };
-  }
+  // #9: libertà assoluta di spostamento — nessun vincolo di transizione. Resta
+  // solo il blocco duplicati sotto (e in move_proposal come backstop).
 
   const supabase = await supabaseServer();
   const {
@@ -83,9 +79,15 @@ export async function updateProposalStatus(
 }
 
 // Valuta una proposta con Claude sul contesto del repo collegato (RFC-003).
-// Admin-only. Usata dall'auto-trigger (move admin in in_valutazione) e dal
-// "Rilancia". Il fallimento non è mai bloccante: marca `fallita` sulla riga;
-// il move resta valido. force=true (Rilancia) salta l'idempotenza.
+// Il fallimento non è mai bloccante: marca `fallita` sulla riga; il move resta
+// valido. Due chiamanti con autorizzazioni diverse (#9):
+//  - auto-trigger (force=false, Board alla prima uscita da 'nuova'): QUALSIASI
+//    membro. La membership è già imposta dalla RLS member-read del select sotto
+//    (per un non-membro la proposta è null). È idempotente.
+//  - "Rilancia" (force=true): ADMIN. Salta idempotenza e guard in-flight e
+//    riscrive i punteggi via service-role (RLS-bypass), anche su una proposta
+//    manually_edited, con una nuova chiamata a Claude: guard nel service (l'UI
+//    che nasconde il bottone ai non-admin non è autorizzazione).
 export async function evaluateProposal(
   proposalId: string,
   force = false,
@@ -102,7 +104,7 @@ export async function evaluateProposal(
     .eq("id", proposalId)
     .maybeSingle();
   if (!proposal) return { error: STRINGS.errors.proposalNotFound };
-  if (!(await isProjectAdmin(supabase, proposal.project_id, user.id))) {
+  if (force && !(await isProjectAdmin(supabase, proposal.project_id, user.id))) {
     return { error: STRINGS.evaluation.adminOnly };
   }
 
@@ -161,7 +163,7 @@ export async function addComment(
 
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("status, description, problem")
+    .select("status, description")
     .eq("id", proposalId)
     .maybeSingle();
   if (!proposal) return { error: STRINGS.errors.proposalNotFound };

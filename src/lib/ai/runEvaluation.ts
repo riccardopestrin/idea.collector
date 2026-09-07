@@ -23,7 +23,7 @@ export async function runEvaluation(
   const { data: proposal } = await supabase
     .from("proposals")
     .select(
-      `title, description, problem, links, ai_generated, manually_edited, project_id,
+      `title, description, links, ai_generated, manually_edited, project_id,
        contributions:comments(body, created_at, author:profiles(name))`,
     )
     .eq("id", proposalId)
@@ -34,7 +34,6 @@ export async function runEvaluation(
       {
         title: string;
         description: string | null;
-        problem: string | null;
         links: string[];
         ai_generated: boolean;
         manually_edited: boolean;

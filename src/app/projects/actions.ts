@@ -2,7 +2,7 @@
 
 import { randomBytes } from "node:crypto";
 
-import { refresh } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -52,6 +52,52 @@ async function requireProjectAdmin(projectId: string) {
   if (!user) return { supabase, user: null };
   const admin = await isProjectAdmin(supabase, projectId, user.id);
   return { supabase, user: admin ? user : null };
+}
+
+// Rinomina il progetto. Solo admin (guard nel service, policy "admin update(name)"
+// di 0021 come backstop). Il nome compare in lista progetti, board e classifica:
+// si rivalida tutto il tree sotto il root layout.
+export async function renameProject(
+  projectId: string,
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const { supabase, user } = await requireProjectAdmin(projectId);
+  if (!user) return { error: STRINGS.projects.rename.adminOnly };
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return { error: STRINGS.projects.nameRequired };
+  if (name.length > 80) return { error: STRINGS.projects.nameTooLong };
+
+  const { error } = await supabase.from("projects").update({ name }).eq("id", projectId);
+  if (error) {
+    console.error("renameProject:", error);
+    return { error: STRINGS.errors.saveFailed };
+  }
+
+  revalidatePath("/", "layout");
+  return null;
+}
+
+// Riordina le bacheche in home per l'utente corrente (#6). La RPC reorder_projects
+// (0029, definer) scrive la position solo sulle membership di auth.uid(): ogni
+// membro riordina la propria lista, nessun controllo di ruolo. Gli id non-membri
+// nell'array vengono semplicemente ignorati dalla RPC.
+export async function reorderProjects(orderedIds: string[]): Promise<ActionResult> {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: STRINGS.errors.sessionExpired };
+
+  const { error } = await supabase.rpc("reorder_projects", { p_ids: orderedIds });
+  if (error) {
+    console.error("reorderProjects:", error);
+    return { error: STRINGS.errors.saveFailed };
+  }
+
+  revalidatePath("/");
+  return null;
 }
 
 // --- Membri ---

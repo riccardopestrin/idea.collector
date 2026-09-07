@@ -24,12 +24,13 @@ export default async function ProposalDetailModal({
   const isAdmin = user ? await isProjectAdmin(supabase, detail.project_id, user.id) : false;
 
   return (
-    <DetailModal>
+    <DetailModal size="xl" fill>
       <ProposalPanel
         detail={detail}
         isAdmin={isAdmin}
         currentUserId={user?.id}
         repo={connectedRepo(detail.project)}
+        fill
       />
     </DetailModal>
   );

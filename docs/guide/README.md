@@ -26,6 +26,12 @@ relativi alla radice del repo.
 13. [Contribuire](13-contribuire.md) — il workflow, le regole `.claude/rules`, la review chain, change-control, ADR/RFC.
 14. [Design language](14-design-language.md) — palette, tipografia, componenti e i principi brutalisti della UI.
 
+## Runbook operativi
+
+Procedure una tantum, fuori dal filo narrativo dei capitoli sopra.
+
+15. [Runbook — cambiare account Supabase](15-runbook-cambio-account-supabase.md) — fork o nuovo progetto Supabase: env, migration, config auth. Indolore, ~mezza giornata.
+
 ## Documentazione di riferimento (fuori da questa guida)
 
 Questa guida racconta *come funziona* e *come lavorarci*. Le decisioni vincolanti

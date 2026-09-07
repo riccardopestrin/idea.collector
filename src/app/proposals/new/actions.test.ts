@@ -19,7 +19,10 @@ const { getUser, insert, single, from, redirect, revalidatePath } = vi.hoisted((
 vi.mock("@/lib/supabase/server", () => ({
   supabaseServer: async () => ({ auth: { getUser }, from }),
 }));
-vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("next/navigation", () => ({
+  redirect,
+  RedirectType: { push: "push", replace: "replace" },
+}));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
 const formOf = (entries: Record<string, string>) => {
@@ -51,7 +54,6 @@ describe("createProposal", () => {
       formOf({
         title: "Mappa offline",
         description: "Scarica le mappe",
-        problem: "",
         links: "https://a.test\n\n  https://b.test  \n",
       })
     );
@@ -59,14 +61,14 @@ describe("createProposal", () => {
     expect(insert).toHaveBeenCalledWith({
       title: "Mappa offline",
       description: "Scarica le mappe",
-      problem: null,
       links: ["https://a.test", "https://b.test"],
       proposer_id: "u1",
       project_id: "pr1",
     });
     expect(revalidatePath).toHaveBeenCalledWith("/projects/pr1");
-    // RFC-006: si atterra sul dettaglio, dove parte lo scan duplicati
-    expect(redirect).toHaveBeenCalledWith("/proposals/p9");
+    // RFC-006: si atterra sul dettaglio, dove parte lo scan duplicati.
+    // replace: sostituisce ".../new" nella history (bug del pannello riproposto).
+    expect(redirect).toHaveBeenCalledWith("/proposals/p9", "replace");
   });
 
   it("returns a generic error when the insert fails", async () => {

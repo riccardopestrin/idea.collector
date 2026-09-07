@@ -30,7 +30,7 @@ export async function runProposalScan(
 ): Promise<{ error: string } | null> {
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("title, description, problem, status, dup_scan_status, project_id")
+    .select("title, description, status, dup_scan_status, project_id")
     .eq("id", proposalId)
     .maybeSingle();
   if (!proposal) return { error: STRINGS.errors.proposalNotFound };
@@ -72,7 +72,6 @@ export async function runProposalScan(
     const input = {
       title: proposal.title,
       description: proposal.description,
-      problem: proposal.problem,
     };
     // ponytail: AI_SCAN_FAKE=1 salta Claude (demo senza crediti).
     const { local, web } =

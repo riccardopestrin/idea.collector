@@ -20,7 +20,6 @@ const base: ProposalDetail = {
   id: "p1",
   title: "Dark mode",
   description: "Tema scuro per la dashboard",
-  problem: "Affatica la vista di notte",
   status: "in_valutazione",
   reach: null,
   impact: null,
@@ -76,7 +75,6 @@ describe("ProposalPanel", () => {
     expect(screen.getByRole("heading", { name: "Dark mode" })).toBeInTheDocument();
     expect(screen.getByText(/In Valutazione · di Fina/)).toBeInTheDocument();
     expect(screen.getByText("Tema scuro per la dashboard")).toBeInTheDocument();
-    expect(screen.getByText("Affatica la vista di notte")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "https://example.com/spec" }),
     ).toHaveAttribute("href", "https://example.com/spec");
@@ -121,21 +119,25 @@ describe("ProposalPanel", () => {
     expect(screen.getByText("Ease")).toBeInTheDocument();
   });
 
-  it("shows the vote form only to a non-proposer who has not voted, in valutazione", () => {
+  it("shows the vote form to a non-proposer in any state except 'nuova' (#9c)", () => {
     // proposer (u1): mai il form
     const { rerender } = render(<ProposalPanel detail={base} currentUserId="u1" />);
     expect(screen.queryByRole("button", { name: "Invia voto" })).not.toBeInTheDocument();
 
-    // altro utente che non ha votato: form presente
+    // altro utente, in valutazione: form presente
     rerender(<ProposalPanel detail={base} currentUserId="u2" />);
     expect(screen.getByRole("button", { name: "Invia voto" })).toBeInTheDocument();
 
-    // fuori da 'in_valutazione': mai il form
+    // #9c: anche in uno stato diverso (es. approvata) si può votare
     rerender(<ProposalPanel detail={{ ...base, status: "approvata" }} currentUserId="u2" />);
+    expect(screen.getByRole("button", { name: "Invia voto" })).toBeInTheDocument();
+
+    // tranne in 'nuova': niente voto
+    rerender(<ProposalPanel detail={{ ...base, status: "nuova" }} currentUserId="u2" />);
     expect(screen.queryByRole("button", { name: "Invia voto" })).not.toBeInTheDocument();
   });
 
-  it("hides the vote form and lists a user's own vote with its 1–10 score", () => {
+  it("offers an editable, prefilled vote form to a user who already voted, and lists the vote (#8)", () => {
     const detail = {
       ...base,
       votes: [
@@ -152,7 +154,8 @@ describe("ProposalPanel", () => {
       ],
     };
     render(<ProposalPanel detail={detail} currentUserId="u2" />);
-    // ha già votato → niente form
+    // #8: ha già votato → può aggiornarlo (form "Aggiorna voto", non più bloccato)
+    expect(screen.getByRole("button", { name: "Aggiorna voto" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Invia voto" })).not.toBeInTheDocument();
     expect(screen.getByText("Voti utenti (1)")).toBeInTheDocument();
     // voto massimo (tutti 10) → 10 sia nella riga utente sia nel totale composito
