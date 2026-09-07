@@ -159,7 +159,7 @@ describe("listProposals", () => {
   it("searches title and description with a sanitized ilike term", async () => {
     const { supabase, or } = fakeBuilder([row]);
 
-    await listProposals(supabase, { search: "map(a),b*" });
+    await listProposals(supabase, { projectId: "pr1", search: "map(a),b*" });
 
     // (, ), *, virgola diventano spazi per non rompere la grammatica .or
     expect(or).toHaveBeenCalledWith("title.ilike.%map a  b %,description.ilike.%map a  b %");
@@ -168,7 +168,7 @@ describe("listProposals", () => {
   it("keeps archived proposals out of search results", async () => {
     const { supabase, neq } = fakeBuilder([row]);
 
-    await listProposals(supabase, { search: "mappa" });
+    await listProposals(supabase, { projectId: "pr1", search: "mappa" });
 
     expect(neq).toHaveBeenCalledWith("status", "archiviata");
   });
@@ -176,28 +176,29 @@ describe("listProposals", () => {
   it("searches inside the archive when the status filter asks for it", async () => {
     const { supabase, neq, eq } = fakeBuilder([row]);
 
-    await listProposals(supabase, { search: "mappa", status: "archiviata" });
+    await listProposals(supabase, { projectId: "pr1", search: "mappa", status: "archiviata" });
 
     expect(neq).not.toHaveBeenCalled();
     expect(eq).toHaveBeenCalledWith("status", "archiviata");
   });
 
-  it("does not filter when no search or status is given", async () => {
+  it("scopes to the project and does not filter further when no search or status is given", async () => {
     const { supabase, or, eq, neq } = fakeBuilder([row]);
 
-    await listProposals(supabase, {});
+    await listProposals(supabase, { projectId: "pr1" });
 
     expect(or).not.toHaveBeenCalled();
     expect(neq).not.toHaveBeenCalled();
-    // l'unico eq è il filtro sull'embed dei contributi, sempre presente (0016)
-    expect(eq).toHaveBeenCalledTimes(1);
+    // solo il filtro sull'embed dei contributi (0016) e quello di progetto (0021)
+    expect(eq).toHaveBeenCalledTimes(2);
     expect(eq).toHaveBeenCalledWith("contributors.promotion_status", "accepted");
+    expect(eq).toHaveBeenCalledWith("project_id", "pr1");
   });
 
   it("filters by status when given", async () => {
     const { supabase, eq } = fakeBuilder([row]);
 
-    await listProposals(supabase, { status: "approvata" });
+    await listProposals(supabase, { projectId: "pr1", status: "approvata" });
 
     expect(eq).toHaveBeenCalledWith("status", "approvata");
   });
@@ -205,7 +206,7 @@ describe("listProposals", () => {
   it("returns an empty array when the query yields no data", async () => {
     const { supabase } = fakeBuilder(null);
 
-    expect(await listProposals(supabase, {})).toEqual([]);
+    expect(await listProposals(supabase, { projectId: "pr1" })).toEqual([]);
   });
 
   it("suspends the votes of accepted contributors and keeps the others", async () => {
@@ -221,7 +222,7 @@ describe("listProposals", () => {
       }],
     }]);
 
-    const [item] = await listProposals(supabase, {});
+    const [item] = await listProposals(supabase, { projectId: "pr1" });
     // il voto del contributore u2 è sospeso (derivato, la riga a DB resta)
     expect(item.votes).toEqual([
       { voter_id: "u3", reach: 8, impact: 8, confidence: 8, effort: 8 },
@@ -240,7 +241,7 @@ describe("listProposals", () => {
       ],
     }]);
 
-    const [item] = await listProposals(supabase, {});
+    const [item] = await listProposals(supabase, { projectId: "pr1" });
     expect(item.contributors).toEqual([ada, bea]);
   });
 });

@@ -1,5 +1,5 @@
 // git_ref di una proposta (migration 0020): "#123" = pull request, altrimenti
-// nome di branch. Il link punta alla repo collegata (app_settings).
+// nome di branch. Il link punta alla repo collegata al progetto (projects, 0021).
 export function gitRefUrl(ref: string, repo: { owner: string; name: string }): string {
   const base = `https://github.com/${repo.owner}/${repo.name}`;
   const pr = /^#(\d+)$/.exec(ref);

@@ -83,6 +83,9 @@ export type ProposalDetail = VoteComponents & {
   created_at: string;
   proposer_id: string;
   proposer: PersonRef;
+  // progetto (bacheca) a cui appartiene, con la repo collegata (migration 0021)
+  project_id: string;
+  project: { github_owner: string | null; github_repo: string | null };
   status_history: {
     id: string;
     from_status: ProposalStatus | null;
@@ -208,11 +211,11 @@ export function rankProposalsByScore(items: ProposalListItem[]): ProposalListIte
     .map((entry) => entry.item);
 }
 
-// Data layer: legge le proposte con ricerca testo (titolo/descrizione) e filtro
-// stato opzionali. RLS resta il backstop sull'autorizzazione.
+// Data layer: legge le proposte di un progetto con ricerca testo
+// (titolo/descrizione) e filtro stato opzionali. RLS resta il backstop.
 export async function listProposals(
   supabase: SupabaseClient,
-  { search, status }: { search?: string; status?: ProposalStatus },
+  { projectId, search, status }: { projectId: string; search?: string; status?: ProposalStatus },
 ): Promise<ProposalListItem[]> {
   let query = supabase
     .from("proposals")
@@ -227,6 +230,7 @@ export async function listProposals(
     // filtro sull'embed (path con l'alias, NON `comments.`): tiene solo i
     // contributi accepted senza escludere le proposte che non ne hanno
     .eq("contributors.promotion_status", "accepted")
+    .eq("project_id", projectId)
     .order("created_at", { ascending: false });
 
   if (search) {
@@ -282,8 +286,9 @@ export async function getProposalDetail(
       `id, title, description, problem, status, reach, impact, confidence,
        effort, ai_rationale, ai_eval_status, ai_eval_error, dup_scan_status,
        dup_scan_error, dup_flagged, dup_similarity, dup_report, links, git_ref,
-       internal_notes, created_at, proposer_id,
+       internal_notes, created_at, proposer_id, project_id,
        proposer:profiles(name, email),
+       project:projects(github_owner, github_repo),
        dup_match:proposals!dup_match_id(id, title, proposer:profiles(name, email)),
        status_history(id, from_status, to_status, created_at, author:profiles(name, email)),
        comments(id, body, created_at, author_id, promotion_status, anchor_field,

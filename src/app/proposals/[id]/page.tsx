@@ -2,13 +2,15 @@ import { notFound, redirect } from "next/navigation";
 
 import { ProposalPanel } from "@/components/detail/ProposalPanel";
 import { BackLink } from "@/components/nav/BackLink";
-import { connectedRepo, getGithubSettings } from "@/lib/github/settings";
-import { getProfile } from "@/lib/profiles";
+import { connectedRepo } from "@/lib/github/settings";
+import { isProjectAdmin } from "@/lib/projects";
 import { getProposalDetail } from "@/lib/proposals";
+import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
 
 // Pagina piena del dettaglio: navigazione diretta / refresh / link condiviso.
 // L'apertura dalla board è intercettata dal modal in @modal/(.)proposals/[id].
+// L'URL resta globale (l'id è univoco): il progetto si ricava dalla proposta.
 export default async function ProposalDetailPage({
   params,
 }: {
@@ -20,19 +22,20 @@ export default async function ProposalDetailPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [detail, settings] = await Promise.all([
-    getProposalDetail(supabase, (await params).id),
-    getGithubSettings(supabase),
-  ]);
+  const detail = await getProposalDetail(supabase, (await params).id);
   if (!detail) notFound();
-  const repo = connectedRepo(settings);
 
-  const isAdmin = (await getProfile(supabase, user.id))?.role === "admin";
+  const isAdmin = await isProjectAdmin(supabase, detail.project_id, user.id);
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-6">
-      <BackLink />
-      <ProposalPanel detail={detail} isAdmin={isAdmin} currentUserId={user.id} repo={repo} />
+      <BackLink href={`/projects/${detail.project_id}`} label={STRINGS.nav.backToBoard} />
+      <ProposalPanel
+        detail={detail}
+        isAdmin={isAdmin}
+        currentUserId={user.id}
+        repo={connectedRepo(detail.project)}
+      />
     </main>
   );
 }

@@ -71,7 +71,7 @@ export function ProposalPanel({
   detail: ProposalDetail;
   isAdmin?: boolean;
   currentUserId?: string;
-  // repo GitHub collegata (app_settings): serve per linkare git_ref
+  // repo GitHub collegata al progetto (projects, 0021): serve per linkare git_ref
   repo?: { owner: string; name: string } | null;
 }) {
   const composite = computeCompositeScore(detail, detail.votes);

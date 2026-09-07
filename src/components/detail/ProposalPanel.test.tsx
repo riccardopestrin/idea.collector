@@ -40,6 +40,8 @@ const base: ProposalDetail = {
   internal_notes: null,
   created_at: "2026-07-01T10:00:00Z",
   proposer_id: "u1",
+  project_id: "pr1",
+  project: { github_owner: null, github_repo: null },
   proposer: { name: "Fina", email: "fina@test.local" },
   status_history: [
     {

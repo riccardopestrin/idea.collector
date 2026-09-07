@@ -1,4 +1,4 @@
-**Last updated:** 2026-09-05
+**Last updated:** 2026-09-07
 
 # Be Careful — issue note consapevolmente rinviate
 
@@ -7,6 +7,31 @@ Registro durevole delle NICE-TO-HAVE consapevolmente rinviate: problemi che **no
 Ogni voce ha un ID stabile nel formato `YYYY-MM-DD-XXXX` (data del flag + 4 char di hash). **Gli ID non vengono mai riusati, rinumerati o riscritti**, nemmeno dopo la risoluzione.
 
 ---
+
+## `2026-09-07-inv1` Inviti service-role raggiungibili da ogni utente autenticato via `create_project` — oracle di esistenza account
+
+**Status:** non fissato — non si verifica nell'attuale use case.
+
+### Dove
+- [src/app/projects/actions.ts](../../src/app/projects/actions.ts) — `inviteMember`: `auth.admin.inviteUserByEmail` (service-role) per qualsiasi email; se GoTrue rifiuta ("già registrato") lookup `profiles` per email e sola membership; esito `invited` vs `added`
+- [supabase/migrations/0021_projects.sql](../../supabase/migrations/0021_projects.sql) — `create_project` con execute a `authenticated`: chiunque crea un progetto e ne è admin, quindi invita
+
+### Il problema potenziale
+Prima della 0021 l'invito era riservato all'admin globale. Ora ogni account può (a) far creare account e inviare email dall'identità SMTP del prodotto verso indirizzi arbitrari, (b) dedurre dall'esito se un'email è già registrata e, aggiungendola a un proprio progetto, leggerne nome ed email (policy co-membri su `profiles`) senza consenso dell'invitato.
+
+### Perché oggi non è un problema
+È la feature decisa dall'owner (RFC-007: "chi crea il progetto è admin e invita"). L'app è invite-only end-to-end: ogni account esistente è stato invitato da un admin, il team è piccolo e fidato. L'oracle esisteva già per gli admin (`inviteFailed` vs successo) e collassare `invited`/`added` sarebbe teatro: l'invitato compare comunque subito nella lista membri.
+
+### Quando diventa un problema
+1. Se l'app apre la self-registration o accoglie utenti non fidati.
+2. Se serve un tetto agli inviti GoTrue (rate limit SMTP, abuso).
+3. Se la visibilità di nome/email tra co-membri diventa sensibile (GDPR con utenti esterni).
+
+### Cosa fare se devi toccare quest'area
+Gate su `create_project` (es. solo membri di almeno un progetto, o flag su `profiles`) e/o rate limit per utente sugli inviti in `inviteMember`; eventualmente messaggio neutro unico. Consequence registrata in ADR-0009.
+
+### Cronologia
+- 2026-09-07 — Flaggato durante review chain `projectList` (Software Reviewer MEDIUM → Review Reviewer NICE-TO-HAVE: è la decisione owner, serve solo il record).
 
 ## `2026-07-03-adm1` Guard admin duplicato in azioni e route
 
@@ -19,6 +44,7 @@ Ogni voce ha un ID stabile nel formato `YYYY-MM-DD-XXXX` (data del flag + 4 char
 - [src/app/proposals/actions.ts](../../src/app/proposals/actions.ts) — `resolveCommentPromotion` e `revokeCommentPromotion` (branch `commentPromotion`, 2026-07-08): variante **proposer-or-admin** — un'estrazione di un semplice `requireAdmin` non coprirebbe questa forma; l'eventuale helper deve accettare anche la condizione di ownership
 - [src/app/proposals/actions.ts](../../src/app/proposals/actions.ts) — `runProposalScanAction` (branch `ideaChecker`, 2026-07-08): quarta istanza della variante proposer-or-admin (dal 2026-09-05 SENZA backstop DB: `can_run_dup_scan` droppata dalla 0020)
 - [src/app/profile/actions.ts](../../src/app/profile/actions.ts) — `inviteUser`/`setUserRole`/`removeUser` (branch `newFeatures`, 2026-09-05): riusano `requireAdmin()` del modulo; `deleteComment` e `setGitRef` aggiungono due istanze inline della variante owner-or-admin
+- [src/app/projects/actions.ts](../../src/app/projects/actions.ts) — `requireProjectAdmin(projectId)` (branch `projectList`, 2026-09-07): il guard è ora **per progetto** (`isProjectAdmin(supabase, projectId, userId)` in `src/lib/projects.ts`, migration 0021). Le 9 istanze inline in `src/app/proposals/actions.ts` e `src/app/proposals/[id]/actions.ts` sono state riscritte 1:1 nella forma `proposer_id !== user.id && !(await isProjectAdmin(supabase, proposal.project_id, user.id))` — stessa duplicazione, nuovo seam. Il `project_id` va sempre selezionato insieme al `proposer_id`: dimenticarlo passa `undefined` a `isProjectAdmin` → false → l'admin viene rifiutato (fail-closed, ma è un bug funzionale).
 
 ### Il problema potenziale
 La forma auth-resolve + role-check è ripetuta in 3+ punti: una futura modifica all'autorizzazione va applicata ovunque, e un punto dimenticato è un bug di sicurezza (mitigato dal backstop RLS/RPC a DB).

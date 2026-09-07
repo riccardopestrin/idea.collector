@@ -5,7 +5,7 @@ import { refresh } from "next/cache";
 import { runEvaluation } from "@/lib/ai/runEvaluation";
 import { runProposalScan } from "@/lib/ai/runProposalScan";
 import { parseGitRef } from "@/lib/github/gitRef";
-import { getProfile } from "@/lib/profiles";
+import { isProjectAdmin } from "@/lib/projects";
 import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
 import { parseProposalFields } from "@/lib/validation/proposal";
@@ -35,14 +35,14 @@ export async function updateProposal(
 
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("proposer_id, status, title, description, problem")
+    .select("proposer_id, project_id, status, title, description, problem")
     .eq("id", proposalId)
     .maybeSingle();
   if (!proposal) return { error: STRINGS.errors.proposalNotFound };
 
   if (
     proposal.proposer_id !== user.id &&
-    (await getProfile(supabase, user.id))?.role !== "admin"
+    !(await isProjectAdmin(supabase, proposal.project_id, user.id))
   ) {
     return { error: STRINGS.proposal.editAuth };
   }
@@ -154,13 +154,13 @@ export async function setGitRef(
 
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("proposer_id")
+    .select("proposer_id, project_id")
     .eq("id", proposalId)
     .maybeSingle();
   if (!proposal) return { error: STRINGS.errors.proposalNotFound };
   if (
     proposal.proposer_id !== user.id &&
-    (await getProfile(supabase, user.id))?.role !== "admin"
+    !(await isProjectAdmin(supabase, proposal.project_id, user.id))
   ) {
     return { error: STRINGS.proposal.gitRefAuth };
   }

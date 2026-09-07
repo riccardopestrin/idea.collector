@@ -9,9 +9,11 @@ import { parseProposalFields } from "@/lib/validation/proposal";
 
 type CreateProposalState = { error: string } | null;
 
-// Crea una proposta a nome dell'utente corrente. Autorizza (deve essere loggato)
-// e orchestra l'insert; la RLS impone comunque proposer_id = auth.uid().
+// Crea una proposta a nome dell'utente corrente nel progetto dato. Autorizza
+// (deve essere loggato e membro: la RLS impone proposer_id = auth.uid() e la
+// membership) e orchestra l'insert. projectId arriva via bind dal form.
 export async function createProposal(
+  projectId: string,
   _prev: CreateProposalState,
   formData: FormData
 ): Promise<CreateProposalState> {
@@ -26,7 +28,7 @@ export async function createProposal(
 
   const { data, error } = await supabase
     .from("proposals")
-    .insert({ ...parsed.fields, proposer_id: user.id })
+    .insert({ ...parsed.fields, proposer_id: user.id, project_id: projectId })
     .select("id")
     .single();
   if (error || !data) {
@@ -34,7 +36,7 @@ export async function createProposal(
     return { error: STRINGS.errors.saveFailed };
   }
 
-  revalidatePath("/"); // altrimenti la board mostra la cache senza la nuova proposta
+  revalidatePath(`/projects/${projectId}`); // altrimenti la board mostra la cache senza la nuova proposta
   // RFC-006: si atterra sul dettaglio, dove ProposalScanTrigger avvia lo scan.
   redirect(`/proposals/${data.id}`);
 }

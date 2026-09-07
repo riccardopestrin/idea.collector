@@ -1,28 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  disconnectGithub,
-  inviteUser,
-  selectRepo,
-  setUserDisabled,
-  setUserRole,
-  startGithubConnect,
-  updateName,
-} from "./actions";
+import { updateName } from "./actions";
 
-const {
-  getUser,
-  update,
-  eq,
-  from,
-  redirect,
-  refresh,
-  cookieSet,
-  getProfile,
-  listInstallationRepos,
-  getGithubSettings,
-  upsertGithubSettings,
-} = vi.hoisted(() => {
+const { getUser, update, eq, from, redirect } = vi.hoisted(() => {
   const eq = vi.fn();
   const update = vi.fn(() => ({ eq }));
   return {
@@ -31,32 +11,13 @@ const {
     eq,
     from: vi.fn(() => ({ update })),
     redirect: vi.fn(),
-    refresh: vi.fn(),
-    cookieSet: vi.fn(),
-    getProfile: vi.fn(),
-    listInstallationRepos: vi.fn(),
-    getGithubSettings: vi.fn(),
-    upsertGithubSettings: vi.fn(),
   };
 });
 
 vi.mock("@/lib/supabase/server", () => ({
-  supabaseServer: async () => ({ auth: { getUser }, from, rpc }),
-}));
-const { rpc, inviteUserByEmail, updateUserById } = vi.hoisted(() => ({
-  rpc: vi.fn(),
-  inviteUserByEmail: vi.fn(),
-  updateUserById: vi.fn(),
-}));
-vi.mock("@/lib/supabase/admin", () => ({
-  supabaseAdmin: () => ({ auth: { admin: { inviteUserByEmail, updateUserById } } }),
+  supabaseServer: async () => ({ auth: { getUser }, from }),
 }));
 vi.mock("next/navigation", () => ({ redirect }));
-vi.mock("next/cache", () => ({ refresh }));
-vi.mock("next/headers", () => ({ cookies: async () => ({ set: cookieSet }) }));
-vi.mock("@/lib/profiles", () => ({ getProfile, ROLES: ["admin", "contributor"] }));
-vi.mock("@/lib/github/app", () => ({ listInstallationRepos }));
-vi.mock("@/lib/github/settings", () => ({ getGithubSettings, upsertGithubSettings }));
 
 const formOf = (entries: Record<string, string>) => {
   const fd = new FormData();
@@ -113,213 +74,5 @@ describe("updateName", () => {
 
     expect(result).toEqual({ error: "Errore nel salvataggio. Riprova." });
     expect(redirect).not.toHaveBeenCalled();
-  });
-});
-
-describe("GitHub actions", () => {
-  // Setup comune: admin autenticato, installazione attiva che copre
-  // acme/ideas, upsert che va a buon fine.
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.unstubAllEnvs();
-    getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
-    getProfile.mockResolvedValue({ role: "admin", name: "Ric" });
-    getGithubSettings.mockResolvedValue({
-      github_installation_id: 42,
-      github_owner: null,
-      github_repo: null,
-    });
-    listInstallationRepos.mockResolvedValue([{ owner: "acme", name: "ideas" }]);
-    upsertGithubSettings.mockResolvedValue(null);
-  });
-
-  describe("selectRepo", () => {
-    it("refuses a non-admin user", async () => {
-      getProfile.mockResolvedValue({ role: "contributor", name: null });
-
-      const result = await selectRepo(null, formOf({ repo: "acme/ideas" }));
-
-      expect(result).toEqual({ error: "Solo un admin può configurare GitHub." });
-      expect(upsertGithubSettings).not.toHaveBeenCalled();
-    });
-
-    it("errors when no GitHub installation is active", async () => {
-      getGithubSettings.mockResolvedValue(null);
-
-      const result = await selectRepo(null, formOf({ repo: "acme/ideas" }));
-
-      expect(result).toEqual({
-        error: "Nessuna autorizzazione GitHub attiva. Connetti GitHub prima.",
-      });
-      expect(upsertGithubSettings).not.toHaveBeenCalled();
-    });
-
-    it("rejects a repo outside the authorized installation", async () => {
-      const result = await selectRepo(null, formOf({ repo: "evil/other" }));
-
-      expect(result).toEqual({ error: "Repo non coperta dall'autorizzazione GitHub." });
-      expect(upsertGithubSettings).not.toHaveBeenCalled();
-    });
-
-    it("saves the selected repo and refreshes", async () => {
-      const result = await selectRepo(null, formOf({ repo: "acme/ideas" }));
-
-      expect(result).toBeNull();
-      expect(upsertGithubSettings).toHaveBeenCalledWith(expect.anything(), "u1", {
-        github_owner: "acme",
-        github_repo: "ideas",
-      });
-      expect(refresh).toHaveBeenCalled();
-    });
-  });
-
-  describe("startGithubConnect", () => {
-    it("refuses a non-admin user", async () => {
-      getProfile.mockResolvedValue({ role: "contributor", name: null });
-
-      const result = await startGithubConnect();
-
-      expect(result).toEqual({ error: "Solo un admin può configurare GitHub." });
-      expect(redirect).not.toHaveBeenCalled();
-    });
-
-    it("errors when GITHUB_APP_SLUG is missing", async () => {
-      vi.stubEnv("GITHUB_APP_SLUG", "");
-
-      const result = await startGithubConnect();
-
-      expect(result).toEqual({ error: "GitHub App non configurata (manca GITHUB_APP_SLUG)." });
-      expect(redirect).not.toHaveBeenCalled();
-    });
-
-    it("sets the anti-CSRF nonce cookie and redirects to the install URL with the same state", async () => {
-      vi.stubEnv("GITHUB_APP_SLUG", "idea-app");
-
-      await startGithubConnect();
-
-      const [name, state, options] = cookieSet.mock.calls[0];
-      expect(name).toBe("github_connect_state");
-      expect(options).toMatchObject({ httpOnly: true, sameSite: "lax" });
-      expect(redirect).toHaveBeenCalledWith(
-        `https://github.com/apps/idea-app/installations/new?state=${state}`,
-      );
-    });
-  });
-
-  describe("disconnectGithub", () => {
-    it("refuses a non-admin user", async () => {
-      getProfile.mockResolvedValue({ role: "contributor", name: null });
-
-      const result = await disconnectGithub();
-
-      expect(result).toEqual({ error: "Solo un admin può configurare GitHub." });
-      expect(upsertGithubSettings).not.toHaveBeenCalled();
-    });
-
-    it("clears the GitHub settings and refreshes", async () => {
-      const result = await disconnectGithub();
-
-      expect(result).toBeNull();
-      expect(upsertGithubSettings).toHaveBeenCalledWith(expect.anything(), "u1", {
-        github_installation_id: null,
-        github_owner: null,
-        github_repo: null,
-      });
-      expect(refresh).toHaveBeenCalled();
-    });
-  });
-});
-
-describe("user management", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
-    getProfile.mockResolvedValue({ role: "admin", name: "Ric" });
-    rpc.mockResolvedValue({ data: null, error: null });
-    inviteUserByEmail.mockResolvedValue({ data: { user: { id: "new-1" } }, error: null });
-    updateUserById.mockResolvedValue({ data: {}, error: null });
-  });
-
-  describe("inviteUser", () => {
-    it("refuses a non-admin user", async () => {
-      getProfile.mockResolvedValue({ role: "contributor", name: null });
-      expect(await inviteUser(null, formOf({ email: "a@b.co" }))).toEqual({
-        error: "Solo un admin può gestire gli utenti.",
-      });
-      expect(inviteUserByEmail).not.toHaveBeenCalled();
-    });
-
-    it("rejects a malformed email before calling Supabase", async () => {
-      expect(await inviteUser(null, formOf({ email: "not-an-email" }))).toEqual({
-        error: "Email non valida.",
-      });
-      expect(inviteUserByEmail).not.toHaveBeenCalled();
-    });
-
-    it("invites a contributor with the normalized email and no role change", async () => {
-      expect(await inviteUser(null, formOf({ email: " Ada@Hint.App " }))).toBeNull();
-      expect(inviteUserByEmail).toHaveBeenCalledWith("ada@hint.app");
-      expect(rpc).not.toHaveBeenCalled();
-      expect(refresh).toHaveBeenCalled();
-    });
-
-    it("promotes the invitee when the admin flag is set", async () => {
-      expect(await inviteUser(null, formOf({ email: "ada@hint.app", admin: "on" }))).toBeNull();
-      expect(rpc).toHaveBeenCalledWith("set_profile_role", { p_id: "new-1", p_role: "admin" });
-    });
-
-    it("maps an invite failure to a generic message", async () => {
-      vi.spyOn(console, "error").mockImplementation(() => {});
-      inviteUserByEmail.mockResolvedValue({ data: { user: null }, error: { message: "smtp" } });
-      expect(await inviteUser(null, formOf({ email: "ada@hint.app" }))).toEqual({
-        error: "Invito non riuscito. Riprova.",
-      });
-    });
-  });
-
-  describe("setUserRole", () => {
-    it("rejects an unknown role", async () => {
-      expect(await setUserRole("u2", "owner")).toEqual({ error: "Ruolo non valido." });
-      expect(rpc).not.toHaveBeenCalled();
-    });
-
-    it("refuses to change the caller's own role", async () => {
-      expect(await setUserRole("u1", "contributor")).toEqual({
-        error: "Non puoi cambiare il tuo stesso ruolo.",
-      });
-      expect(rpc).not.toHaveBeenCalled();
-    });
-
-    it("changes another user's role through the RPC", async () => {
-      expect(await setUserRole("u2", "admin")).toBeNull();
-      expect(rpc).toHaveBeenCalledWith("set_profile_role", { p_id: "u2", p_role: "admin" });
-      expect(refresh).toHaveBeenCalled();
-    });
-  });
-
-  describe("setUserDisabled", () => {
-    it("refuses to disable the caller", async () => {
-      expect(await setUserDisabled("u1", true)).toEqual({
-        error: "Non puoi disabilitare te stesso.",
-      });
-      expect(updateUserById).not.toHaveBeenCalled();
-    });
-
-    it("bans another user via the admin API and lifts the ban to re-enable", async () => {
-      expect(await setUserDisabled("u2", true)).toBeNull();
-      expect(updateUserById).toHaveBeenCalledWith("u2", { ban_duration: "876600h" });
-
-      expect(await setUserDisabled("u2", false)).toBeNull();
-      expect(updateUserById).toHaveBeenCalledWith("u2", { ban_duration: "none" });
-      expect(refresh).toHaveBeenCalledTimes(2);
-    });
-
-    it("maps an admin API failure to a generic message", async () => {
-      vi.spyOn(console, "error").mockImplementation(() => {});
-      updateUserById.mockResolvedValue({ data: null, error: { message: "boom" } });
-      expect(await setUserDisabled("u2", true)).toEqual({
-        error: "Operazione non riuscita. Riprova.",
-      });
-    });
   });
 });

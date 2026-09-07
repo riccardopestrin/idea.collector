@@ -2,13 +2,13 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { installationToken, listInstallationRepos } from "@/lib/github/app";
-import { upsertGithubSettings } from "@/lib/github/settings";
-import { getProfile } from "@/lib/profiles";
+import { updateGithubSettings } from "@/lib/github/settings";
+import { isProjectAdmin } from "@/lib/projects";
 import { supabaseServer } from "@/lib/supabase/server";
 
 // Callback dell'autorizzazione GitHub App (RFC-003): GitHub redirige qui con
 // ?installation_id=… dopo che l'admin ha autorizzato l'App sulla repo scelta.
-// Transport: autentica, autorizza admin, salva, mappa gli esiti in redirect.
+// Transport: autentica, autorizza admin del progetto, salva, mappa in redirect.
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const supabase = await supabaseServer();
@@ -16,22 +16,24 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.redirect(new URL("/login", url.origin));
-  if ((await getProfile(supabase, user.id))?.role !== "admin") {
-    return NextResponse.redirect(new URL("/", url.origin));
-  }
 
   // Anti-CSRF: lo state deve combaciare col nonce messo in cookie da
-  // startGithubConnect — solo un flusso avviato da QUESTO admin arriva qui.
+  // startGithubConnect (insieme all'id del progetto) — solo un flusso avviato
+  // da QUESTO admin, per QUEL progetto, arriva qui.
   const store = await cookies();
-  const expectedState = store.get("github_connect_state")?.value;
+  const [expectedState, projectId] = store.get("github_connect_state")?.value.split(".") ?? [];
   store.delete("github_connect_state");
-  if (!expectedState || url.searchParams.get("state") !== expectedState) {
-    return NextResponse.redirect(new URL("/profile?github=error", url.origin));
+  if (!expectedState || !projectId || url.searchParams.get("state") !== expectedState) {
+    return NextResponse.redirect(new URL("/", url.origin));
+  }
+  if (!(await isProjectAdmin(supabase, projectId, user.id))) {
+    return NextResponse.redirect(new URL(`/projects/${projectId}`, url.origin));
   }
 
+  const settingsUrl = `/projects/${projectId}/settings`;
   const installationId = Number(url.searchParams.get("installation_id"));
   if (!Number.isInteger(installationId) || installationId <= 0) {
-    return NextResponse.redirect(new URL("/profile?github=error", url.origin));
+    return NextResponse.redirect(new URL(`${settingsUrl}?github=error`, url.origin));
   }
 
   try {
@@ -41,7 +43,7 @@ export async function GET(request: Request) {
     await installationToken(installationId);
     const repos = await listInstallationRepos(installationId);
     const only = repos.length === 1 ? repos[0] : null;
-    const result = await upsertGithubSettings(supabase, user.id, {
+    const result = await updateGithubSettings(projectId, {
       github_installation_id: installationId,
       github_owner: only?.owner ?? null,
       github_repo: only?.name ?? null,
@@ -49,8 +51,8 @@ export async function GET(request: Request) {
     if (result) throw new Error(result.error);
   } catch (err) {
     console.error("github callback:", err);
-    return NextResponse.redirect(new URL("/profile?github=error", url.origin));
+    return NextResponse.redirect(new URL(`${settingsUrl}?github=error`, url.origin));
   }
 
-  return NextResponse.redirect(new URL("/profile", url.origin));
+  return NextResponse.redirect(new URL(settingsUrl, url.origin));
 }

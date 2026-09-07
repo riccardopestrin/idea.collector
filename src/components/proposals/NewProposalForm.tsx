@@ -8,10 +8,10 @@ import { Field } from "@/components/form/Field";
 import { SubmitButton } from "@/components/form/SubmitButton";
 import { STRINGS } from "@/lib/strings";
 
-// Form di creazione proposta, condiviso tra la pagina piena (/proposals/new)
-// e l'overlay (@modal/(.)proposals/new).
-export function NewProposalForm() {
-  const [state, action, pending] = useActionState(createProposal, null);
+// Form di creazione proposta in un progetto, condiviso tra la pagina piena
+// (/projects/[id]/proposals/new) e l'overlay (@modal/(.)projects/[id]/proposals/new).
+export function NewProposalForm({ projectId }: { projectId: string }) {
+  const [state, action, pending] = useActionState(createProposal.bind(null, projectId), null);
 
   return (
     <form action={action} className="flex w-full flex-col gap-4">

@@ -1,23 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-// Ruoli applicativi — mirror del check su profiles.role (migration 0001).
-export const ROLES = ["admin", "contributor"] as const;
-export type Role = (typeof ROLES)[number];
-
 export type Profile = {
-  role: Role;
   name: string | null;
 };
 
-// Profilo applicativo dell'utente (profiles.role + name). Seam unico per i check
-// admin-gated e per l'onboarding nome; l'autorizzazione vera resta nel DB (trigger + RLS).
+// Profilo applicativo dell'utente (profiles.name). Il ruolo non vive più qui:
+// è per progetto, su project_members (migration 0021, src/lib/projects.ts).
 export async function getProfile(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<Profile | null> {
   const { data } = await supabase
     .from("profiles")
-    .select("role, name")
+    .select("name")
     .eq("id", userId)
     .single();
   return data as Profile | null;

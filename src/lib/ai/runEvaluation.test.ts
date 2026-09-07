@@ -132,11 +132,11 @@ describe("runEvaluation", () => {
     const { client, rpc } = fakeSupabase({ proposal: fresh });
 
     expect(await runEvaluation(client, "p1")).toEqual({
-      error: "Valutazione fallita: Collega GitHub e scegli la repo nel profilo.",
+      error: "Valutazione fallita: Collega GitHub e scegli la repo nelle impostazioni del progetto.",
     });
     expect(rpc).toHaveBeenCalledWith("fail_ai_evaluation", {
       p_id: "p1",
-      p_error: "Collega GitHub e scegli la repo nel profilo.",
+      p_error: "Collega GitHub e scegli la repo nelle impostazioni del progetto.",
     });
     expect(rpc).not.toHaveBeenCalledWith("apply_ai_evaluation", expect.anything());
   });

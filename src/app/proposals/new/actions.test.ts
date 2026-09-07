@@ -38,14 +38,15 @@ describe("createProposal", () => {
   });
 
   it("rejects an empty title without touching the database", async () => {
-    const result = await createProposal(null, formOf({ title: "   " }));
+    const result = await createProposal("pr1", null, formOf({ title: "   " }));
 
     expect(result).toEqual({ error: "Il titolo è obbligatorio." });
     expect(insert).not.toHaveBeenCalled();
   });
 
-  it("inserts for the current user, nulls empty optionals and parses links by line", async () => {
+  it("inserts for the current user in the project, nulls empty optionals and parses links by line", async () => {
     await createProposal(
+      "pr1",
       null,
       formOf({
         title: "Mappa offline",
@@ -61,8 +62,9 @@ describe("createProposal", () => {
       problem: null,
       links: ["https://a.test", "https://b.test"],
       proposer_id: "u1",
+      project_id: "pr1",
     });
-    expect(revalidatePath).toHaveBeenCalledWith("/");
+    expect(revalidatePath).toHaveBeenCalledWith("/projects/pr1");
     // RFC-006: si atterra sul dettaglio, dove parte lo scan duplicati
     expect(redirect).toHaveBeenCalledWith("/proposals/p9");
   });
@@ -70,7 +72,7 @@ describe("createProposal", () => {
   it("returns a generic error when the insert fails", async () => {
     single.mockResolvedValue({ data: null, error: { message: "boom" } });
 
-    const result = await createProposal(null, formOf({ title: "X" }));
+    const result = await createProposal("pr1", null, formOf({ title: "X" }));
 
     expect(result).toEqual({ error: "Errore nel salvataggio. Riprova." });
     expect(redirect).not.toHaveBeenCalled();
@@ -79,7 +81,7 @@ describe("createProposal", () => {
   it("refuses to write when there is no authenticated user", async () => {
     getUser.mockResolvedValue({ data: { user: null } });
 
-    const result = await createProposal(null, formOf({ title: "X" }));
+    const result = await createProposal("pr1", null, formOf({ title: "X" }));
 
     expect(result).toEqual({ error: "Sessione scaduta. Rientra e riprova." });
     expect(insert).not.toHaveBeenCalled();

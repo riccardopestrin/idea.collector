@@ -22,7 +22,7 @@ export async function runEvaluation(
   const { data: proposal } = await supabase
     .from("proposals")
     .select(
-      `title, description, problem, links, ai_generated, manually_edited,
+      `title, description, problem, links, ai_generated, manually_edited, project_id,
        contributions:comments(body, created_at, author:profiles(name))`,
     )
     .eq("id", proposalId)
@@ -37,6 +37,7 @@ export async function runEvaluation(
         links: string[];
         ai_generated: boolean;
         manually_edited: boolean;
+        project_id: string;
         contributions: {
           body: string;
           created_at: string;
@@ -72,7 +73,7 @@ export async function runEvaluation(
   refresh();
 
   try {
-    const settings = await getGithubSettings(supabase);
+    const settings = await getGithubSettings(supabase, proposal.project_id);
     if (!settings?.github_installation_id || !settings.github_owner || !settings.github_repo) {
       throw new Error(STRINGS.github.notConnected);
     }

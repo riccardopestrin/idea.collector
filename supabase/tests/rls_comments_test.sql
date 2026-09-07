@@ -9,9 +9,14 @@ insert into auth.users (id, email)
 values ('ffffffff-ffff-ffff-ffff-ffffffffffff', 'fina@test.local'),
        ('99999999-9999-9999-9999-999999999999', 'gino@test.local');
 
-insert into public.proposals (id, title, proposer_id)
+insert into public.projects (id, name, created_by)
+values ('00000000-0000-0000-0000-00000000ffff', 'Test', 'ffffffff-ffff-ffff-ffff-ffffffffffff');
+insert into public.project_members (project_id, user_id, role)
+values ('00000000-0000-0000-0000-00000000ffff', 'ffffffff-ffff-ffff-ffff-ffffffffffff', 'admin'),
+       ('00000000-0000-0000-0000-00000000ffff', '99999999-9999-9999-9999-999999999999', 'contributor');
+insert into public.proposals (id, title, proposer_id, project_id)
 values ('55555555-0000-0000-0000-000000000001', 'Di Fina',
-        'ffffffff-ffff-ffff-ffff-ffffffffffff');
+        'ffffffff-ffff-ffff-ffff-ffffffffffff', '00000000-0000-0000-0000-00000000ffff');
 
 -- Sessione di Gino (contributor, NON proprietario della proposta)
 set local role authenticated;
@@ -47,7 +52,7 @@ select is(
   (select count(*)::int from public.comments
     where proposal_id = '55555555-0000-0000-0000-000000000001'),
   1,
-  'i commenti sono leggibili dagli autenticati'
+  'i commenti sono leggibili dai membri del progetto'
 );
 
 -- Anon: nessuna lettura.

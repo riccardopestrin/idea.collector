@@ -2,8 +2,8 @@ import { notFound } from "next/navigation";
 
 import { DetailModal } from "@/components/detail/DetailModal";
 import { ProposalPanel } from "@/components/detail/ProposalPanel";
-import { connectedRepo, getGithubSettings } from "@/lib/github/settings";
-import { getProfile } from "@/lib/profiles";
+import { connectedRepo } from "@/lib/github/settings";
+import { isProjectAdmin } from "@/lib/projects";
 import { getProposalDetail } from "@/lib/proposals";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -15,23 +15,22 @@ export default async function ProposalDetailModal({
   params: Promise<{ id: string }>;
 }) {
   const supabase = await supabaseServer();
-  const [detail, settings] = await Promise.all([
-    getProposalDetail(supabase, (await params).id),
-    getGithubSettings(supabase),
-  ]);
+  const detail = await getProposalDetail(supabase, (await params).id);
   if (!detail) notFound();
-  const repo = connectedRepo(settings);
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const isAdmin = user
-    ? (await getProfile(supabase, user.id))?.role === "admin"
-    : false;
+  const isAdmin = user ? await isProjectAdmin(supabase, detail.project_id, user.id) : false;
 
   return (
     <DetailModal>
-      <ProposalPanel detail={detail} isAdmin={isAdmin} currentUserId={user?.id} repo={repo} />
+      <ProposalPanel
+        detail={detail}
+        isAdmin={isAdmin}
+        currentUserId={user?.id}
+        repo={connectedRepo(detail.project)}
+      />
     </DetailModal>
   );
 }

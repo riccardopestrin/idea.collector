@@ -15,6 +15,7 @@ import {
 
 // Builder finto per tabella: single() risolve la riga configurata; update/insert/
 // delete registrano le scritture. rpc pilota l'esito di move_proposal.
+// project_members.row pilota il ruolo nel progetto (migration 0021)
 const { getUser, rpc, tables, refresh, deleteResult, insertResult, updateResult } =
   vi.hoisted(() => {
     const deleteResult = { value: { error: null } as { error: unknown } };
@@ -36,7 +37,7 @@ const { getUser, rpc, tables, refresh, deleteResult, insertResult, updateResult 
     return {
       getUser: vi.fn(),
       rpc: vi.fn(),
-      tables: { profiles: table(null), proposals: table(null), comments: table(null) },
+      tables: { project_members: table(null), proposals: table(null), comments: table(null) },
       refresh: vi.fn(),
       deleteResult,
       insertResult,
@@ -65,7 +66,7 @@ beforeEach(() => {
   rpc.mockResolvedValue({ data: true, error: null });
   runEvaluation.mockResolvedValue(null);
   runProposalScan.mockResolvedValue(null);
-  tables.profiles.row = { role: "contributor" };
+  tables.project_members.row = { role: "contributor" };
   tables.proposals.row = {
     proposer_id: "u1",
     status: "nuova",
@@ -288,7 +289,7 @@ describe("deleteComment", () => {
   });
 
   it("lets an admin delete someone else's comment", async () => {
-    tables.profiles.row = { role: "admin" };
+    tables.project_members.row = { role: "admin" };
     tables.comments.row = { author_id: "someone-else", proposal_id: "p1", promotion_status: "none" };
     expect(await deleteComment("c1")).toBeNull();
     expect(tables.comments.delete).toHaveBeenCalled();
@@ -403,7 +404,7 @@ describe("resolveCommentPromotion", () => {
 
   it("lets an admin who is not the proposer decide", async () => {
     tables.proposals.row = { ...tables.proposals.row, proposer_id: "u3" };
-    tables.profiles.row = { role: "admin" };
+    tables.project_members.row = { role: "admin" };
     const result = await resolveCommentPromotion("c1", true);
     expect(result).toBeNull();
     expect(rpc).toHaveBeenCalledWith("resolve_comment_promotion", {
@@ -489,7 +490,7 @@ describe("revokeCommentPromotion", () => {
 
   it("re-runs the evaluation when an admin revokes on a proposal in evaluation", async () => {
     tables.comments.row = { ...tables.comments.row, author_id: "u3" };
-    tables.profiles.row = { role: "admin" };
+    tables.project_members.row = { role: "admin" };
     const result = await revokeCommentPromotion("c1");
     expect(result).toBeNull();
     expect(runEvaluation).toHaveBeenCalledWith(expect.anything(), "p1", true);
@@ -515,6 +516,13 @@ describe("updateProposalStatus", () => {
   it("rejects a stale fromStatus outside the enum as well", async () => {
     const result = await updateProposalStatus("p1", "garbage", "approvata");
     expect(result).toEqual({ error: "Stato non valido." });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("treats a proposal hidden by RLS (non-member) as not found and never calls the RPC", async () => {
+    tables.proposals.row = null;
+    const result = await updateProposalStatus("p1", "nuova", "in_valutazione");
+    expect(result).toEqual({ error: "Proposta non trovata." });
     expect(rpc).not.toHaveBeenCalled();
   });
 
@@ -629,7 +637,7 @@ describe("runProposalScanAction", () => {
 
   it("lets an admin run the scan on someone else's proposal", async () => {
     tables.proposals.row = { ...tables.proposals.row, proposer_id: "someone-else" };
-    tables.profiles.row = { role: "admin" };
+    tables.project_members.row = { role: "admin" };
     const result = await runProposalScanAction("p1");
     expect(result).toBeNull();
     expect(runProposalScan).toHaveBeenCalledWith(expect.anything(), "p1", false);
@@ -675,7 +683,7 @@ describe("deleteProposal", () => {
 
   it("lets an admin delete someone else's proposal", async () => {
     tables.proposals.row = { proposer_id: "someone-else" };
-    tables.profiles.row = { role: "admin" };
+    tables.project_members.row = { role: "admin" };
     const result = await deleteProposal("p1");
     expect(result).toBeNull();
     expect(tables.proposals.delete).toHaveBeenCalled();
@@ -700,7 +708,7 @@ describe("evaluateProposal", () => {
   });
 
   it("refuses a non-admin (the proposer included)", async () => {
-    tables.profiles.row = { role: "contributor" };
+    tables.project_members.row = { role: "contributor" };
     expect(await evaluateProposal("p1")).toEqual({
       error: "Solo un admin può lanciare la valutazione AI.",
     });
@@ -708,7 +716,7 @@ describe("evaluateProposal", () => {
   });
 
   it("delegates to runEvaluation for an admin, forwarding force", async () => {
-    tables.profiles.row = { role: "admin" };
+    tables.project_members.row = { role: "admin" };
     expect(await evaluateProposal("p1", true)).toBeNull();
     expect(runEvaluation).toHaveBeenCalledWith(expect.anything(), "p1", true);
   });

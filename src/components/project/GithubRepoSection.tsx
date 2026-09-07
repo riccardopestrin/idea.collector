@@ -2,33 +2,38 @@
 
 import { useActionState } from "react";
 
-import { disconnectGithub, selectRepo, startGithubConnect } from "@/app/profile/actions";
+import { disconnectGithub, selectRepo, startGithubConnect } from "@/app/projects/actions";
 import { controlClass } from "@/components/form/Field";
 import { SubmitButton } from "@/components/form/SubmitButton";
 import type { InstallationRepo } from "@/lib/github/app";
 import { STRINGS } from "@/lib/strings";
 
-// Sezione "Repository progetto" (RFC-003), solo admin: connetti l'App GitHub,
-// scegli la repo tra quelle autorizzate, scollega. Lato server la lista repo è
-// già stata letta; qui solo form + stato errore.
+// Sezione "Repository progetto" (RFC-003) delle impostazioni, solo admin:
+// connetti l'App GitHub, scegli la repo tra quelle autorizzate, scollega. Lato
+// server la lista repo è già stata letta; qui solo form + stato errore.
 export function GithubRepoSection({
+  projectId,
   connected,
   selectedRepo,
   repos,
   loadError,
 }: {
+  projectId: string;
   connected: boolean;
   selectedRepo: string | null;
   repos: InstallationRepo[];
   loadError?: string;
 }) {
-  const [selectState, selectAction, selectPending] = useActionState(selectRepo, null);
+  const [selectState, selectAction, selectPending] = useActionState(
+    selectRepo.bind(null, projectId),
+    null,
+  );
   const [disconnectState, disconnectAction, disconnectPending] = useActionState(
-    async () => disconnectGithub(),
+    async () => disconnectGithub(projectId),
     null,
   );
   const [connectState, connectAction, connectPending] = useActionState(
-    async () => startGithubConnect(),
+    async () => startGithubConnect(projectId),
     null,
   );
 

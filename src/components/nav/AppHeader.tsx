@@ -6,8 +6,19 @@ import { supabaseServer } from "@/lib/supabase/server";
 
 const linkClass = "text-foreground/70 underline-offset-2 hover:underline";
 
-// Header condiviso da board e classifica: brand, nav Board/Classifica, profilo, logout.
-export function AppHeader({ profileLabel }: { profileLabel: string | null | undefined }) {
+type HeaderProject = { id: string; name: string; isAdmin: boolean };
+
+// Header condiviso: brand (→ lista progetti), profilo, logout. Dentro un
+// progetto aggiunge il ritorno alla lista, il nome e la nav Board/Classifica
+// (+ Impostazioni per l'admin). UI-hiding: l'autorizzazione vera è nella
+// pagina impostazioni, nelle Server Action e nelle RLS.
+export function AppHeader({
+  profileLabel,
+  project,
+}: {
+  profileLabel: string | null | undefined;
+  project?: HeaderProject;
+}) {
   async function logout() {
     "use server";
     const supabase = await supabaseServer();
@@ -18,13 +29,28 @@ export function AppHeader({ profileLabel }: { profileLabel: string | null | unde
   return (
     <header className="flex items-center justify-between border-b border-border px-6 py-4 text-sm">
       <div className="flex items-center gap-4">
-        <span className="font-semibold">{STRINGS.app.title}</span>
-        <Link href="/" className={linkClass}>
-          {STRINGS.nav.board}
+        <Link href="/" className="font-semibold">
+          {STRINGS.app.title}
         </Link>
-        <Link href="/ranking" className={linkClass}>
-          {STRINGS.nav.ranking}
-        </Link>
+        {project && (
+          <>
+            <Link href="/" className={linkClass}>
+              {STRINGS.nav.backToProjects}
+            </Link>
+            <span className="font-medium">{project.name}</span>
+            <Link href={`/projects/${project.id}`} className={linkClass}>
+              {STRINGS.nav.board}
+            </Link>
+            <Link href={`/projects/${project.id}/ranking`} className={linkClass}>
+              {STRINGS.nav.ranking}
+            </Link>
+            {project.isAdmin && (
+              <Link href={`/projects/${project.id}/settings`} className={linkClass}>
+                {STRINGS.nav.settings}
+              </Link>
+            )}
+          </>
+        )}
       </div>
       <div className="flex items-center gap-4">
         <Link href="/profile" className={linkClass}>

@@ -1,7 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-// Data layer per app_settings (riga singola, migration 0010): config del repo
-// GitHub collegato. Lettura per tutti gli autenticati; scrittura admin (RLS backstop).
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
+// Data layer per la repo GitHub collegata a un progetto (colonne github_* di
+// projects, migration 0021). Lettura per i membri; scrittura SOLO lato server
+// col client service-role (SEC-13, migration 0022): chi può chiamarla lo
+// decidono i chiamanti (guard admin del progetto), come per gli esiti AI (0020).
 export type GithubSettings = {
   github_installation_id: number | null;
   github_owner: string | null;
@@ -10,25 +14,24 @@ export type GithubSettings = {
 
 export async function getGithubSettings(
   supabase: SupabaseClient,
+  projectId: string,
 ): Promise<GithubSettings | null> {
   const { data } = await supabase
-    .from("app_settings")
+    .from("projects")
     .select("github_installation_id, github_owner, github_repo")
+    .eq("id", projectId)
     .maybeSingle();
   return data as GithubSettings | null;
 }
 
 // Repo collegata come {owner, name}, o null se non (ancora) scelta.
-export const connectedRepo = (s: GithubSettings | null) =>
-  s?.github_owner && s.github_repo ? { owner: s.github_owner, name: s.github_repo } : null;
+export const connectedRepo = (s: Pick<GithubSettings, "github_owner" | "github_repo">) =>
+  s.github_owner && s.github_repo ? { owner: s.github_owner, name: s.github_repo } : null;
 
-export async function upsertGithubSettings(
-  supabase: SupabaseClient,
-  userId: string,
+export async function updateGithubSettings(
+  projectId: string,
   settings: Partial<GithubSettings>,
 ): Promise<{ error: string } | null> {
-  const { error } = await supabase
-    .from("app_settings")
-    .upsert({ id: true, ...settings, updated_by: userId, updated_at: new Date().toISOString() });
+  const { error } = await supabaseAdmin().from("projects").update(settings).eq("id", projectId);
   return error ? { error: error.message } : null;
 }

@@ -7,13 +7,13 @@ import { canMoveTo } from "@/lib/board";
 import { runEvaluation } from "@/lib/ai/runEvaluation";
 import { runProposalScan } from "@/lib/ai/runProposalScan";
 import { isAnchorField, markdownToPlainText, resolveAnchor } from "@/lib/anchors";
-import { getProfile } from "@/lib/profiles";
 import {
   isOpenProposalStatus,
   isProposalStatus,
   type PromotionStatus,
   type ProposalStatus,
 } from "@/lib/proposals";
+import { isProjectAdmin } from "@/lib/projects";
 import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -45,6 +45,15 @@ export async function updateProposalStatus(
   } = await supabase.auth.getUser();
   if (!user) return { error: STRINGS.errors.sessionExpired };
 
+  // La lettura passa dalla RLS "member read" (0021): per un non-membro la
+  // proposta non esiste. move_proposal (0022) è il backstop a DB.
+  const { data: proposal } = await supabase
+    .from("proposals")
+    .select("dup_flagged")
+    .eq("id", proposalId)
+    .maybeSingle();
+  if (!proposal) return { error: STRINGS.errors.proposalNotFound };
+
   // RFC-006: una proposta flaggata come possibile duplicato non avanza — gate
   // sullo stato del flag, qualunque sia lo stato di partenza. Resta libera solo
   // 'rifiutata' (l'uscita di scarto): lo sblocco avviene editando l'idea mentre
@@ -52,15 +61,8 @@ export async function updateProposalStatus(
   // target raggiungibile dalla macchina a stati (canMoveTo l'ha già scartato
   // sopra): la clausa resta solo per simmetria col gemello move_proposal
   // (migration 0018). Guard qui per il messaggio chiaro; move_proposal è il backstop.
-  if (toStatus !== "rifiutata" && toStatus !== "nuova") {
-    const { data: proposal } = await supabase
-      .from("proposals")
-      .select("dup_flagged")
-      .eq("id", proposalId)
-      .maybeSingle();
-    if (proposal?.dup_flagged) {
-      return { error: STRINGS.board.dupBlocked };
-    }
+  if (toStatus !== "rifiutata" && toStatus !== "nuova" && proposal.dup_flagged) {
+    return { error: STRINGS.board.dupBlocked };
   }
 
   const { data: moved, error } = await supabase.rpc("move_proposal", {
@@ -93,7 +95,14 @@ export async function evaluateProposal(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: STRINGS.errors.sessionExpired };
-  if ((await getProfile(supabase, user.id))?.role !== "admin") {
+
+  const { data: proposal } = await supabase
+    .from("proposals")
+    .select("project_id")
+    .eq("id", proposalId)
+    .maybeSingle();
+  if (!proposal) return { error: STRINGS.errors.proposalNotFound };
+  if (!(await isProjectAdmin(supabase, proposal.project_id, user.id))) {
     return { error: STRINGS.evaluation.adminOnly };
   }
 
@@ -116,13 +125,13 @@ export async function runProposalScanAction(
 
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("proposer_id")
+    .select("proposer_id, project_id")
     .eq("id", proposalId)
     .maybeSingle();
   if (!proposal) return { error: STRINGS.errors.proposalNotFound };
   if (
     proposal.proposer_id !== user.id &&
-    (await getProfile(supabase, user.id))?.role !== "admin"
+    !(await isProjectAdmin(supabase, proposal.project_id, user.id))
   ) {
     return { error: STRINGS.evaluation.scanAuth };
   }
@@ -215,7 +224,7 @@ type CommentContext = {
     body: string;
     promotion_status: PromotionStatus;
   };
-  proposal: { status: ProposalStatus; proposer_id: string };
+  proposal: { status: ProposalStatus; proposer_id: string; project_id: string };
 };
 
 async function commentContext(
@@ -231,7 +240,7 @@ async function commentContext(
 
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("status, proposer_id")
+    .select("status, proposer_id, project_id")
     .eq("id", comment.proposal_id)
     .maybeSingle();
   if (!proposal) return { error: STRINGS.errors.proposalNotFound };
@@ -297,7 +306,7 @@ export async function deleteComment(commentId: string): Promise<ActionResult> {
   if ("error" in ctx) return ctx;
   if (
     ctx.comment.author_id !== user.id &&
-    (await getProfile(supabase, user.id))?.role !== "admin"
+    !(await isProjectAdmin(supabase, ctx.proposal.project_id, user.id))
   ) {
     return { error: STRINGS.comments.deleteOnlyOwn };
   }
@@ -387,7 +396,7 @@ export async function resolveCommentPromotion(
   if ("error" in ctx) return ctx;
   if (
     ctx.proposal.proposer_id !== user.id &&
-    (await getProfile(supabase, user.id))?.role !== "admin"
+    !(await isProjectAdmin(supabase, ctx.proposal.project_id, user.id))
   ) {
     return { error: STRINGS.promotion.decideAuth };
   }
@@ -424,7 +433,7 @@ export async function revokeCommentPromotion(commentId: string): Promise<ActionR
   const isAuthor = ctx.comment.author_id === user.id;
   const isProposer = ctx.proposal.proposer_id === user.id;
   const isAdmin =
-    !isAuthor && !isProposer && (await getProfile(supabase, user.id))?.role === "admin";
+    !isAuthor && !isProposer && (await isProjectAdmin(supabase, ctx.proposal.project_id, user.id));
   if (!isAuthor && !isProposer && !isAdmin) {
     return { error: STRINGS.promotion.revokeAuth };
   }
@@ -455,14 +464,14 @@ export async function deleteProposal(proposalId: string): Promise<ActionResult> 
 
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("proposer_id")
+    .select("proposer_id, project_id")
     .eq("id", proposalId)
     .single();
   if (!proposal) return { error: STRINGS.errors.proposalNotFound };
 
   if (
     proposal.proposer_id !== user.id &&
-    (await getProfile(supabase, user.id))?.role !== "admin"
+    !(await isProjectAdmin(supabase, proposal.project_id, user.id))
   ) {
     return { error: STRINGS.proposal.deleteAuth };
   }

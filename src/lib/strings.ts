@@ -42,8 +42,25 @@ export const STRINGS = {
   nav: {
     board: "Board",
     ranking: "Classifica",
+    settings: "Impostazioni",
     logout: "Esci",
     backToBoard: "← Torna alla board",
+    backToProjects: "← Progetti",
+  },
+
+  projects: {
+    heading: "Progetti",
+    intro: "Ogni progetto ha la sua bacheca, la sua classifica e la sua repo GitHub.",
+    newProject: "Nuovo progetto",
+    nameLabel: "Nome del progetto",
+    nameRequired: "Il nome è obbligatorio.",
+    nameTooLong: "Il nome è troppo lungo (max 80 caratteri).",
+    connectRepo: "Collega subito una repo GitHub (si apre la pagina Impostazioni)",
+    create: "Crea progetto",
+    noneYet: "Nessun progetto ancora. Crea il primo: sarai il suo admin.",
+    proposalCount: (n: number) => (n === 1 ? "1 proposta" : `${n} proposte`),
+    noRepo: "nessuna repo collegata",
+    settingsHeading: "Impostazioni progetto",
   },
 
   login: {
@@ -64,28 +81,28 @@ export const STRINGS = {
     nameTooLong: "Il nome è troppo lungo (max 80 caratteri).",
   },
 
-  users: {
-    heading: "Utenti",
-    intro: "Chi può accedere alla dashboard. Gli invitati ricevono un'email con il link di accesso.",
+  members: {
+    heading: "Membri",
+    intro:
+      "Chi può accedere a questo progetto. Gli invitati ricevono un'email con il link di accesso; chi ha già un account viene aggiunto subito.",
     inviteEmailLabel: "Email da invitare",
     inviteAsAdmin: "Admin",
     invite: "Invita",
     invited: (email: string) => `Invito inviato a ${email}.`,
+    added: (email: string) => `${email} aggiunto al progetto.`,
     roleLabel: (email: string) => `Ruolo di ${email}`,
-    disable: "Disabilita",
-    enable: "Riabilita",
-    disabledBadge: "disabilitato",
-    disableAria: (email: string) => `Disabilita ${email}`,
-    enableAria: (email: string) => `Riabilita ${email}`,
-    confirmDisable: "Conferma",
+    remove: "Rimuovi",
+    removeAria: (email: string) => `Rimuovi ${email}`,
+    confirmRemove: "Conferma",
     you: "tu",
-    adminOnly: "Solo un admin può gestire gli utenti.",
+    adminOnly: "Solo un admin del progetto può gestire i membri.",
     invalidEmail: "Email non valida.",
     invalidRole: "Ruolo non valido.",
     inviteFailed: "Invito non riuscito. Riprova.",
+    alreadyMember: "È già membro del progetto.",
     ownRole: "Non puoi cambiare il tuo stesso ruolo.",
-    disableSelf: "Non puoi disabilitare te stesso.",
-    disableFailed: "Operazione non riuscita. Riprova.",
+    removeSelf: "Non puoi rimuovere te stesso.",
+    removeFailed: "Operazione non riuscita. Riprova.",
     role: { admin: "Admin", contributor: "Contributor" },
   },
 
@@ -100,13 +117,13 @@ export const STRINGS = {
     // prefisso: il nome repo segue in markup proprio (<span> evidenziato).
     connectedRepoPrefix: "Repo collegata: ",
     disconnect: "Scollega GitHub",
-    adminOnly: "Solo un admin può configurare GitHub.",
+    adminOnly: "Solo un admin del progetto può configurare GitHub.",
     appNotConfigured: "GitHub App non configurata (manca GITHUB_APP_SLUG).",
     noInstallation: "Nessuna autorizzazione GitHub attiva. Connetti GitHub prima.",
     repoNotAllowed: "Repo non coperta dall'autorizzazione GitHub.",
     reposLoadFailed: "Impossibile leggere le repo da GitHub. Riprova o riconnetti.",
     connectFailed: "Connessione GitHub non riuscita. Riprova.",
-    notConnected: "Collega GitHub e scegli la repo nel profilo.",
+    notConnected: "Collega GitHub e scegli la repo nelle impostazioni del progetto.",
   },
 
   board: {

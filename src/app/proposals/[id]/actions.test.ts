@@ -21,7 +21,7 @@ const { getUser, tables, refresh, runEvaluation, runProposalScan, updateResult, 
   return {
     getUser: vi.fn(),
     tables: {
-      profiles: table(null),
+      project_members: table(null),
       proposals: table(null),
       rice_votes: table(null),
       comments: table(null),
@@ -59,7 +59,7 @@ beforeEach(() => {
   getUser.mockResolvedValue({ data: { user: { id: "u1" } } });
   runEvaluation.mockResolvedValue(null);
   runProposalScan.mockResolvedValue(null);
-  tables.profiles.row = { role: "contributor" };
+  tables.project_members.row = { role: "contributor" };
   tables.proposals.row = {
     proposer_id: "u1",
     status: "nuova",
@@ -97,7 +97,7 @@ describe("updateProposal", () => {
 
   it("lets an admin edit someone else's proposal", async () => {
     tables.proposals.row = { ...tables.proposals.row, proposer_id: "someone-else" };
-    tables.profiles.row = { role: "admin" };
+    tables.project_members.row = { role: "admin" };
     expect(await updateProposal("p1", null, proposalForm())).toBeNull();
     expect(tables.proposals.update).toHaveBeenCalled();
   });
@@ -286,7 +286,7 @@ describe("setGitRef", () => {
 
   it("lets an admin clear the reference with an empty input", async () => {
     tables.proposals.row = { proposer_id: "someone-else" };
-    tables.profiles.row = { role: "admin" };
+    tables.project_members.row = { role: "admin" };
     expect(await setGitRef("p1", null, form(""))).toBeNull();
     expect(tables.proposals.update).toHaveBeenCalledWith({ git_ref: null });
   });

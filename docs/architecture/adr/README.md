@@ -18,3 +18,4 @@ Template: copia [`0000-template.md`](0000-template.md).
 | [0006](0006-rice10-geometric-scoring.md) | Scoring RICE-10: scale 1–10 a rubriche, media geometrica | Proposed |
 | [0007](0007-duplicate-scan-llm-judge-web-search.md) | Scan anti-duplicato con LLM-as-judge + ricerca competitor via web_search | Proposed |
 | [0008](0008-service-role-writes-for-ai-verdicts.md) | Esiti AI (scan duplicati, valutazione) scritti solo dal service role | Proposed |
+| [0009](0009-projects-per-project-roles.md) | Progetti come tenant, ruolo per progetto (membership al posto di `profiles.role`) | Proposed |

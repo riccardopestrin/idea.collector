@@ -23,7 +23,7 @@ describe("NewProposalForm", () => {
   });
 
   it("requires only the title and leaves the other fields optional", () => {
-    render(<NewProposalForm />);
+    render(<NewProposalForm projectId="pr1" />);
 
     expect(screen.getByLabelText(/titolo/i)).toBeRequired();
     expect(screen.getByLabelText(/descrizione/i)).not.toBeRequired();
@@ -34,7 +34,7 @@ describe("NewProposalForm", () => {
   it("shows the error the action returns", async () => {
     createProposal.mockResolvedValue({ error: "Errore nel salvataggio. Riprova." });
     const user = userEvent.setup();
-    render(<NewProposalForm />);
+    render(<NewProposalForm projectId="pr1" />);
 
     await user.type(screen.getByLabelText(/titolo/i), "Mappa offline");
     await user.click(screen.getByRole("button", { name: /crea proposta/i }));
@@ -44,14 +44,16 @@ describe("NewProposalForm", () => {
 
   it("submits the field values under the names the action parses", async () => {
     const user = userEvent.setup();
-    render(<NewProposalForm />);
+    render(<NewProposalForm projectId="pr1" />);
 
     await user.type(screen.getByLabelText(/titolo/i), "Mappa offline");
     await user.type(screen.getByLabelText(/link/i), "https://example.com");
     await user.click(screen.getByRole("button", { name: /crea proposta/i }));
 
-    // un rename di un name= disallineerebbe form e parseProposalFields
-    const formData = createProposal.mock.calls[0][1] as FormData;
+    // un rename di un name= disallineerebbe form e parseProposalFields;
+    // il primo argomento è il projectId legato via bind
+    expect(createProposal.mock.calls[0][0]).toBe("pr1");
+    const formData = createProposal.mock.calls[0][2] as FormData;
     expect(formData.get("title")).toBe("Mappa offline");
     expect(formData.get("links")).toBe("https://example.com");
     expect(formData.has("description")).toBe(true);

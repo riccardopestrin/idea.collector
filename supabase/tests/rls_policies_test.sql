@@ -5,17 +5,22 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(9);
 
--- Setup (come superuser): due contributor e un admin.
+-- Setup (come superuser): un progetto con due contributor e un admin (0021:
+-- il ruolo vive su project_members).
 insert into auth.users (id, email)
 values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'alice@test.local'),
        ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'bruno@test.local'),
        ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'admin@test.local');
-update public.profiles set role = 'admin'
-  where id = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+insert into public.projects (id, name, created_by)
+values ('00000000-0000-0000-0000-00000000aaaa', 'Test', 'cccccccc-cccc-cccc-cccc-cccccccccccc');
+insert into public.project_members (project_id, user_id, role)
+values ('00000000-0000-0000-0000-00000000aaaa', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'contributor'),
+       ('00000000-0000-0000-0000-00000000aaaa', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'contributor'),
+       ('00000000-0000-0000-0000-00000000aaaa', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'admin');
 
-insert into public.proposals (id, title, proposer_id)
+insert into public.proposals (id, title, proposer_id, project_id)
 values ('11111111-0000-0000-0000-000000000001', 'Di Alice',
-        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '00000000-0000-0000-0000-00000000aaaa');
 
 -- Sessione di Bruno (contributor, non proprietario)
 set local role authenticated;
@@ -25,12 +30,13 @@ select set_config('request.jwt.claims',
 select is(
   (select count(*)::int from public.proposals),
   1,
-  'ogni membro autenticato legge tutte le proposte'
+  'ogni membro del progetto legge tutte le sue proposte'
 );
 
 select throws_ok(
-  $$ insert into public.proposals (title, proposer_id)
-     values ('Spacciata per di Alice', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa') $$,
+  $$ insert into public.proposals (title, proposer_id, project_id)
+     values ('Spacciata per di Alice', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+             '00000000-0000-0000-0000-00000000aaaa') $$,
   '42501',
   null,
   'un contributor non può creare proposte a nome altrui'
@@ -47,9 +53,9 @@ select is(
 );
 
 -- Il delete è autore-o-admin (0005): la riga altrui resta, la propria va via.
-insert into public.proposals (id, title, proposer_id)
+insert into public.proposals (id, title, proposer_id, project_id)
 values ('11111111-0000-0000-0000-000000000002', 'Di Bruno',
-        'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
+        'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '00000000-0000-0000-0000-00000000aaaa');
 delete from public.proposals;
 select is(
   (select array_agg(title) from public.proposals),

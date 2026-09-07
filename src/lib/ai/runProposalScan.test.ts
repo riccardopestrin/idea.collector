@@ -49,10 +49,13 @@ function fakeSupabase({
     }
     return {
       select: () => ({
-        neq: () => ({
+        // .eq("project_id") (0021) poi i due .neq: i candidati sono del progetto
+        eq: () => ({
           neq: () => ({
-            order: () => ({
-              limit: async () => ({ data: candidates, error: candidatesError }),
+            neq: () => ({
+              order: () => ({
+                limit: async () => ({ data: candidates, error: candidatesError }),
+              }),
             }),
           }),
         }),

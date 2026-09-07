@@ -29,7 +29,7 @@ export async function runProposalScan(
 ): Promise<{ error: string } | null> {
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("title, description, problem, status, dup_scan_status")
+    .select("title, description, problem, status, dup_scan_status, project_id")
     .eq("id", proposalId)
     .maybeSingle();
   if (!proposal) return { error: STRINGS.errors.proposalNotFound };
@@ -58,6 +58,8 @@ export async function runProposalScan(
     const { data: candidates, error: candidatesError } = await supabase
       .from("proposals")
       .select("id, title, description")
+      // solo le idee della stessa bacheca: un duplicato è tale dentro il progetto
+      .eq("project_id", proposal.project_id)
       .neq("id", proposalId)
       .neq("status", "rifiutata")
       .order("created_at", { ascending: false })

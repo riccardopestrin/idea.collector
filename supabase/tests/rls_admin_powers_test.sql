@@ -1,5 +1,6 @@
 -- Verifica 0020: esiti scan/eval scrivibili solo da service_role (SEC-9/SEC-8),
--- set_profile_role admin-only e mai su se stessi, admin elimina commenti altrui,
+-- ruolo membri cambiabile solo dall'admin del progetto e mai su se stessi (0021),
+-- admin elimina commenti altrui,
 -- git_ref scrivibile dal proposer con i vincoli del check.
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -10,10 +11,16 @@ insert into auth.users (id, email)
 values ('aaaa0020-0000-0000-0000-000000000001', 'admin20@test.local'),
        ('aaaa0020-0000-0000-0000-000000000002', 'anna20@test.local'),
        ('aaaa0020-0000-0000-0000-000000000003', 'bruno20@test.local');
-update public.profiles set role = 'admin' where id = 'aaaa0020-0000-0000-0000-000000000001';
+insert into public.projects (id, name, created_by)
+values ('00000000-0000-0000-0000-000000000020', 'Test', 'aaaa0020-0000-0000-0000-000000000001');
+insert into public.project_members (project_id, user_id, role)
+values ('00000000-0000-0000-0000-000000000020', 'aaaa0020-0000-0000-0000-000000000001', 'admin'),
+       ('00000000-0000-0000-0000-000000000020', 'aaaa0020-0000-0000-0000-000000000002', 'contributor'),
+       ('00000000-0000-0000-0000-000000000020', 'aaaa0020-0000-0000-0000-000000000003', 'contributor');
 
-insert into public.proposals (id, title, proposer_id)
-values ('bbbb0020-0000-0000-0000-000000000001', 'Di Anna', 'aaaa0020-0000-0000-0000-000000000002');
+insert into public.proposals (id, title, proposer_id, project_id)
+values ('bbbb0020-0000-0000-0000-000000000001', 'Di Anna', 'aaaa0020-0000-0000-0000-000000000002',
+        '00000000-0000-0000-0000-000000000020');
 insert into public.comments (id, proposal_id, author_id, body)
 values ('cccc0020-0000-0000-0000-000000000001', 'bbbb0020-0000-0000-0000-000000000001',
         'aaaa0020-0000-0000-0000-000000000003', 'Commento di Bruno');
@@ -33,10 +40,12 @@ select throws_ok(
   '42501', null,
   'SEC-8: un utente autenticato non può scrivere la valutazione AI'
 );
-select throws_ok(
-  $$select public.set_profile_role('aaaa0020-0000-0000-0000-000000000003', 'admin')$$,
-  'P0001', 'solo un admin può cambiare i ruoli',
-  'un contributor non cambia i ruoli'
+update public.project_members set role = 'admin'
+  where user_id = 'aaaa0020-0000-0000-0000-000000000003';
+select is(
+  (select role from public.project_members where user_id = 'aaaa0020-0000-0000-0000-000000000003'),
+  'contributor',
+  'un contributor non cambia i ruoli (policy filtra, 0 righe)'
 );
 select lives_ok(
   $$update public.proposals set git_ref = 'feature/offline'
@@ -61,18 +70,21 @@ select set_config('request.jwt.claims',
   '{"sub": "aaaa0020-0000-0000-0000-000000000001", "role": "authenticated"}', true);
 
 select lives_ok(
-  $$select public.set_profile_role('aaaa0020-0000-0000-0000-000000000003', 'admin')$$,
-  'l''admin promuove un altro profilo'
+  $$update public.project_members set role = 'admin'
+    where user_id = 'aaaa0020-0000-0000-0000-000000000003'$$,
+  'l''admin promuove un altro membro'
 );
 select is(
-  (select role from public.profiles where id = 'aaaa0020-0000-0000-0000-000000000003'),
+  (select role from public.project_members where user_id = 'aaaa0020-0000-0000-0000-000000000003'),
   'admin',
   'il ruolo è cambiato'
 );
-select throws_ok(
-  $$select public.set_profile_role('aaaa0020-0000-0000-0000-000000000001', 'contributor')$$,
-  'P0001', 'non puoi cambiare il tuo stesso ruolo',
-  'l''admin non si toglie il ruolo da solo'
+update public.project_members set role = 'contributor'
+  where user_id = 'aaaa0020-0000-0000-0000-000000000001';
+select is(
+  (select role from public.project_members where user_id = 'aaaa0020-0000-0000-0000-000000000001'),
+  'admin',
+  'l''admin non si toglie il ruolo da solo (policy filtra la propria riga)'
 );
 delete from public.comments where id = 'cccc0020-0000-0000-0000-000000000001';
 select is(

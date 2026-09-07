@@ -42,19 +42,29 @@ async function loginAs(name: string): Promise<Session> {
   return { client, id: created.user.id, name };
 }
 
-let paola: Session; // proposer
+let paola: Session; // proposer, admin del progetto
 let carlo: Session; // commenter → contributore
 let vera: Session; // votante
+let projectId: string;
 let proposalId: string;
 let commentId: string;
 const veraVote = { reach: 8, impact: 6, confidence: 7, effort: 5 };
 
 beforeAll(async () => {
   [paola, carlo, vera] = await Promise.all([loginAs("Paola"), loginAs("Carlo"), loginAs("Vera")]);
+  // Progetto (0021): Paola lo crea (→ admin) e invita gli altri due come membri.
+  const { data, error } = await paola.client.rpc("create_project", { p_name: `Integrazione ${run}` });
+  if (error) throw error;
+  projectId = data as string;
+  const { error: memberError } = await paola.client
+    .from("project_members")
+    .insert([carlo, vera].map((s) => ({ project_id: projectId, user_id: s.id })));
+  if (memberError) throw memberError;
 });
 
 afterAll(async () => {
-  if (proposalId) await admin.from("proposals").delete().eq("id", proposalId);
+  // le proposte seguono il progetto (FK on delete cascade)
+  if (projectId) await admin.from("projects").delete().eq("id", projectId);
   for (const s of [paola, carlo, vera]) {
     if (s) await admin.auth.admin.deleteUser(s.id);
   }
@@ -68,6 +78,7 @@ describe("proposal → contribution → votes", () => {
         title: `Mappa offline ${run}`,
         description: "Serve senza rete",
         proposer_id: paola.id,
+        project_id: projectId,
       })
       .select("id")
       .single();
@@ -115,7 +126,7 @@ describe("proposal → contribution → votes", () => {
     expect(error).toBeNull();
     expect(accepted).toBe(true);
 
-    const [item] = (await listProposals(vera.client, {})).filter((p) => p.id === proposalId);
+    const [item] = (await listProposals(vera.client, { projectId })).filter((p) => p.id === proposalId);
     expect(item.contributors.map((c) => c?.name)).toEqual(["Carlo"]);
   });
 
@@ -181,8 +192,20 @@ describe("proposal → contribution → votes", () => {
   });
 
   it("a contributor cannot change roles; the proposer can link a branch", async () => {
-    const role = await carlo.client.rpc("set_profile_role", { p_id: vera.id, p_role: "admin" });
-    expect(role.error?.message).toMatch(/solo un admin/);
+    // policy "admin update others" (0021): la riga viene filtrata, nessun errore, ruolo invariato
+    const { error: roleError } = await carlo.client
+      .from("project_members")
+      .update({ role: "admin" })
+      .eq("project_id", projectId)
+      .eq("user_id", vera.id);
+    expect(roleError).toBeNull();
+    const { data: vera_membership } = await carlo.client
+      .from("project_members")
+      .select("role")
+      .eq("project_id", projectId)
+      .eq("user_id", vera.id)
+      .single();
+    expect(vera_membership?.role).toBe("contributor");
 
     const { error } = await paola.client
       .from("proposals")
