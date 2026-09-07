@@ -1,63 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# idea.collector
 
-## Getting Started
+Strumento per raccogliere, discutere e prioritizzare le idee di prodotto di un
+team: ogni idea entra come *proposta*, viene discussa con commenti ancorati al
+testo, valutata con un punteggio **RICE-10** (membri + AI) e avanza su una board a
+colonne. Ogni progetto è una bacheca a sé, con membri e ruoli propri.
 
-First, run the development server:
+Stack: **Next.js 16** · **Supabase** (Postgres + Auth + RLS) · **Anthropic
+(Claude)** per valutazione/scan · **GitHub App** per il contesto repo.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 📖 Documentazione
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+La guida completa, in capitoli, è in **[`docs/guide/`](docs/guide/README.md)** —
+leggila da lì. In breve:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- [Introduzione](docs/guide/01-introduzione.md) · [Concetti](docs/guide/02-concetti.md)
+- **[Avvio in locale](docs/guide/03-avvio-locale.md)** — la guida passo-passo
+- [Architettura](docs/guide/04-architettura.md) · [Modello dati](docs/guide/05-modello-dati.md) · [Autenticazione](docs/guide/06-autenticazione.md)
+- [Proposte e board](docs/guide/07-proposte-e-board.md) · [Scoring RICE-10](docs/guide/08-scoring-rice10.md) · [AI e integrazioni](docs/guide/09-ai-integrazioni.md) · [Editor e commenti](docs/guide/10-editor-commenti.md)
+- [Testing](docs/guide/11-testing.md) · [Deploy](docs/guide/12-deploy.md) · [Contribuire](docs/guide/13-contribuire.md) · [Design language](docs/guide/14-design-language.md)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Riferimento: [ADR](docs/architecture/adr/README.md) · [RFC](docs/architecture/rfc/) · [Sicurezza](docs/security/README.md) · [Regole del repo](.claude/rules/)
 
-## Database (Supabase)
+## Avvio rapido
 
-Il progetto remoto è `chmbafulghmyqydvzewp` (già linkato: `supabase/.temp/project-ref`). Sul free tier viene **messo in pausa dopo ~7 giorni di inattività**: se `supabase migration list --linked` fallisce con `Connection terminated due to connection timeout`, controllare lo stato con `pnpm exec supabase projects list` e riattivarlo dalla Dashboard (Project → Restore). Le migration si applicano con `pnpm exec supabase db push`.
-
-### Stack locale (Docker)
-
-```bash
-pnpm db:start                    # avvia Postgres + API locali (serve Docker Desktop acceso)
-pnpm exec supabase db reset      # ricrea il DB applicando tutte le migration in supabase/migrations
-pnpm exec supabase test db       # test RLS pgTAP in supabase/tests
-pnpm db:stop
-```
-
-Per puntare l'app al locale, in `.env.local` usare i valori stampati da `pnpm exec supabase status` (`API URL` → `NEXT_PUBLIC_SUPABASE_URL`, `anon key` → `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `service_role key` → `SUPABASE_SERVICE_ROLE_KEY`). La service-role key serve solo lato server: inviti/rimozione utenti e scrittura degli esiti di scan/valutazione AI (migration 0020).
-
-### Test d'integrazione (stack locale)
+Prerequisiti: Node ≥ 20, `pnpm` ≥ 9, Docker Desktop acceso. Tutti i comandi dalla
+radice del repo (niente sottocartella `web/`).
 
 ```bash
-pnpm test:integration            # scenario full-stack: proposta → contributo → voti, su RLS/RPC reali
+pnpm install
+pnpm db:start                    # stack Supabase locale (Docker)
+pnpm exec supabase db reset      # applica tutte le migration
+cp .env.example .env.local       # poi riempi con i valori di `supabase status`
+pnpm dev                         # http://localhost:3000
 ```
 
-Richiede lo stack locale attivo; se le chiavi non sono in `.env`, le legge da `supabase status`. Rifiuta URL non locali perché crea e cancella utenti veri (`*@test.local`).
+Senza chiave Anthropic, imposta `AI_EVAL_FAKE=1` e `AI_SCAN_FAKE=1` per la demo.
+Dettagli completi (env, primo utente, inviti, Mailpit) in
+**[docs/guide/03-avvio-locale.md](docs/guide/03-avvio-locale.md)**.
 
-### Inviti
+## Comandi utili
 
-L'admin invita dalla pagina Profilo → Utenti (`auth.admin.inviteUserByEmail`). L'email usa il template `supabase/templates/invite.html`, che manda a `/auth/callback?token_hash=…&type=invite` (verifica server-side). In locale le email finiscono su Mailpit (`http://127.0.0.1:54324`). **Sul progetto remoto il template va replicato a mano**: Dashboard → Authentication → Email Templates → Invite user, con lo stesso link.
+```bash
+pnpm dev                         # dev server
+pnpm build                       # build di produzione
+pnpm test                        # unit + component (Vitest)
+pnpm exec eslint src/            # lint
+pnpm exec supabase test db       # test RLS (pgTAP)
+pnpm test:integration            # scenario full-stack su RLS/RPC reali
+pnpm db:start / pnpm db:stop     # stack Supabase locale
+pnpm exec supabase db reset      # ricrea il DB dalle migration
+```
 
-## Learn More
+## Database remoto & deploy
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Il progetto remoto Supabase sul free tier viene **messo in pausa dopo ~7 giorni
+di inattività**; riattivalo dalla Dashboard (Project → Restore) e applica le
+migration con `pnpm exec supabase db push`. I deploy sono **owner-only**. Guida
+completa: [docs/guide/12-deploy.md](docs/guide/12-deploy.md).
