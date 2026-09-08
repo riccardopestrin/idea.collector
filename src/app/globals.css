@@ -47,6 +47,44 @@ input {
   accent-color: var(--paprika);
 }
 
+/* Slider (voto RICE-10): traccia rettangolare con riempimento a stacco netto fino
+   a --value (la imposta il componente), cursore quadrato ink che sporge dalla
+   traccia. Angoli vivi come tutto il resto. */
+input[type="range"] {
+  appearance: none;
+  height: 18px;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  background: linear-gradient(to right, var(--paprika) var(--value, 50%), var(--dust) var(--value, 50%));
+}
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ink);
+}
+input[type="range"]::-moz-range-track {
+  height: 6px;
+  background: var(--dust);
+}
+input[type="range"]::-moz-range-progress {
+  height: 6px;
+  background: var(--paprika);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ink);
+}
+
 /* Scrollbar: cursore nero rettangolare e sottile, traccia del colore della pagina.
    Le proprietà standard solo dove mancano le pseudo-classi webkit (Firefox): in
    Chrome la loro sola presenza disattiva ::-webkit-scrollbar e torna la thumb tonda. */

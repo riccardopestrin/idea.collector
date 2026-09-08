@@ -4,14 +4,12 @@ import { NameForm } from "@/components/form/NameForm";
 import { Wordmark } from "@/components/nav/Wordmark";
 import { getProfile } from "@/lib/profiles";
 import { STRINGS } from "@/lib/strings";
-import { supabaseServer } from "@/lib/supabase/server";
+import { currentUser, supabaseServer } from "@/lib/supabase/server";
 
 // Pagina post-login per completare il profilo: esiste solo finché name è NULL.
 export default async function OnboardingPage() {
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser(supabase);
   if (!user) redirect("/login");
 
   const profile = await getProfile(supabase, user.id);

@@ -24,10 +24,11 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // getUser() valida il token col server Supabase e innesca il refresh dei cookie.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() verifica la firma del JWT in locale (chiave ECC, JWKS in cache):
+  // nessun round trip all'Auth server; se il token è scaduto lo rinnova e
+  // riscrive i cookie tramite setAll, come faceva getUser().
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims;
 
   // /login e l'atterraggio del magic link sono pubblici: la callback deve poter
   // stabilire la sessione prima di qualsiasi guardia.

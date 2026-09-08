@@ -3,6 +3,7 @@ import { ProposalFilters } from "@/components/filters/ProposalFilters";
 import { ProjectHeading } from "@/components/project/ProjectHeading";
 import { isProposalStatus, listProposals, rankProposalsByScore } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
+import { supabaseServer } from "@/lib/supabase/server";
 import { displayClass } from "@/lib/tokens";
 
 import { loadProject } from "../project";
@@ -17,18 +18,16 @@ export default async function Ranking({
   params: Promise<{ projectId: string }>;
   searchParams: Promise<{ q?: string; status?: string }>;
 }) {
-  const { supabase, project, role } = await loadProject((await params).projectId);
-
-  const { q, status } = await searchParams;
+  const [{ projectId }, { q, status }] = await Promise.all([params, searchParams]);
   const search = (q ?? "").trim();
   // String(): con la chiave ripetuta (?status=a&status=b) Next passa un array
   const statuses = String(status ?? "").split(",").filter(isProposalStatus);
 
-  const proposals = await listProposals(supabase, {
-    projectId: project.id,
-    search,
-    statuses,
-  });
+  // Come in board: la query parte in parallelo a loadProject.
+  const [{ project, role }, proposals] = await Promise.all([
+    loadProject(projectId),
+    supabaseServer().then((s) => listProposals(s, { projectId, search, statuses })),
+  ]);
   const ranked = rankProposalsByScore(proposals);
 
   return (

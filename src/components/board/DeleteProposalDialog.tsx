@@ -3,7 +3,8 @@
 import { useEffect, useRef } from "react";
 
 import { STRINGS } from "@/lib/strings";
-import { buttonClass, confirmDialogClass, dangerButtonClass, displayClass } from "@/lib/tokens";
+import { ConfirmDialog } from "@/components/form/ConfirmDialog";
+import { buttonClass, confirmActionsClass, dangerButtonClass } from "@/lib/tokens";
 
 // Conferma di eliminazione (rettifica ADR-0002): l'eliminazione è definitiva e
 // cancella anche la history, quindi il dialog propone "Sposta in Rifiutata"
@@ -25,14 +26,13 @@ export function DeleteProposalDialog({
   useEffect(() => ref.current?.showModal(), []);
 
   return (
-    <dialog
+    <ConfirmDialog
       ref={ref}
       onClose={onClose}
-      className={confirmDialogClass}
+      heading={STRINGS.deleteDialog.heading(title)}
+      body={STRINGS.deleteDialog.body}
     >
-      <h2 className={`${displayClass} text-xl`}>{STRINGS.deleteDialog.heading(title)}</h2>
-      <p className="mt-3 text-sm text-foreground/70">{STRINGS.deleteDialog.body}</p>
-      <div className="mt-6 flex flex-wrap justify-end gap-3">
+      <div className={confirmActionsClass}>
         <button type="button" onClick={() => ref.current?.close()} disabled={busy} className={buttonClass}>
           {STRINGS.common.cancel}
         </button>
@@ -48,6 +48,6 @@ export function DeleteProposalDialog({
           {STRINGS.deleteDialog.confirm}
         </button>
       </div>
-    </dialog>
+    </ConfirmDialog>
   );
 }

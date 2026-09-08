@@ -5,7 +5,7 @@ import { ProposalPanel } from "@/components/detail/ProposalPanel";
 import { connectedRepo } from "@/lib/github/settings";
 import { isProjectAdmin } from "@/lib/projects";
 import { getProposalDetail } from "@/lib/proposals";
-import { supabaseServer } from "@/lib/supabase/server";
+import { currentUser, supabaseServer } from "@/lib/supabase/server";
 
 // Intercetta /proposals/[id] durante la navigazione client dalla board: stesso
 // contenuto della pagina piena, in overlay. Il proxy garantisce già l'auth.
@@ -18,9 +18,7 @@ export default async function ProposalDetailModal({
   const detail = await getProposalDetail(supabase, (await params).id);
   if (!detail) notFound();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser(supabase);
   const isAdmin = user ? await isProjectAdmin(supabase, detail.project_id, user.id) : false;
 
   return (

@@ -30,9 +30,31 @@ Successo → redirect a `/`. Fallimento → `/login`.
 ## 6.3 Il `proxy` (refresh della sessione + gate)
 
 [`src/proxy.ts`](../../src/proxy.ts) è l'ex-middleware (convenzione Next 16). Con
-`createServerClient` chiama `getUser()`, che **valida il token e fa il refresh dei
-cookie di sessione**. Serve perché i Server Component non possono riscrivere i
-cookie: lo fa il proxy, una volta per richiesta.
+`createServerClient` chiama `getClaims()`, che **verifica la firma del JWT in
+locale e, se il token è scaduto, lo rinnova riscrivendo i cookie di sessione**.
+Serve perché i Server Component non possono riscrivere i cookie: lo fa il proxy,
+una volta per richiesta.
+
+> **Perché `getClaims()` e non `getUser()`.** `getUser()` interroga l'Auth server
+> a ogni richiesta: un round trip verso Supabase prima ancora di toccare i dati.
+> `getClaims()` verifica la firma con la chiave pubblica del progetto (JWKS, in
+> cache) senza rete. Funziona perché il progetto usa una chiave di firma
+> **ECC (P-256)** (Dashboard → Settings → JWT Keys): con la legacy HS256 la
+> libreria ricadrebbe da sola su `getUser()`, corretto ma lento. Vedi
+> [§12.6](12-deploy.md#126-latenza-regione-e-round-trip).
+>
+> **Trade-off.** Senza contattare l'Auth server, ban, cancellazione o revoca di
+> un account hanno effetto sulle pagine solo alla scadenza del token (`jwt_expiry`,
+> 3600 s); le Server Action usano ancora `getUser()` e la RLS resta il backstop,
+> quindi le scritture sono immediate. Per accorciare la finestra abbassa
+> `jwt_expiry`, non reintrodurre `getUser()` nelle pagine.
+
+Le pagine ricontrollano l'identità vicino ai dati con
+[`currentUser()`](../../src/lib/supabase/server.ts), che legge `sub` ed `email`
+che legge solo l'`id` (`sub`) dalle claims dello stesso JWT: costo zero, niente
+secondo `getUser()`. Email e nome arrivano da `profiles` (`getProfile`), che la
+migration 0025 tiene sincronizzata con `auth.users`: le claims sarebbero stantie
+fino al refresh. Le Server Action (mutazioni) usano ancora `getUser()`.
 
 Regole del gate:
 

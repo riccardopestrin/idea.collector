@@ -3,21 +3,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { proxy } from "./proxy";
 
-const getUser = vi.fn();
+const getClaims = vi.fn();
 
 vi.mock("@supabase/ssr", () => ({
-  createServerClient: () => ({ auth: { getUser } }),
+  createServerClient: () => ({ auth: { getClaims } }),
 }));
 
 const call = (path: string) => proxy(new NextRequest(`http://localhost:3000${path}`));
 
 describe("proxy", () => {
   beforeEach(() => {
-    getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } } });
+    getClaims.mockReset().mockResolvedValue({ data: { claims: { sub: "u1" } } });
   });
 
   it("redirects an unauthenticated visitor to the login from any protected path", async () => {
-    getUser.mockResolvedValue({ data: { user: null } });
+    getClaims.mockResolvedValue({ data: null });
 
     for (const path of ["/", "/proposals/new"]) {
       const res = await call(path);
@@ -26,7 +26,7 @@ describe("proxy", () => {
   });
 
   it("lets an unauthenticated visitor reach the login and the magic-link callback", async () => {
-    getUser.mockResolvedValue({ data: { user: null } });
+    getClaims.mockResolvedValue({ data: null });
 
     for (const path of ["/login", "/auth/callback"]) {
       const res = await call(path);

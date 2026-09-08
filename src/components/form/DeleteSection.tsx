@@ -3,13 +3,8 @@
 import { useActionState, useRef } from "react";
 
 import { SettingsHeading } from "@/components/form/SettingsHeading";
-import {
-  buttonClass,
-  confirmDialogClass,
-  dangerButtonClass,
-  displayClass,
-  settingsSectionClass,
-} from "@/lib/tokens";
+import { ConfirmDialog } from "@/components/form/ConfirmDialog";
+import { buttonClass, confirmActionsClass, dangerButtonClass, settingsSectionClass } from "@/lib/tokens";
 import { STRINGS } from "@/lib/strings";
 
 export type DeleteTexts = {
@@ -44,15 +39,13 @@ export function DeleteSection({
         </button>
       </div>
 
-      <dialog ref={ref} className={confirmDialogClass}>
-        <h2 className={`${displayClass} text-xl`}>{confirmHeading}</h2>
-        <p className="mt-3 text-sm text-foreground/70">{texts.confirmBody}</p>
+      <ConfirmDialog ref={ref} heading={confirmHeading} body={texts.confirmBody}>
         {state?.error && (
           <p role="alert" className="mt-3 text-sm text-danger">
             {state.error}
           </p>
         )}
-        <form action={submit} className="mt-6 flex flex-wrap justify-end gap-3">
+        <form action={submit} className={confirmActionsClass}>
           <button
             type="button"
             onClick={() => ref.current?.close()}
@@ -65,7 +58,7 @@ export function DeleteSection({
             {texts.confirm}
           </button>
         </form>
-      </dialog>
+      </ConfirmDialog>
     </section>
   );
 }

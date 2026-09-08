@@ -6,6 +6,7 @@ import { PlusIcon } from "@/components/icons";
 import { ProjectHeading } from "@/components/project/ProjectHeading";
 import { listProposals } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
+import { supabaseServer } from "@/lib/supabase/server";
 import { primaryButtonClass } from "@/lib/tokens";
 
 import { loadProject } from "./project";
@@ -18,13 +19,16 @@ export default async function ProjectBoard({
   params: Promise<{ projectId: string }>;
   searchParams: Promise<{ q?: string }>;
 }) {
-  const { supabase, user, project, role } = await loadProject((await params).projectId);
-
-  const { q } = await searchParams;
+  const [{ projectId }, { q }] = await Promise.all([params, searchParams]);
   const search = (q ?? "").trim();
 
   // Niente filtro stato in board: le colonne per stato sono già il filtro visivo.
-  const proposals = await listProposals(supabase, { projectId: project.id, search });
+  // listProposals dipende solo dall'id: parte insieme a loadProject (un round
+  // trip in meno); per un non membro la RLS dà [] e loadProject fa notFound.
+  const [{ user, project, role }, proposals] = await Promise.all([
+    loadProject(projectId),
+    supabaseServer().then((s) => listProposals(s, { projectId, search })),
+  ]);
 
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-6">

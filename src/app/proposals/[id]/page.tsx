@@ -6,7 +6,7 @@ import { connectedRepo } from "@/lib/github/settings";
 import { isProjectAdmin } from "@/lib/projects";
 import { getProposalDetail } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
-import { supabaseServer } from "@/lib/supabase/server";
+import { currentUser, supabaseServer } from "@/lib/supabase/server";
 
 // Pagina piena del dettaglio: navigazione diretta / refresh / link condiviso.
 // L'apertura dalla board è intercettata dal modal in @modal/(.)proposals/[id].
@@ -17,9 +17,7 @@ export default async function ProposalDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser(supabase);
   if (!user) redirect("/login");
 
   const detail = await getProposalDetail(supabase, (await params).id);

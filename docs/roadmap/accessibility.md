@@ -1,4 +1,4 @@
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-08
 
 # Accessibility
 
@@ -111,6 +111,7 @@ Spostare listener/attributi dnd-kit su una **drag handle dedicata** dentro la ca
 
 #### Dove
 - `src/components/detail/DetailModal.tsx`
+- `src/components/form/ConfirmDialog.tsx` — dialog di conferma condiviso da `DeleteSection`, `DeleteProposalDialog` e `RiceVoteForm` (stesso gap: nessun `aria-labelledby`)
 
 #### Cosa c'è di sbagliato
 Il `<dialog>` del dettaglio proposta non ha `aria-labelledby`/`aria-label`: all'apertura lo screen reader annuncia un dialogo senza nome. Il resto è corretto (nativo `showModal()` → focus trap ed Esc gratis).
@@ -119,10 +120,11 @@ Il `<dialog>` del dettaglio proposta non ha `aria-labelledby`/`aria-label`: all'
 Utenti screen-reader non sanno quale proposta si è aperta finché non esplorano il contenuto. Severità bassa/media.
 
 #### Fix raccomandato
-`aria-labelledby` sul `<dialog>` puntato all'`<h1>` del `ProposalPanel` (dare un id stabile al titolo, es. `proposal-title`).
+`aria-labelledby` sul `<dialog>` puntato all'`<h1>` del `ProposalPanel` (dare un id stabile al titolo, es. `proposal-title`). Per i dialog di conferma: `useId()` + `aria-labelledby` sull'`<h2>` dentro `ConfirmDialog`, una volta per tutti e tre.
 
 #### Cronologia
 - 2026-07-02 — Flaggato durante review chain di `step4ideaPanels`, confermato dal `Review Reviewer`.
+- 2026-09-08 — Esteso ai dialog di conferma durante la review chain della sessione latenza/getClaims: il nuovo dialog del voto RICE ha lo stesso gap; con l'estrazione di `ConfirmDialog` il fix è in un punto solo.
 
 ### [A11Y-07] Highlight del testo citato attivabile solo col mouse (hover) sui commenti altrui
 

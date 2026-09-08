@@ -12,12 +12,12 @@ export default async function ProjectLayout({
   children: React.ReactNode;
   params: Promise<{ projectId: string }>;
 }) {
-  const { user, project, profile } = await loadProject((await params).projectId);
+  const { project, profile } = await loadProject((await params).projectId);
 
   return (
     <>
       <AppHeader
-        profileLabel={profile?.name ?? user.email}
+        profileLabel={profile?.name ?? profile?.email}
         project={{ id: project.id, name: project.name }}
       />
       {children}

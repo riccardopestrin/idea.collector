@@ -6,7 +6,7 @@ import { NameForm } from "@/components/form/NameForm";
 import { AppHeader } from "@/components/nav/AppHeader";
 import { getProfile } from "@/lib/profiles";
 import { STRINGS } from "@/lib/strings";
-import { supabaseServer } from "@/lib/supabase/server";
+import { currentUser, supabaseServer } from "@/lib/supabase/server";
 
 import { deleteAccount } from "./actions";
 
@@ -15,19 +15,17 @@ import { deleteAccount } from "./actions";
 // repo GitHub sono per progetto e vivono in /projects/[id]/settings (RFC-007).
 export default async function ProfilePage() {
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser(supabase);
   if (!user) redirect("/login");
 
   const profile = await getProfile(supabase, user.id);
 
   return (
     <>
-      <AppHeader profileLabel={profile?.name ?? user.email} />
+      <AppHeader profileLabel={profile?.name ?? profile?.email} />
       <main className="flex flex-1 flex-col items-center gap-8 p-6">
         <NameForm heading={STRINGS.profile.heading} defaultName={profile?.name ?? undefined} />
-        <EmailForm currentEmail={user.email ?? ""} />
+        <EmailForm currentEmail={profile?.email ?? ""} />
         <DeleteSection
           texts={STRINGS.profile.delete}
           confirmHeading={STRINGS.profile.delete.confirmHeading}

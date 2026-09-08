@@ -323,8 +323,9 @@ export const STRINGS = {
     legend: "1 = minimo · 10 = massimo. Puoi aggiornare il tuo voto in seguito.",
     submit: "Invia voto",
     update: "Aggiorna voto",
-    // #9d: avviso quando si vota una card non «In Valutazione»
-    warnNotInEval: "Sei sicuro di voler votare? La proposta non è «In Valutazione».",
+    // #9d: conferma (dialog) quando si vota una card non «In Valutazione»
+    warnHeading: "Sei sicuro di voler votare?",
+    warnBody: "La proposta non è «In Valutazione».",
     invalid: "Assegna un valore da 1 a 10 a ogni parametro.",
     // #9c: voto consentito ovunque tranne che in «Nuova»
     notWhileNew: "Non puoi votare una proposta in «Nuova».",

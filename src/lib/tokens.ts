@@ -39,5 +39,7 @@ export const tagClass = "border px-1.5 py-0.5 font-mono text-[10px] uppercase tr
 export const liftClass = "lift hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard";
 // Dialog di conferma (<dialog> nativo): scheda centrata su sfondo scurito.
 export const confirmDialogClass = "m-auto w-full max-w-md border border-ink bg-paper p-6 text-ink shadow-hard-lg backdrop:bg-ink/60";
+// Riga dei bottoni in fondo al dialog di conferma (Annulla + azione).
+export const confirmActionsClass = "mt-6 flex flex-wrap justify-end gap-3";
 // Sezione delle pagine impostazioni/profilo (membri, GitHub, email, elimina…).
 export const settingsSectionClass = "flex w-full max-w-lg flex-col gap-4 border-t border-ink pt-6";

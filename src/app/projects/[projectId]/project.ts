@@ -3,7 +3,7 @@ import { cache } from "react";
 
 import { getProfile } from "@/lib/profiles";
 import { getMemberRole, getProject } from "@/lib/projects";
-import { supabaseServer } from "@/lib/supabase/server";
+import { currentUser, supabaseServer } from "@/lib/supabase/server";
 
 // Contesto comune delle pagine di un progetto: utente, progetto, ruolo. Il proxy
 // già blocca i non loggati; qui si ricontrolla vicino ai dati. Un progetto
@@ -11,9 +11,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 // cache(): layout e pagina lo chiamano nella stessa richiesta, una sola lettura.
 export const loadProject = cache(async (projectId: string) => {
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser(supabase);
   if (!user) redirect("/login");
 
   const [project, role, profile] = await Promise.all([

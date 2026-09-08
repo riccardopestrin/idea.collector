@@ -7,7 +7,7 @@ import { ProjectList } from "@/components/project/ProjectList";
 import { getProfile } from "@/lib/profiles";
 import { listProjects } from "@/lib/projects";
 import { STRINGS } from "@/lib/strings";
-import { supabaseServer } from "@/lib/supabase/server";
+import { currentUser, supabaseServer } from "@/lib/supabase/server";
 import { pageTitleClass, primaryButtonClass } from "@/lib/tokens";
 
 // Home autenticata: la lista dei progetti (bacheche) di cui l'utente è membro,
@@ -15,9 +15,7 @@ import { pageTitleClass, primaryButtonClass } from "@/lib/tokens";
 // qui vicino ai dati (pattern raccomandato) e per restringere il tipo di user.
 export default async function ProjectsPage() {
   const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser(supabase);
   if (!user) redirect("/login");
 
   const [projects, profile] = await Promise.all([
@@ -28,7 +26,7 @@ export default async function ProjectsPage() {
 
   return (
     <>
-      <AppHeader profileLabel={profile?.name ?? user.email} />
+      <AppHeader profileLabel={profile?.name ?? profile?.email} />
 
       <main className="flex w-full flex-1 flex-col gap-8 p-6">
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-ink pb-6">

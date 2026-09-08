@@ -72,6 +72,35 @@ Su Vercel (Project → Settings → Environment Variables) vanno gli stessi nomi
 - La GitHub App e la key Anthropic sono opzionali per far *girare* l'app, ma
   necessarie per le rispettive feature reali.
 
+## 12.6 Latenza: regione e round trip
+
+Ogni navigazione è un render server-side (le pagine leggono i cookie, quindi
+sono dinamiche: niente cache) che parla con Supabase. In produzione il costo di
+una pagina è **il numero di round trip sequenziali verso Supabase × la latenza
+tra la function Vercel e il database**. In locale non si vede nulla (Docker
+risponde in ~1 ms); in produzione un round trip transatlantico costa ~100 ms.
+
+Due regole, entrambe già applicate:
+
+1. **Regione Vercel = regione Supabase.** Vercel → Settings → Functions →
+   *Function Region*, stessa regione del progetto Supabase (Settings → General).
+   Il default Vercel è `iad1` (Washington): con un DB europeo ogni hop paga
+   l'oceano. È un'impostazione del dashboard, non del repo.
+2. **Un solo hop di dati per pagina.** Il proxy verifica il JWT in locale con
+   `getClaims()` ([§6.3](06-autenticazione.md#63-il-proxy-refresh-della-sessione--gate)),
+   le pagine leggono l'identità dalle claims (`currentUser()`) e le query
+   indipendenti partono in parallelo (`Promise.all`; es. board e classifica
+   lanciano `listProposals` insieme a `loadProject`). Prima erano quattro hop
+   sequenziali (`getUser` nel proxy, `getUser` in pagina, contesto progetto,
+   proposte): ora uno.
+
+Cosa **non** fare: cache server-side dei dati. Sono per utente (RLS) e cambiano
+live (`RealtimeRefresh` fa `router.refresh()` a ogni evento Postgres): una cache
+sopra aggiungerebbe staleness da invalidare senza guadagno, dato che l'unico hop
+rimasto nella stessa regione costa pochi millisecondi. Se dopo il deploy resta
+una lentezza percepita, il passo successivo è un `loading.tsx` per route
+(feedback immediato + prefetch dello shell), non una cache.
+
 ---
 
 Precedente: [← 11. Testing](11-testing.md) · Prossimo: [13. Contribuire →](13-contribuire.md)

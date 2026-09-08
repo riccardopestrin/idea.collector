@@ -8,37 +8,50 @@ const submitRiceVote = vi.hoisted(() => vi.fn(async () => null));
 vi.mock("@/app/proposals/[id]/actions", () => ({ submitRiceVote }));
 
 afterEach(() => {
-  vi.restoreAllMocks();
   submitRiceVote.mockClear();
 });
 
 describe("RiceVoteForm", () => {
-  it("submits directly, without a confirm, when the proposal is in valutazione", async () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  it("submits directly, without a confirm dialog, when the proposal is in valutazione", async () => {
     render(<RiceVoteForm proposalId="p1" status="in_valutazione" existingVote={null} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Invia voto" }));
 
-    expect(confirm).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { hidden: true })).not.toHaveAttribute("open");
     expect(submitRiceVote).toHaveBeenCalledWith("p1", null, expect.any(FormData));
   });
 
-  it("asks for confirmation before voting a card that is not in valutazione (#9d)", async () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  it("opens the confirm dialog before voting a card that is not in valutazione (#9d)", async () => {
     render(<RiceVoteForm proposalId="p1" status="approvata" existingVote={null} />);
+    const dialog = screen.getByRole("dialog", { hidden: true });
+    expect(dialog).not.toHaveAttribute("open");
 
     await userEvent.click(screen.getByRole("button", { name: "Invia voto" }));
 
-    expect(confirm).toHaveBeenCalledOnce();
-    expect(submitRiceVote).toHaveBeenCalled();
+    expect(dialog).toHaveAttribute("open");
+    expect(screen.getByRole("heading", { name: "Sei sicuro di voler votare?" })).toBeInTheDocument();
+    expect(submitRiceVote).not.toHaveBeenCalled();
+  });
+
+  it("submits the vote only after confirming in the dialog (#9d)", async () => {
+    render(<RiceVoteForm proposalId="p1" status="approvata" existingVote={null} />);
+
+    const [openButton] = screen.getAllByRole("button", { name: "Invia voto" });
+    await userEvent.click(openButton);
+    const [, confirmButton] = screen.getAllByRole("button", { name: "Invia voto" });
+    await userEvent.click(confirmButton);
+
+    expect(screen.getByRole("dialog", { hidden: true })).not.toHaveAttribute("open");
+    expect(submitRiceVote).toHaveBeenCalledWith("p1", null, expect.any(FormData));
   });
 
   it("does not submit when the user cancels that confirmation (#9d)", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(false);
     render(<RiceVoteForm proposalId="p1" status="approvata" existingVote={null} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Invia voto" }));
+    await userEvent.click(screen.getByRole("button", { name: "Annulla" }));
 
+    expect(screen.getByRole("dialog", { hidden: true })).not.toHaveAttribute("open");
     expect(submitRiceVote).not.toHaveBeenCalled();
   });
 

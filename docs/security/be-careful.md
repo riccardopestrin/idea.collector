@@ -1,4 +1,4 @@
-**Last updated:** 2026-09-07
+**Last updated:** 2026-09-08
 
 # Be Careful — issue note consapevolmente rinviate
 
@@ -7,6 +7,32 @@ Registro durevole delle NICE-TO-HAVE consapevolmente rinviate: problemi che **no
 Ogni voce ha un ID stabile nel formato `YYYY-MM-DD-XXXX` (data del flag + 4 char di hash). **Gli ID non vengono mai riusati, rinumerati o riscritti**, nemmeno dopo la risoluzione.
 
 ---
+
+## `2026-09-08-ca07` Revoca account differita a `jwt_expiry` con `getClaims()` nel proxy e nelle pagine
+
+**Status:** non fissato — non si verifica nell'attuale use case.
+
+### Dove
+- [src/proxy.ts](../../src/proxy.ts) — `getClaims()` al posto di `getUser()`: verifica firma ed `exp` in locale (chiave ECC P-256), nessun round trip all'Auth server
+- [src/lib/supabase/server.ts](../../src/lib/supabase/server.ts) — `currentUser()`: identità dalle claims, usata da tutte le pagine
+- [src/app/profile/actions.ts](../../src/app/profile/actions.ts) — `deleteAccount`: fa `signOut` solo sul dispositivo corrente
+
+### Il problema potenziale
+`getUser()` rifiutava subito un token il cui utente era stato cancellato o bannato server-side. `getClaims()` con chiave asimmetrica non contatta il server: un access token ancora valido passa proxy e pagine finché non scade (`jwt_expiry` = 3600 s in `supabase/config.toml`), poi il refresh fallisce. Caso concreto: dopo `deleteAccount` un secondo dispositivo continua a renderizzare pagine (la RLS restituisce vuoto, `loadProject` manda a `/onboarding`) per al massimo un'ora.
+
+### Perché oggi non è un problema
+Le pagine sono sola lettura e la RLS non restituisce nulla a un utente cancellato. Tutte le Server Action (mutazioni) usano ancora `getUser()`, quindi le scritture di un account revocato falliscono subito. Non esiste una feature di ban/disattivazione: l'unico percorso è `deleteAccount`, che è l'utente stesso a invocare.
+
+### Quando diventa un problema
+1. Se si aggiunge un ban/disattivazione admin e ci si aspetta effetto immediato lato UI.
+2. Se una pagina inizia a mostrare dati non coperti da RLS (es. letture con client service-role) basandosi solo sull'identità dalle claims.
+3. Se `jwt_expiry` viene alzato.
+
+### Cosa fare se devi toccare quest'area
+Abbassare `jwt_expiry` (config Supabase) per stringere la finestra; non reintrodurre `getUser()` nelle pagine (un round trip per navigazione, vedi `docs/guide/12-deploy.md` §12.6). Per un ban immediato: `auth.admin.signOut(userId, 'global')` invalida i refresh token, il resto lo fa la scadenza.
+
+### Cronologia
+- 2026-09-08 — Flaggato durante review chain della sessione latenza/getClaims (Software Reviewer LOW → Review Reviewer NICE-TO-HAVE, solo documentazione). Sezione §6.3 della guida aggiornata nello stesso giro.
 
 ## `2026-09-07-inv1` Inviti service-role raggiungibili da ogni utente autenticato via `create_project` — oracle di esistenza account
 
