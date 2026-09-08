@@ -8,6 +8,29 @@ Ogni voce ha un ID stabile nel formato `YYYY-MM-DD-XXXX` (data del flag + 4 char
 
 ---
 
+## `2026-09-08-rtjn` `RealtimeRefresh` decide "sessione sì/no" una volta sola al mount del root layout
+
+**Status:** non fissato — non si verifica nell'attuale use case.
+
+### Dove
+- [src/components/RealtimeRefresh.tsx](../../src/components/RealtimeRefresh.tsx) — `getSession()` → `realtime.setAuth(token)` → `subscribe()`; senza sessione **non** sottoscrive e l'effetto non si ri-esegue mai (montato una volta in `src/app/layout.tsx`)
+
+### Il problema potenziale
+Se un utente arriva nell'app senza sessione e poi fa login **senza un full document load** (soft navigation), il canale Realtime resta spento per tutta la sessione: nessun aggiornamento live cross-utente, sintomo identico al bug appena corretto (join anonimo scartato dalla RLS).
+
+### Perché oggi non è un problema
+L'unico percorso di login è `signInWithOtp` → email → `/auth/callback` (Route Handler) → `NextResponse.redirect` → **full page load**: il root layout si rimonta con la sessione già nei cookie. Il PKCE exchange è server-side, quindi il client browser non emette mai `SIGNED_IN` lato client.
+
+### Quando diventa un problema
+1. Un login che termina con `redirect()` di Server Action o `router.push` (password login, OAuth gestito client-side).
+2. Un flusso che monta l'app anonima e autentica in-page.
+
+### Cosa fare se devi toccare quest'area
+Risottoscrivere su `supabase.auth.onAuthStateChange('SIGNED_IN')`, oppure sottoscrivere comunque e lasciare che `_handleTokenChanged` di supabase-js (che chiama `realtime.setAuth(token)` su `SIGNED_IN`) promuova il join. In entrambi i casi il join iniziale deve continuare a portare il JWT (vedi commento nel componente): è il fix del 2026-09-08.
+
+### Cronologia
+- 2026-09-08 — Flaggato durante review chain del fix "Realtime join anonimo" (Software Reviewer LOW → Review Reviewer NICE-TO-HAVE, solo documentazione).
+
 ## `2026-09-08-ca07` Revoca account differita a `jwt_expiry` con `getClaims()` nel proxy e nelle pagine
 
 **Status:** non fissato — non si verifica nell'attuale use case.
@@ -33,6 +56,7 @@ Abbassare `jwt_expiry` (config Supabase) per stringere la finestra; non reintrod
 
 ### Cronologia
 - 2026-09-08 — Flaggato durante review chain della sessione latenza/getClaims (Software Reviewer LOW → Review Reviewer NICE-TO-HAVE, solo documentazione). Sezione §6.3 della guida aggiornata nello stesso giro.
+- 2026-09-08 — Cross-ref (review chain fix Realtime): il sign-out è una Server Action con `redirect("/login")` (soft navigation), quindi il canale `RealtimeRefresh` resta montato con il JWT dell'utente uscito e continua a ricevere i suoi eventi (→ `router.refresh()` innocui su `/login`) finché Realtime non lo chiude a `exp`. Stessa finestra `jwt_expiry`. Rimedio futuro: `supabase.auth.signOut({ scope: "local" })` client-side (o `realtime.setAuth()` reset) prima della redirect.
 
 ## `2026-09-07-inv1` Inviti service-role raggiungibili da ogni utente autenticato via `create_project` — oracle di esistenza account
 

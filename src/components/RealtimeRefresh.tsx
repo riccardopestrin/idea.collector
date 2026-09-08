@@ -26,6 +26,7 @@ export function RealtimeRefresh() {
   useEffect(() => {
     const supabase = supabaseBrowser();
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
     const scheduleRefresh = () => {
       clearTimeout(timer);
       timer = setTimeout(() => router.refresh(), 250);
@@ -35,9 +36,18 @@ export function RealtimeRefresh() {
     for (const table of REALTIME_TABLES) {
       channel.on("postgres_changes", { event: "*", schema: "public", table }, scheduleRefresh);
     }
-    channel.subscribe();
+    // Il join deve già portare il JWT utente: supabase-js lo risolve in modo asincrono
+    // e se il socket apre prima, il canale entra come `anon` e la RLS gli nega ogni
+    // evento in silenzio (Subscribed ok, zero messaggi) finché non scade il token.
+    void supabase.auth.getSession().then(async ({ data }) => {
+      const token = data.session?.access_token;
+      if (!token || cancelled) return;
+      await supabase.realtime.setAuth(token);
+      if (!cancelled) channel.subscribe();
+    });
 
     return () => {
+      cancelled = true;
       clearTimeout(timer);
       void supabase.removeChannel(channel);
     };

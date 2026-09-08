@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RealtimeRefresh } from "./RealtimeRefresh";
@@ -21,26 +21,54 @@ const channel = vi.hoisted(() => {
   return ch;
 });
 const removeChannel = vi.hoisted(() => vi.fn());
+const setAuth = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const getSession = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve({ data: { session: { access_token: "jwt-utente" } } }))
+);
 vi.mock("@/lib/supabase/client", () => ({
-  supabaseBrowser: () => ({ channel: () => channel, removeChannel }),
+  supabaseBrowser: () => ({
+    channel: () => channel,
+    removeChannel,
+    auth: { getSession },
+    realtime: { setAuth },
+  }),
 }));
 
+// Lascia risolvere la catena getSession → setAuth → subscribe.
+const flush = () => act(() => Promise.resolve());
+
 afterEach(() => {
-  refresh.mockClear();
-  channel.on.mockClear();
-  channel.subscribe.mockClear();
+  vi.clearAllMocks();
   channel.handlers.length = 0;
   vi.useRealTimers();
 });
 
 describe("RealtimeRefresh", () => {
-  it("subscribes to every realtime table and coalesces a burst into one refresh", () => {
+  it("sets the user JWT on realtime before subscribing", async () => {
+    render(<RealtimeRefresh />);
+    expect(channel.on).toHaveBeenCalledTimes(6);
+    expect(channel.subscribe).not.toHaveBeenCalled();
+
+    await flush();
+    expect(setAuth).toHaveBeenCalledWith("jwt-utente");
+    expect(channel.subscribe).toHaveBeenCalledOnce();
+    expect(setAuth.mock.invocationCallOrder[0]).toBeLessThan(
+      channel.subscribe.mock.invocationCallOrder[0]
+    );
+  });
+
+  it("does not subscribe without a session", async () => {
+    getSession.mockResolvedValueOnce({ data: { session: null } } as never);
+    render(<RealtimeRefresh />);
+    await flush();
+    expect(setAuth).not.toHaveBeenCalled();
+    expect(channel.subscribe).not.toHaveBeenCalled();
+  });
+
+  it("coalesces a burst of events into one refresh", async () => {
     vi.useFakeTimers();
     render(<RealtimeRefresh />);
-
-    // una sottoscrizione per tabella, poi subscribe()
-    expect(channel.on).toHaveBeenCalledTimes(6);
-    expect(channel.subscribe).toHaveBeenCalledOnce();
+    await flush();
 
     // due eventi ravvicinati (es. move = update + insert history) → un solo refresh
     channel.handlers[0]();
@@ -50,9 +78,11 @@ describe("RealtimeRefresh", () => {
     expect(refresh).toHaveBeenCalledOnce();
   });
 
-  it("tears the channel down on unmount", () => {
+  it("tears the channel down on unmount and never subscribes afterwards", async () => {
     const { unmount } = render(<RealtimeRefresh />);
     unmount();
     expect(removeChannel).toHaveBeenCalledWith(channel);
+    await flush();
+    expect(channel.subscribe).not.toHaveBeenCalled();
   });
 });
