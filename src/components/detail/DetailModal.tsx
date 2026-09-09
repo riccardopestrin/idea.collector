@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { XIcon } from "@/components/icons";
 import { STRINGS } from "@/lib/strings";
@@ -32,6 +32,11 @@ export function DetailModal({
 }) {
   const router = useRouter();
   const ref = useRef<HTMLDialogElement>(null);
+  // Lo slot @modal non si svuota da solo quando una server action fa redirect
+  // altrove (es. createProject → /projects/[id]): senza questo la modale
+  // resterebbe aperta sopra la nuova pagina. Se il pathname cambia, sparisce.
+  const pathname = usePathname();
+  const [openedAt] = useState(pathname);
   // true se il mousedown è partito sul backdrop: chiudiamo solo se il click
   // inizia E finisce lì. Senza, una selezione di testo trascinata dalla card
   // verso il bordo rilascia sul backdrop e chiudeva il modal (bug report).
@@ -44,6 +49,8 @@ export function DetailModal({
   // sulla board illuminata (glitch). Lasciandolo modale fino allo smontaggio,
   // elemento e backdrop spariscono insieme. onCancel intercetta l'Esc nativo.
   const close = () => router.back();
+
+  if (pathname !== openedAt) return null;
 
   return (
     <dialog
