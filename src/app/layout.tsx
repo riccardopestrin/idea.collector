@@ -36,7 +36,7 @@ export default function RootLayout({
       lang="it"
       className={`${archivo.variable} ${plexSans.variable} ${plexMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="flex h-full flex-col">
         <ScrollbarReveal />
         <RealtimeRefresh />
         {children}

@@ -4,7 +4,7 @@ import { ProjectHeading } from "@/components/project/ProjectHeading";
 import { isProposalStatus, listProposals, rankProposalsByScore } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
-import { displayClass } from "@/lib/tokens";
+import { displayClass, scrollRegionClass } from "@/lib/tokens";
 
 import { loadProject } from "../project";
 
@@ -31,7 +31,7 @@ export default async function Ranking({
   const ranked = rankProposalsByScore(proposals);
 
   return (
-    <main className="flex w-full flex-1 flex-col gap-6 p-6">
+    <main className="flex min-h-0 w-full flex-1 flex-col gap-6 p-6">
       <ProjectHeading project={{ id: project.id, name: project.name, isAdmin: role === "admin" }} />
 
       <ProposalFilters
@@ -45,18 +45,20 @@ export default async function Ranking({
           {search || statuses.length > 0 ? STRINGS.board.noneMatchFilters : STRINGS.board.noneYet}
         </p>
       ) : (
-        <ol className="flex max-w-4xl flex-col gap-3">
-          {ranked.map((proposal, i) => (
-            <li key={proposal.id} className="flex items-stretch gap-3">
-              <span className={`flex w-12 shrink-0 items-center justify-center border border-ink ${displayClass} text-xl`}>
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <div className="flex-1">
-                <ProposalCard proposal={proposal} showStatus />
-              </div>
-            </li>
-          ))}
-        </ol>
+        <div className={`${scrollRegionClass} border-t border-ink pt-6`}>
+          <ol className="flex max-w-4xl flex-col gap-3">
+            {ranked.map((proposal, i) => (
+              <li key={proposal.id} className="flex items-stretch gap-3">
+                <span className={`flex w-12 shrink-0 items-center justify-center border border-ink ${displayClass} text-xl`}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <div className="flex-1">
+                  <ProposalCard proposal={proposal} showStatus />
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
       )}
     </main>
   );

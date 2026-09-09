@@ -1,4 +1,4 @@
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-09
 
 # Accessibility
 
@@ -243,6 +243,27 @@ O `aria-current="true"` sui chip attivi (valido sui link, annuncia "corrente"), 
 
 #### Cronologia
 - 2026-09-07 — Flaggato durante review chain di `graphicDesign` (Software Reviewer, confermato da Review Reviewer).
+
+### [A11Y-13] Regioni di scroll interno (home, classifica) senza nome accessibile né focus da tastiera
+
+**Status:** non fissato — flaggato il 2026-09-09 durante review dello scroll interno di home/classifica (`main`).
+
+#### Dove
+- `src/app/page.tsx` — `<div className={scrollRegionClass}>` attorno a `ProjectList`
+- `src/app/projects/[projectId]/ranking/page.tsx` — stesso wrapper attorno alla `<ol>` della classifica
+- `src/lib/tokens.ts` — `scrollRegionClass`
+
+#### Cosa c'è di sbagliato
+I wrapper `overflow-y-auto` sono `<div>` anonimi. Contengono link focalizzabili, quindi Chrome non li rende scroller focalizzabili in modo implicito; in Firefox da tastiera si scorre solo tabulando fra le card. Gli screen reader non annunciano l'inizio di una regione scorrevole. Il `KeyboardSensor` di dnd-kit non è impattato.
+
+#### Impatto user-visible
+Utenti tastiera e screen reader: nessun contenuto irraggiungibile (il tab porta ogni card in vista), ma scroll libero impossibile e nessun annuncio della regione. Severità bassa.
+
+#### Fix raccomandato
+`role="region"` + `aria-label` da `STRINGS` (e `tabIndex={0}` se conta lo scroll da tastiera in Firefox) sul wrapper, oppure rendere il wrapper la stessa `<ul>`/`<ol>` della lista.
+
+#### Cronologia
+- 2026-09-09 — Flaggato durante review chain dello scroll interno di home/classifica (Software Reviewer, confermato da Review Reviewer).
 
 ## Issue risolti
 

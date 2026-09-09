@@ -8,7 +8,7 @@ import { getProfile } from "@/lib/profiles";
 import { listProjects } from "@/lib/projects";
 import { STRINGS } from "@/lib/strings";
 import { currentUser, supabaseServer } from "@/lib/supabase/server";
-import { pageTitleClass, primaryButtonClass } from "@/lib/tokens";
+import { pageTitleClass, primaryButtonClass, scrollRegionClass } from "@/lib/tokens";
 
 // Home autenticata: la lista dei progetti (bacheche) di cui l'utente è membro,
 // con il "+" per crearne uno. Il proxy già blocca i non loggati; ricontrolliamo
@@ -28,7 +28,7 @@ export default async function ProjectsPage() {
     <>
       <AppHeader profileLabel={profile?.name ?? profile?.email} />
 
-      <main className="flex w-full flex-1 flex-col gap-8 p-6">
+      <main className="flex min-h-0 w-full flex-1 flex-col gap-8 p-6">
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-ink pb-6">
           <div className="flex flex-col gap-2">
             <h1 className={pageTitleClass}>
@@ -45,7 +45,7 @@ export default async function ProjectsPage() {
         {projects.length === 0 ? (
           <p className="font-mono text-sm text-foreground/70">{STRINGS.projects.noneYet}</p>
         ) : (
-          <ProjectList projects={projects} />
+          <div className={scrollRegionClass}><ProjectList projects={projects} /></div>
         )}
       </main>
     </>

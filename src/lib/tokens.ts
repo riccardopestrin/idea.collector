@@ -37,6 +37,10 @@ export const labelClass = "font-mono text-xs uppercase tracking-widest";
 export const tagClass = "border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider";
 // Card che si "solleva" al hover (ombra dura, niente blur).
 export const liftClass = "lift hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-hard";
+
+// Lista che scorre da sola sotto header/filtri fissi (home, classifica). -m-1/p-1:
+// 4px di aria dentro il clip per ombra dura e lift delle card ai bordi.
+export const scrollRegionClass = "-m-1 min-h-0 flex-1 overflow-y-auto p-1";
 // Dialog di conferma (<dialog> nativo): scheda centrata su sfondo scurito.
 export const confirmDialogClass = "m-auto w-full max-w-md border border-ink bg-paper p-6 text-ink shadow-hard-lg backdrop:bg-ink/60";
 // Riga dei bottoni in fondo al dialog di conferma (Annulla + azione).

@@ -1,4 +1,4 @@
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-09
 
 # Be Careful — issue note consapevolmente rinviate
 
@@ -7,6 +7,32 @@ Registro durevole delle NICE-TO-HAVE consapevolmente rinviate: problemi che **no
 Ogni voce ha un ID stabile nel formato `YYYY-MM-DD-XXXX` (data del flag + 4 char di hash). **Gli ID non vengono mai riusati, rinumerati o riscritti**, nemmeno dopo la risoluzione.
 
 ---
+
+## `2026-09-09-scrl` Header fisso + lista che scorre da sola anche su mobile (home e classifica)
+
+**Status:** non fissato — non si verifica nell'attuale use case.
+
+### Dove
+- [src/app/page.tsx](../../src/app/page.tsx) — `main` con `min-h-0`, lista progetti dentro `scrollRegionClass`
+- [src/app/projects/[projectId]/ranking/page.tsx](../../src/app/projects/[projectId]/ranking/page.tsx) — idem per la classifica
+- [src/lib/tokens.ts](../../src/lib/tokens.ts) — `scrollRegionClass`
+- [src/app/layout.tsx](../../src/app/layout.tsx) — `body h-full` (era `min-h-full`)
+
+### Il problema potenziale
+Su un viewport da telefono (375×667) header + titolo/intro/bottone + filtri occupano ~250-300px prima della lista: lo scroller interno mostra ~2 card, e su iOS Safari la toolbar non si nasconde più perché il documento non scorre mai. Inoltre, durante un drag nella griglia progetti la card trascinata viene clippata ai bordi alto/basso del wrapper (prima dipingeva sul padding di `main`).
+
+### Perché oggi non è un problema
+L'app è usata da desktop; l'header fisso è esattamente il comportamento richiesto dall'owner il 2026-09-09. Il clip in drag è visibile solo a metà gesto.
+
+### Quando diventa un problema
+1. Il mobile diventa un target reale d'uso.
+2. Il drag & drop dei progetti viene usato con liste lunghe che scorrono.
+
+### Cosa fare se devi toccare quest'area
+Rendere lo scroller responsive con varianti `md:`: `md:min-h-0` su `main` e `md:min-h-0 md:flex-1 md:overflow-y-auto` al posto delle classi non prefissate in `scrollRegionClass`; sotto `md` la pagina torna a scroll di documento (`body h-full` lo regge già: il contenuto sborda e il documento scorre).
+
+### Cronologia
+- 2026-09-09 — Flaggato durante review chain dello scroll interno di home/classifica (Software Reviewer NICE-TO-HAVE, confermato da Review Reviewer come decisione di design da rinviare).
 
 ## `2026-09-08-rtjn` `RealtimeRefresh` decide "sessione sì/no" una volta sola al mount del root layout
 
