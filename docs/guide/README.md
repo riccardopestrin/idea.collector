@@ -1,13 +1,10 @@
 # La guida di idea.collector
 
-Benvenuto. Questa è la guida completa a **idea.collector**, scritta come un libro:
-una serie di capitoli brevi e sequenziali che partono dai concetti e arrivano al
-codice, al deploy e al modo di contribuire. Se stai per lavorare a questo
-progetto per la prima volta, leggi i capitoli nell'ordine. Se cerchi una cosa
-precisa, salta al capitolo giusto dall'indice.
+Benvenuto. Questa è la guida completa di **idea.collector**:
+una serie di capitoli brevi e sequenziali che partono dai concetti base e arrivano al
+deploy passando per il design e il codice. Viene ulteriormente spiegato come si può contribuire.
 
-Ogni capitolo è un documento a sé. I riferimenti al codice sono link cliccabili
-relativi alla radice del repo.
+Ogni capitolo è un documento a sé. I riferimenti al codice sono link cliccabili.
 
 ## Indice
 
