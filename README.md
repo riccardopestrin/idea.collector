@@ -1,9 +1,9 @@
 # idea.collector
 
-Strumento per raccogliere, discutere e prioritizzare le idee di prodotto di un
-team: ogni idea entra come *proposta*, viene discussa con commenti ancorati al
-testo, valutata con un punteggio **RICE-10** (membri + AI) e avanza su una board a
-colonne. Ogni progetto è una bacheca a sé, con membri e ruoli propri.
+Strumento per raccogliere e discutere idee di prodotto di un
+team: ogni idea entra come *proposta*, viene discussa con commenti relativi al
+testo e valutata con un punteggio **RICE-10** (membri + AI). Può avanzare su una board a
+colonne. Ogni progetto è una bacheca a sé, con membri e ruoli legati al profilo utente.
 
 Stack: **Next.js 16** · **Supabase** (Postgres + Auth + RLS) · **Anthropic
 (Claude)** per valutazione/scan · **GitHub App** per il contesto repo.
