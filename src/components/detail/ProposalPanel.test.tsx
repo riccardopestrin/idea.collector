@@ -185,12 +185,12 @@ describe("ProposalPanel", () => {
     expect(screen.getByRole("button", { name: "Elimina" })).toBeInTheDocument();
   });
 
-  it("hides edit/delete on a crystallized proposal even for the author", () => {
+  it("keeps edit/delete for the author in every state (#10: no crystallization)", () => {
     render(
-      <ProposalPanel detail={{ ...base, status: "approvata" }} currentUserId="u2" />,
+      <ProposalPanel detail={{ ...base, status: "rilasciata" }} currentUserId="u2" />,
     );
-    expect(screen.queryByRole("button", { name: "Modifica" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Elimina" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Modifica" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Elimina" })).toBeInTheDocument();
   });
 
   it("shows the Branch/PR section to the proposer even when empty, but hides it from others", () => {
@@ -312,7 +312,7 @@ describe("ProposalPanel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("hides promotion actions on a crystallized proposal but keeps the badge", () => {
+  it("keeps promotion actions and the badge past 'in_valutazione' (#10)", () => {
     render(
       <ProposalPanel
         detail={{ ...withPromotion("accepted"), status: "approvata" }}
@@ -320,9 +320,7 @@ describe("ProposalPanel", () => {
       />,
     );
     expect(screen.getByText("contributo")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Revoca partecipazione" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Revoca partecipazione" })).toBeInTheDocument();
   });
 
   it("hides the vote form from an accepted contributor (now a co-author)", () => {

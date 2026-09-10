@@ -2,7 +2,7 @@
 -- atomici), delete autore-o-admin, anon fuori dalla RPC.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(8);
+select plan(11);
 
 -- Setup (come superuser): due contributor.
 insert into auth.users (id, email)
@@ -47,18 +47,44 @@ select is(
 );
 
 -- CAS: from_status stale (la carta non è più "nuova") -> nessuna mossa.
--- Transizione lecita per la macchina a stati (0018), così si arriva al CAS.
+-- Transizione lecita per la macchina ibrida (0031), così si arriva al CAS.
 select is(
   public.move_proposal('44444444-0000-0000-0000-000000000001',
-                       'nuova', 'rifiutata'),
+                       'nuova', 'in_valutazione'),
   false,
   'una mossa basata su uno stato stale fallisce (compare-and-set)'
+);
+
+-- 0031 [1]: macchina ibrida — in 'nuova' non si torna, da 'nuova' solo
+-- 'in_valutazione', il resto è libero.
+select throws_ok(
+  $$ select public.move_proposal('44444444-0000-0000-0000-000000000001',
+                                 'in_valutazione', 'nuova') $$,
+  'P0001',
+  null,
+  'nessuna transizione riporta in nuova'
+);
+select is(
+  public.move_proposal('44444444-0000-0000-0000-000000000001',
+                       'in_valutazione', 'rilasciata'),
+  true,
+  'fuori da nuova ogni salto fra stati distinti è consentito'
+);
+insert into public.proposals (id, title, proposer_id, project_id)
+values ('44444444-0000-0000-0000-000000000003', 'Di Enea, nuova',
+        'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', '00000000-0000-0000-0000-00000000dddd');
+select throws_ok(
+  $$ select public.move_proposal('44444444-0000-0000-0000-000000000003',
+                                 'nuova', 'approvata') $$,
+  'P0001',
+  null,
+  'da nuova si esce solo verso in_valutazione'
 );
 
 -- 0006 [2]: from = to non è una transizione, niente riga X -> X in history.
 select throws_ok(
   $$ select public.move_proposal('44444444-0000-0000-0000-000000000001',
-                                 'in_valutazione', 'in_valutazione') $$,
+                                 'rilasciata', 'rilasciata') $$,
   'P0001',
   null,
   'una mossa con from = to è rifiutata'
@@ -91,7 +117,7 @@ select is(
 set local role anon;
 select throws_ok(
   $$ select public.move_proposal('44444444-0000-0000-0000-000000000001',
-                                 'in_valutazione', 'approvata') $$,
+                                 'rilasciata', 'approvata') $$,
   '42501',
   null,
   'anon non può chiamare move_proposal'

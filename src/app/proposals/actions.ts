@@ -6,12 +6,8 @@ import { refresh } from "next/cache";
 import { runEvaluation } from "@/lib/ai/runEvaluation";
 import { runProposalScan } from "@/lib/ai/runProposalScan";
 import { isAnchorField, markdownToPlainText, resolveAnchor } from "@/lib/anchors";
-import {
-  isOpenProposalStatus,
-  isProposalStatus,
-  type PromotionStatus,
-  type ProposalStatus,
-} from "@/lib/proposals";
+import { canMoveTo } from "@/lib/board";
+import { isProposalStatus, type PromotionStatus, type ProposalStatus } from "@/lib/proposals";
 import { isProjectAdmin } from "@/lib/projects";
 import { STRINGS } from "@/lib/strings";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -32,8 +28,9 @@ export async function updateProposalStatus(
     return { error: STRINGS.board.invalidStatus };
   }
   if (fromStatus === toStatus) return null;
-  // #9: libertà assoluta di spostamento — nessun vincolo di transizione. Resta
-  // solo il blocco duplicati sotto (e in move_proposal come backstop).
+  // #10 macchina ibrida: da 'nuova' solo verso 'in_valutazione', mai indietro in
+  // 'nuova'; il resto è libero. move_proposal (0031) è il backstop.
+  if (!canMoveTo(fromStatus, toStatus)) return { error: STRINGS.board.invalidTransition };
 
   const supabase = await supabaseServer();
   const {
@@ -50,16 +47,10 @@ export async function updateProposalStatus(
     .maybeSingle();
   if (!proposal) return { error: STRINGS.errors.proposalNotFound };
 
-  // RFC-006: una proposta flaggata come possibile duplicato non avanza — gate
-  // sullo stato del flag, qualunque sia lo stato di partenza. Resta libera solo
-  // 'rifiutata' (l'uscita di scarto): lo sblocco avviene editando l'idea mentre
-  // è in 'nuova' (abbassa la similarità), non muovendola. 'nuova' non è più un
-  // target raggiungibile dalla macchina a stati (canMoveTo l'ha già scartato
-  // sopra): la clausa resta solo per simmetria col gemello move_proposal
-  // (migration 0018). Guard qui per il messaggio chiaro; move_proposal è il backstop.
-  if (toStatus !== "rifiutata" && toStatus !== "nuova" && proposal.dup_flagged) {
-    return { error: STRINGS.board.dupBlocked };
-  }
+  // RFC-006: una proposta flaggata come possibile duplicato non si muove: si
+  // sblocca editando l'idea in 'nuova' (abbassa la similarità) o eliminandola.
+  // Guard qui per il messaggio chiaro; move_proposal è il backstop.
+  if (proposal.dup_flagged) return { error: STRINGS.board.dupBlocked };
 
   const { data: moved, error } = await supabase.rpc("move_proposal", {
     p_id: proposalId,
@@ -142,9 +133,8 @@ export async function runProposalScanAction(
 }
 
 // Aggiunge un commento a una proposta, eventualmente ancorato a una selezione
-// (RFC-004). Qualsiasi membro autenticato può commentare finché la proposta è
-// in 'nuova'/'in_valutazione' (cristallizzazione, migration 0013 backstop);
-// la policy insert (0009/0013) è il backstop sul chi.
+// (RFC-004). Qualsiasi membro autenticato, in ogni stato (#10: niente più
+// cristallizzazione); la policy insert è il backstop sul chi.
 // proposalId arriva via bind dal pannello; (prev, formData) da useActionState.
 export async function addComment(
   proposalId: string,
@@ -163,13 +153,10 @@ export async function addComment(
 
   const { data: proposal } = await supabase
     .from("proposals")
-    .select("status, description")
+    .select("description")
     .eq("id", proposalId)
     .maybeSingle();
   if (!proposal) return { error: STRINGS.errors.proposalNotFound };
-  if (proposal.status !== "nuova" && proposal.status !== "in_valutazione") {
-    return { error: STRINGS.comments.closed };
-  }
 
   // Ancora opzionale: field ∈ enum, occurrence ≥ 1, e la quote deve risolversi
   // nel testo corrente della proposta (business rule; il DB valida solo la forma).
@@ -249,9 +236,8 @@ async function commentContext(
   return { comment, proposal };
 }
 
-// Modifica il testo di un commento: solo il creatore, solo su proposta aperta
-// (cristallizzazione, coerente con addComment). L'ancora resta invariata (il
-// grant di colonna di 0014 permette solo `body`).
+// Modifica il testo di un commento: solo il creatore. L'ancora resta invariata
+// (il grant di colonna di 0014 permette solo `body`).
 export async function editComment(
   commentId: string,
   _prev: ActionResult,
@@ -270,9 +256,6 @@ export async function editComment(
   const ctx = await commentContext(supabase, commentId);
   if ("error" in ctx) return ctx;
   if (ctx.comment.author_id !== user.id) return { error: STRINGS.comments.editOnlyOwn };
-  if (!isOpenProposalStatus(ctx.proposal.status)) {
-    return { error: STRINGS.comments.mutationsClosed };
-  }
 
   const { error } = await supabase.from("comments").update({ body }).eq("id", commentId);
   if (error) {
@@ -283,11 +266,12 @@ export async function editComment(
   refresh();
 
   // Il testo di un contributo accepted è parte dell'idea (live): un edit vero
-  // rilancia l'eval, come updateProposal. Autorizzazione = il guard sopra (solo
+  // rilancia l'eval, come updateProposal (in ogni stato tranne 'nuova', dove la
+  // prima eval non è ancora partita). Autorizzazione = il guard sopra (solo
   // l'autore); la scrittura gira come service_role (0020), nessun backstop DB.
   if (
     ctx.comment.promotion_status === "accepted" &&
-    ctx.proposal.status === "in_valutazione" &&
+    ctx.proposal.status !== "nuova" &&
     body !== ctx.comment.body
   ) {
     await runEvaluation(supabase, ctx.comment.proposal_id, true);
@@ -295,7 +279,7 @@ export async function editComment(
   return null;
 }
 
-// Elimina un commento: l'autore, o un admin (pieni poteri); solo su proposta aperta.
+// Elimina un commento: l'autore, o un admin (pieni poteri).
 export async function deleteComment(commentId: string): Promise<ActionResult> {
   const supabase = await supabaseServer();
   const {
@@ -303,7 +287,7 @@ export async function deleteComment(commentId: string): Promise<ActionResult> {
   } = await supabase.auth.getUser();
   if (!user) return { error: STRINGS.errors.sessionExpired };
 
-  // autore, oppure admin (policy "admin delete open", migration 0020)
+  // autore, oppure admin (policy "admin delete", migration 0031)
   const ctx = await commentContext(supabase, commentId);
   if ("error" in ctx) return ctx;
   if (
@@ -311,9 +295,6 @@ export async function deleteComment(commentId: string): Promise<ActionResult> {
     !(await isProjectAdmin(supabase, ctx.proposal.project_id, user.id))
   ) {
     return { error: STRINGS.comments.deleteOnlyOwn };
-  }
-  if (!isOpenProposalStatus(ctx.proposal.status)) {
-    return { error: STRINGS.comments.mutationsClosed };
   }
   // un contributo accepted non si elimina: prima il revoke (policy 0016 backstop)
   if (ctx.comment.promotion_status === "accepted") {
@@ -372,9 +353,6 @@ export async function requestCommentPromotion(commentId: string): Promise<Action
   if (ctx.proposal.proposer_id === user.id) {
     return { error: STRINGS.promotion.ownProposal };
   }
-  if (!isOpenProposalStatus(ctx.proposal.status)) {
-    return { error: STRINGS.promotion.closed };
-  }
 
   return callPromotionRpc(supabase, "request_comment_promotion", {
     p_comment_id: commentId,
@@ -402,9 +380,6 @@ export async function resolveCommentPromotion(
   ) {
     return { error: STRINGS.promotion.decideAuth };
   }
-  if (!isOpenProposalStatus(ctx.proposal.status)) {
-    return { error: STRINGS.promotion.closed };
-  }
 
   const result = await callPromotionRpc(supabase, "resolve_comment_promotion", {
     p_comment_id: commentId,
@@ -412,7 +387,7 @@ export async function resolveCommentPromotion(
   });
   if (result) return result;
 
-  if (accept && ctx.proposal.status === "in_valutazione") {
+  if (accept && ctx.proposal.status !== "nuova") {
     await runEvaluation(supabase, ctx.comment.proposal_id, true);
   }
   return null;
@@ -439,16 +414,13 @@ export async function revokeCommentPromotion(commentId: string): Promise<ActionR
   if (!isAuthor && !isProposer && !isAdmin) {
     return { error: STRINGS.promotion.revokeAuth };
   }
-  if (!isOpenProposalStatus(ctx.proposal.status)) {
-    return { error: STRINGS.promotion.contributionsClosed };
-  }
 
   const result = await callPromotionRpc(supabase, "revoke_comment_promotion", {
     p_comment_id: commentId,
   });
   if (result) return result;
 
-  if (ctx.proposal.status === "in_valutazione" && (isProposer || isAdmin)) {
+  if (ctx.proposal.status !== "nuova" && (isProposer || isAdmin)) {
     await runEvaluation(supabase, ctx.comment.proposal_id, true);
   }
   return null;

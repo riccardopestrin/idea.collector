@@ -65,14 +65,6 @@ export function ChevronRightIcon(props: IconProps) {
   );
 }
 
-export function CheckIcon(props: IconProps) {
-  return (
-    <svg {...base} {...props}>
-      <path d="M4 10.5 8.5 15 16 5.5" />
-    </svg>
-  );
-}
-
 export function NoEntryIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>

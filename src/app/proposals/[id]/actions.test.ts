@@ -103,11 +103,11 @@ describe("updateProposal", () => {
     expect(tables.proposals.update).toHaveBeenCalled();
   });
 
-  it("rejects the edit once the proposal is crystallized", async () => {
+  it("lets the author edit past 'in_valutazione' and re-runs the AI evaluation (#10)", async () => {
     tables.proposals.row = { ...tables.proposals.row, status: "approvata" };
-    const result = await updateProposal("p1", null, proposalForm());
-    expect(result).toEqual({ error: "La proposta non è più modificabile." });
-    expect(tables.proposals.update).not.toHaveBeenCalled();
+    expect(await updateProposal("p1", null, proposalForm())).toBeNull();
+    expect(tables.proposals.update).toHaveBeenCalled();
+    expect(runEvaluation).toHaveBeenCalledWith(expect.anything(), "p1", true);
   });
 
   it("does not re-run the AI evaluation while the proposal is 'nuova'", async () => {

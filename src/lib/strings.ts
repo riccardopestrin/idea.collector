@@ -175,10 +175,12 @@ export const STRINGS = {
     noneYetCreate: "Nessuna proposta ancora. Crea la prima.",
     noneYet: "Nessuna proposta ancora.",
     invalidStatus: "Stato non valido.",
+    forbiddenTarget: "Qui non si può spostare",
     movedByOther:
       "La proposta è stata spostata da qualcun altro. Ricarica la pagina.",
-    dupBlocked:
-      "Possibile duplicato: modifica l'idea per differenziarla, oppure spostala in Rifiutata o eliminala.",
+    invalidTransition:
+      "Da «Nuova» si passa solo a «In Valutazione», e in «Nuova» non si torna.",
+    dupBlocked: "Possibile duplicato: modifica l'idea per differenziarla, oppure eliminala.",
   },
 
   filters: {
@@ -230,7 +232,6 @@ export const STRINGS = {
       invalid: "Link non valido: serve un URL https di app.clickup.com.",
       auth: "Solo l'autore o un admin può collegare un task.",
     },
-    notEditable: "La proposta non è più modificabile.",
     deleteAuth: "Solo l'autore o un admin può eliminare la proposta.",
   },
 
@@ -250,13 +251,11 @@ export const STRINGS = {
     revoke: "Revoca partecipazione",
     emptyBody: "Il commento non può essere vuoto.",
     tooLong: "Commento troppo lungo (max 4000 caratteri).",
-    closed: "La proposta non accetta più commenti.",
     anchorInvalid: "Ancora del commento non valida.",
     anchorStale:
       "Il testo selezionato non corrisponde più alla proposta. Ricarica la pagina.",
     editOnlyOwn: "Puoi modificare solo i tuoi commenti.",
     deleteOnlyOwn: "Puoi eliminare solo i tuoi commenti (o essere admin).",
-    mutationsClosed: "La proposta non accetta più modifiche.",
     revokeBeforeDelete: "Revoca la partecipazione prima di eliminare il contributo.",
   },
 
@@ -264,10 +263,8 @@ export const STRINGS = {
     stale: "Lo stato del commento è cambiato nel frattempo. Ricarica la pagina.",
     onlyOwn: "Puoi proporre solo i tuoi commenti.",
     ownProposal: "I tuoi commenti sulla tua proposta non sono promuovibili.",
-    closed: "La proposta non accetta più promozioni.",
     decideAuth: "Solo il proposer o un admin decide sulla promozione.",
     revokeAuth: "Solo l'autore, il proposer o un admin può revocare il contributo.",
-    contributionsClosed: "La proposta non accetta più modifiche ai contributi.",
   },
 
   evaluation: {
@@ -306,7 +303,7 @@ export const STRINGS = {
     scanHeading: "Scansione duplicati",
     dupWarning: "Possibile duplicato",
     dupBlockedHint:
-      "Non può uscire da «Nuova» finché non la modifichi per differenziarla, la sposti in Rifiutata o la elimini.",
+      "Non può uscire da «Nuova» finché non la modifichi per differenziarla o la elimini.",
     scanInProgress: "Scansione delle idee simili in corso…",
     scanFailed: (error?: string | null) =>
       error ? `Scansione fallita: ${error}` : "Scansione fallita.",

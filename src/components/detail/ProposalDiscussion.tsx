@@ -29,7 +29,6 @@ export function ProposalDiscussion({
   proposalId,
   defaults,
   canEdit,
-  canComment,
   comments,
   currentUserId,
   proposerId,
@@ -41,7 +40,6 @@ export function ProposalDiscussion({
   proposalId: string;
   defaults: ProposalDefaults;
   canEdit: boolean;
-  canComment: boolean;
   comments: ProposalComment[];
   currentUserId?: string;
   proposerId: string;
@@ -73,11 +71,9 @@ export function ProposalDiscussion({
       ? [{ text: hovered.anchor_text!, occurrence: hovered.anchor_occurrence! }]
       : [];
 
-  const onComment = (field: AnchorField) =>
-    canComment
-      ? (anchor: { quote: string; occurrence: number }) =>
-          setPendingAnchor({ field, ...anchor })
-      : undefined;
+  const onComment =
+    (field: AnchorField) => (anchor: { quote: string; occurrence: number }) =>
+      setPendingAnchor({ field, ...anchor });
 
   return (
     <div className={`flex flex-col gap-6 ${fill ? "min-h-0 flex-1" : ""}`}>
@@ -112,7 +108,6 @@ export function ProposalDiscussion({
           <CommentsSidebar
             proposalId={proposalId}
             comments={comments}
-            canComment={canComment}
             currentUserId={currentUserId}
             proposerId={proposerId}
             isAdmin={isAdmin}

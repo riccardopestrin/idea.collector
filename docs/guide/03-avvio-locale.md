@@ -36,7 +36,7 @@ pnpm exec supabase db reset   # crea il DB applicando TUTTE le migration di supa
 ```
 
 `db reset` è il comando che ti dà un database pulito e allineato: applica in
-ordine tutte le migration `0001…0026`. Rilancialo ogni volta che vuoi ripartire
+ordine tutte le migration `0001…0031`. Rilancialo ogni volta che vuoi ripartire
 da uno schema pulito.
 
 Per vedere le credenziali e gli URL dello stack locale:

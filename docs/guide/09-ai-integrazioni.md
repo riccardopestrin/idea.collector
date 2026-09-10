@@ -34,7 +34,17 @@ quattro fattori 1–10 + `rationale` in **una** chiamata Messages API:
 ## 9.3 Orchestrazione della valutazione
 
 [`runEvaluation.ts`](../../src/lib/ai/runEvaluation.ts) gira **dopo**
-l'autorizzazione della Server Action (admin):
+l'autorizzazione della Server Action. Chi la lancia:
+
+- **Auto-trigger** al move `nuova → in_valutazione`, da qualsiasi membro
+  (`Board.tsx` → `evaluateProposal`, `force=false`: l'idempotenza fa partire una
+  sola valutazione).
+- **Re-run** (`force=true`) quando cambia il contenuto dell'idea, in ogni stato
+  tranne `nuova`: edit del testo (`updateProposal`), edit di un contributo
+  accettato, accettazione o revoca (da proposer/admin) di un contributo.
+- **"Rilancia"** manuale: solo admin.
+
+Comportamento:
 
 - **Idempotenza**: salta se `ai_generated && !manually_edited`, salvo `force`.
 - **Guard in-flight** via RPC `begin/apply/fail_ai_evaluation` (una sola

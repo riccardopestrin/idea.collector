@@ -27,7 +27,6 @@ import { CommentForm, type PendingAnchor } from "./CommentForm";
 export function CommentsSidebar({
   proposalId,
   comments,
-  canComment,
   currentUserId,
   proposerId,
   isAdmin,
@@ -37,7 +36,6 @@ export function CommentsSidebar({
 }: {
   proposalId: string;
   comments: ProposalComment[];
-  canComment: boolean;
   currentUserId?: string;
   proposerId: string;
   isAdmin?: boolean;
@@ -57,29 +55,23 @@ export function CommentsSidebar({
             <CommentItem
               key={comment.id}
               comment={comment}
-              // edit solo al creatore, delete anche all'admin; solo su proposta aperta (canComment)
-              mine={canComment && comment.author_id === currentUserId}
-              canDelete={canComment && (comment.author_id === currentUserId || isAdmin === true)}
+              // edit solo al creatore, delete anche all'admin
+              mine={comment.author_id === currentUserId}
+              canDelete={comment.author_id === currentUserId || isAdmin === true}
               // candidabile solo dal suo autore, mai dal proposer dell'idea
-              canPromote={
-                canComment &&
-                comment.author_id === currentUserId &&
-                currentUserId !== proposerId
-              }
+              canPromote={comment.author_id === currentUserId && currentUserId !== proposerId}
               // accetta/rifiuta: proposer o admin; revoca: anche l'autore
-              canResolve={canComment && decides}
+              canResolve={decides}
               onHover={onHoverComment}
             />
           ))}
         </ul>
       )}
-      {canComment && (
-        <CommentForm
-          proposalId={proposalId}
-          pendingAnchor={pendingAnchor}
-          onCancelAnchor={onCancelAnchor}
-        />
-      )}
+      <CommentForm
+        proposalId={proposalId}
+        pendingAnchor={pendingAnchor}
+        onCancelAnchor={onCancelAnchor}
+      />
     </aside>
   );
 }

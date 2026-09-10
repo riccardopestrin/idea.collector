@@ -14,10 +14,10 @@ import {
 import { type ReactNode, useOptimistic, useState, useTransition } from "react";
 
 import { deleteProposal, evaluateProposal, updateProposalStatus } from "@/app/proposals/actions";
-import { Column, type DropHint } from "@/components/board/Column";
+import { Column } from "@/components/board/Column";
 import { DeleteProposalDialog } from "@/components/board/DeleteProposalDialog";
 import { ProposalCard } from "@/components/cards/ProposalCard";
-import { BOARD_COLUMNS, groupByStatus } from "@/lib/board";
+import { BOARD_COLUMNS, canMoveTo, groupByStatus } from "@/lib/board";
 import type { ProposalListItem, ProposalStatus } from "@/lib/proposals";
 import { STRINGS } from "@/lib/strings";
 import { BOARD_GAP } from "@/lib/tokens";
@@ -55,11 +55,11 @@ export function Board({
         setError(result.error);
         return;
       }
-      // Auto-trigger RFC-003 (rettifica #9): la PRIMA uscita da "nuova" verso
-      // qualunque stato lancia la valutazione AI, per qualsiasi utente. force=false
-      // → l'idempotenza in runEvaluation fa sì che parta una volta sola. Fuori
-      // dalla transition: il move è già committato e la UI non resta pending per
-      // i ~30s di Claude; l'esito arriva via ai_eval_status (refresh), qui l'errore.
+      // Auto-trigger RFC-003 (#10): l'uscita da "nuova" (solo verso "in_valutazione")
+      // lancia la valutazione AI, per qualsiasi utente. force=false → l'idempotenza
+      // in runEvaluation fa sì che parta una volta sola. Fuori dalla transition: il
+      // move è già committato e la UI non resta pending per i ~30s di Claude;
+      // l'esito arriva via ai_eval_status (refresh), qui l'errore.
       if (proposal.status === "nuova") {
         void evaluateProposal(proposal.id).then((evalResult) => {
           if (evalResult) setError(evalResult.error);
@@ -78,8 +78,8 @@ export function Board({
     if (!over) return;
     const toStatus = over.id as ProposalStatus;
     const proposal = optimisticProposals.find((p) => p.id === String(active.id));
-    // #9: ogni colonna è un target valido; solo il drop sull'origine è no-op
-    if (!proposal || proposal.status === toStatus) return;
+    // drop sull'origine o su una colonna vietata (hint "invalid" già mostrato): no-op
+    if (!proposal || !canMoveTo(proposal.status, toStatus)) return;
     move(proposal, toStatus);
   }
 
@@ -115,7 +115,12 @@ export function Board({
               key={status}
               status={status}
               count={groups[status].length}
-              dropHint={columnDropHint(draggedStatus, status)}
+              // l'origine non porta il divieto: non è un target, è da dove si parte
+              forbidden={
+                draggedStatus !== null &&
+                draggedStatus !== status &&
+                !canMoveTo(draggedStatus, status)
+              }
             >
               {groups[status].map((proposal) => (
                 <DraggableCard
@@ -138,10 +143,15 @@ export function Board({
           title={pendingDelete.title}
           busy={isPending}
           onDelete={() => handleDelete(pendingDelete)}
-          onReject={() => {
-            move(pendingDelete, "rifiutata");
-            setPendingDelete(null);
-          }}
+          // #10: da 'nuova' non si va in Rifiutata — resta solo l'eliminazione
+          onReject={
+            canMoveTo(pendingDelete.status, "rifiutata")
+              ? () => {
+                  move(pendingDelete, "rifiutata");
+                  setPendingDelete(null);
+                }
+              : undefined
+          }
           onClose={() => setPendingDelete(null)}
         />
       )}
@@ -149,33 +159,21 @@ export function Board({
   );
 }
 
-// Spunta per una colonna durante il drag: null quando non si trascina o sulla
-// colonna d'origine, "valid" altrimenti (#9: ogni altra colonna è un target valido).
-function columnDropHint(dragged: ProposalStatus | null, column: ProposalStatus): DropHint {
-  return dragged === null || dragged === column ? null : "valid";
-}
-
 // Wrapper che lega il droppable di @dnd-kit alla Column presentazionale.
 function DroppableColumn({
   status,
   count,
-  dropHint,
+  forbidden,
   children,
 }: {
   status: ProposalStatus;
   count: number;
-  dropHint: DropHint;
+  forbidden: boolean;
   children: ReactNode;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: status });
+  const { setNodeRef } = useDroppable({ id: status });
   return (
-    <Column
-      ref={setNodeRef}
-      title={STRINGS.status[status]}
-      count={count}
-      isOver={isOver}
-      dropHint={dropHint}
-    >
+    <Column ref={setNodeRef} title={STRINGS.status[status]} count={count} forbidden={forbidden}>
       {children}
     </Column>
   );

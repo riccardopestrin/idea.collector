@@ -15,8 +15,8 @@ lo stesso utente può essere admin di un progetto e contributor di un altro.
 
 - **Admin di progetto**: gestisce membri e repo GitHub, può spostare/eliminare
   qualsiasi proposta, lancia la valutazione AI, cancella il progetto.
-- **Contributor**: propone idee, commenta, vota, sposta le proprie proposte
-  entro i limiti della macchina a stati.
+- **Contributor**: propone idee, commenta, vota, sposta qualsiasi proposta
+  (l'accountability è la cronologia stati, non i permessi).
 
 **Proposta (`proposal`)** — un'idea. Ha `title`, `description`, `problem`, dei
 `links`, uno `status`, i punteggi RICE e i campi degli esiti AI. È l'oggetto
@@ -30,7 +30,7 @@ l'autore del commento diventa co-autore della proposta. Un co-autore accettato
 non può votare quella proposta (è parte in causa).
 
 **Voto RICE (`rice_votes`)** — il punteggio 1–10 sui quattro fattori dato da un
-membro. Un voto per utente, **immutabile**.
+membro. Un voto per utente, **modificabile**; non si vota in `nuova`.
 
 ## La board e gli stati
 
@@ -39,18 +39,20 @@ stati (enum `proposal_status`) sono, nell'ordine di flusso:
 
 | Stato | Significato |
 |---|---|
-| `nuova` | Appena creata. Qui gira lo scan anti-duplicato. |
-| `in_valutazione` | In discussione e scoring; qui votano i membri e l'AI. |
+| `nuova` | Appena creata. Qui gira lo scan anti-duplicato; non si vota. Unica uscita: `in_valutazione`. |
+| `in_valutazione` | Al passaggio parte la prima valutazione AI; da qui in poi si discute e si vota. |
 | `approvata` | Accettata, in attesa di sviluppo. |
 | `in_sviluppo` | In lavorazione. |
 | `rilasciata` | Consegnata. |
-| `rifiutata` | Scartata. **Stato terminale**: da qui si può solo eliminare. |
+| `rifiutata` | Scartata. Da qui si può anche eliminare (con conferma). |
 | `archiviata` | Messa da parte; può rientrare in gioco. |
 
-Le transizioni consentite sono una **macchina a stati** esplicita, non un
-qualunque-verso-qualunque — la trovi in [`src/lib/board.ts`](../../src/lib/board.ts)
-e la spieghiamo nel [capitolo 7](07-proposte-e-board.md). L'eliminazione non è
-una colonna: è l'azione cestino disponibile su ogni card, con conferma.
+Le transizioni seguono una macchina a stati **"ibrida"**: da `nuova` si esce
+solo verso `in_valutazione` e in `nuova` non si torna mai; fra tutti gli altri
+stati il movimento è libero. La trovi in [`src/lib/board.ts`](../../src/lib/board.ts)
+(`canMoveTo`) e la spieghiamo nel [capitolo 7](07-proposte-e-board.md).
+Commenti, modifiche e voti non si "congelano" in nessuno stato. L'eliminazione
+non è una colonna: è l'azione cestino disponibile su ogni card, con conferma.
 
 > Nota storica: lo stato `archiviata` si chiamava `parcheggiata` fino alla
 > migration 0007.

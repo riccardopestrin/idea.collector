@@ -125,13 +125,6 @@ describe("addComment", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("rejects a comment on a crystallized proposal", async () => {
-    tables.proposals.row = { ...tables.proposals.row, status: "approvata" };
-    const result = await addComment("p1", null, commentForm("Ottima idea"));
-    expect(result).toEqual({ error: "La proposta non accetta più commenti." });
-    expect(tables.comments.insert).not.toHaveBeenCalled();
-  });
-
   it("inserts the anchor fields when the quote resolves in the current text", async () => {
     const form = commentForm("Concordo");
     form.set("anchor_field", "description");
@@ -215,13 +208,6 @@ describe("editComment", () => {
     expect(tables.comments.update).not.toHaveBeenCalled();
   });
 
-  it("refuses to edit a comment on a crystallized proposal", async () => {
-    tables.proposals.row = { ...tables.proposals.row, status: "approvata" };
-    const result = await editComment("c1", null, commentForm("Nuovo testo"));
-    expect(result).toEqual({ error: "La proposta non accetta più modifiche." });
-    expect(tables.comments.update).not.toHaveBeenCalled();
-  });
-
   it("updates the trimmed body of the author's own comment and refreshes", async () => {
     const result = await editComment("c1", null, commentForm("  Testo corretto  "));
     expect(result).toBeNull();
@@ -237,8 +223,8 @@ describe("editComment", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("re-runs the AI evaluation when an accepted contribution changes on a proposal in evaluation", async () => {
-    tables.proposals.row = { proposer_id: "u2", status: "in_valutazione" };
+  it("re-runs the AI evaluation when an accepted contribution changes, in any state past 'nuova' (#10)", async () => {
+    tables.proposals.row = { proposer_id: "u2", status: "in_sviluppo" };
     tables.comments.row = {
       author_id: "u1", proposal_id: "p1", body: "vecchio", promotion_status: "accepted",
     };
@@ -253,6 +239,15 @@ describe("editComment", () => {
       author_id: "u1", proposal_id: "p1", body: "stesso testo", promotion_status: "accepted",
     };
     await editComment("c1", null, commentForm("stesso testo"));
+    expect(runEvaluation).not.toHaveBeenCalled();
+  });
+
+  it("does not re-run the evaluation while the proposal is still 'nuova'", async () => {
+    tables.proposals.row = { proposer_id: "u2", status: "nuova" };
+    tables.comments.row = {
+      author_id: "u1", proposal_id: "p1", body: "vecchio", promotion_status: "accepted",
+    };
+    await editComment("c1", null, commentForm("nuovo testo"));
     expect(runEvaluation).not.toHaveBeenCalled();
   });
 
@@ -293,13 +288,6 @@ describe("deleteComment", () => {
     tables.comments.row = { author_id: "someone-else", proposal_id: "p1", promotion_status: "none" };
     expect(await deleteComment("c1")).toBeNull();
     expect(tables.comments.delete).toHaveBeenCalled();
-  });
-
-  it("refuses to delete a comment on a crystallized proposal", async () => {
-    tables.proposals.row = { ...tables.proposals.row, status: "approvata" };
-    const result = await deleteComment("c1");
-    expect(result).toEqual({ error: "La proposta non accetta più modifiche." });
-    expect(tables.comments.delete).not.toHaveBeenCalled();
   });
 
   it("lets the author delete their own comment and refreshes", async () => {
@@ -361,13 +349,6 @@ describe("requestCommentPromotion", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("refuses a promotion on a crystallized proposal", async () => {
-    tables.proposals.row = { proposer_id: "u2", status: "approvata" };
-    const result = await requestCommentPromotion("c1");
-    expect(result).toEqual({ error: "La proposta non accetta più promozioni." });
-    expect(rpc).not.toHaveBeenCalled();
-  });
-
   it("calls the RPC and refreshes, without re-running the evaluation", async () => {
     const result = await requestCommentPromotion("c1");
     expect(result).toBeNull();
@@ -413,7 +394,8 @@ describe("resolveCommentPromotion", () => {
     });
   });
 
-  it("accepts and re-runs the evaluation when the proposal is in evaluation", async () => {
+  it("accepts and re-runs the evaluation in any state past 'nuova' (#10)", async () => {
+    tables.proposals.row = { ...tables.proposals.row, status: "approvata" };
     const result = await resolveCommentPromotion("c1", true);
     expect(result).toBeNull();
     expect(refresh).toHaveBeenCalled();
@@ -465,13 +447,6 @@ describe("revokeCommentPromotion", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("refuses a revoke on a crystallized proposal", async () => {
-    tables.proposals.row = { ...tables.proposals.row, status: "approvata" };
-    const result = await revokeCommentPromotion("c1");
-    expect(result).toEqual({ error: "La proposta non accetta più modifiche ai contributi." });
-    expect(rpc).not.toHaveBeenCalled();
-  });
-
   it("lets the author revoke WITHOUT re-running the evaluation (decisione owner, 0016)", async () => {
     const result = await revokeCommentPromotion("c1");
     expect(result).toBeNull();
@@ -480,8 +455,8 @@ describe("revokeCommentPromotion", () => {
     expect(runEvaluation).not.toHaveBeenCalled();
   });
 
-  it("re-runs the evaluation when the proposer revokes on a proposal in evaluation", async () => {
-    tables.proposals.row = { proposer_id: "u1", status: "in_valutazione" };
+  it("re-runs the evaluation when the proposer revokes, in any state past 'nuova' (#10)", async () => {
+    tables.proposals.row = { proposer_id: "u1", status: "rilasciata" };
     tables.comments.row = { ...tables.comments.row, author_id: "u2" };
     const result = await revokeCommentPromotion("c1");
     expect(result).toBeNull();
@@ -532,13 +507,29 @@ describe("updateProposalStatus", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("allows a jump the old state machine forbade, now that movement is free (#9)", async () => {
+  it("lets a card leave 'nuova' only towards 'in_valutazione' (#10)", async () => {
     const result = await updateProposalStatus("p1", "nuova", "approvata");
+    expect(result).toEqual({
+      error: "Da «Nuova» si passa solo a «In Valutazione», e in «Nuova» non si torna.",
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("never lets a card go back to 'nuova' (#10)", async () => {
+    const result = await updateProposalStatus("p1", "rifiutata", "nuova");
+    expect(result).toEqual({
+      error: "Da «Nuova» si passa solo a «In Valutazione», e in «Nuova» non si torna.",
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("allows any jump between states past 'nuova' (#10: free movement)", async () => {
+    const result = await updateProposalStatus("p1", "rilasciata", "in_valutazione");
     expect(result).toBeNull();
     expect(rpc).toHaveBeenCalledWith("move_proposal", {
       p_id: "p1",
-      p_from: "nuova",
-      p_to: "approvata",
+      p_from: "rilasciata",
+      p_to: "in_valutazione",
     });
   });
 
@@ -581,29 +572,16 @@ describe("updateProposalStatus", () => {
     tables.proposals.row = { ...tables.proposals.row, dup_flagged: true };
     const result = await updateProposalStatus("p1", "nuova", "in_valutazione");
     expect(result).toEqual({
-      error:
-        "Possibile duplicato: modifica l'idea per differenziarla, oppure spostala in Rifiutata o eliminala.",
+      error: "Possibile duplicato: modifica l'idea per differenziarla, oppure eliminala.",
     });
     expect(rpc).not.toHaveBeenCalled();
-  });
-
-  it("still lets a duplicate-flagged proposal move to 'rifiutata'", async () => {
-    tables.proposals.row = { ...tables.proposals.row, dup_flagged: true };
-    const result = await updateProposalStatus("p1", "nuova", "rifiutata");
-    expect(result).toBeNull();
-    expect(rpc).toHaveBeenCalledWith("move_proposal", {
-      p_id: "p1",
-      p_from: "nuova",
-      p_to: "rifiutata",
-    });
   });
 
   it("blocks a flagged proposal from a non-nuova source too (gate on flag, not path)", async () => {
     tables.proposals.row = { ...tables.proposals.row, dup_flagged: true };
     const result = await updateProposalStatus("p1", "in_valutazione", "approvata");
     expect(result).toEqual({
-      error:
-        "Possibile duplicato: modifica l'idea per differenziarla, oppure spostala in Rifiutata o eliminala.",
+      error: "Possibile duplicato: modifica l'idea per differenziarla, oppure eliminala.",
     });
     expect(rpc).not.toHaveBeenCalled();
   });

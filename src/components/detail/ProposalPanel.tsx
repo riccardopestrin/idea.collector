@@ -14,7 +14,6 @@ import {
   computeCompositeScore,
   computeVoteScore,
   formatScore,
-  isOpenProposalStatus,
   personLabel,
   type ProposalDetail,
   type VoteComponents,
@@ -82,9 +81,7 @@ export function ProposalPanel({
   const componentAverages = (Object.keys(COMPONENT_LABELS) as (keyof VoteComponents)[])
     .map((field) => ({ field, value: composite.components[field] }))
     .filter((c): c is { field: keyof VoteComponents; value: number } => c.value !== null);
-  const isOpen = isOpenProposalStatus(detail.status);
   const isProposerOrAdmin = isAdmin === true || currentUserId === detail.proposer_id;
-  const canEdit = isOpen && isProposerOrAdmin;
   // scan duplicati (RFC-006): trigger/rilancio del proposer o admin, solo in 'nuova'
   const canScan = detail.status === "nuova" && isProposerOrAdmin;
   // commenti promossi a contributo: parte dell'idea, resi sotto il body
@@ -109,8 +106,8 @@ export function ProposalPanel({
           description: detail.description,
           links: detail.links,
         }}
-        canEdit={canEdit}
-        canComment={isOpen}
+        // #10: edit e commenti in ogni stato (niente più cristallizzazione)
+        canEdit={isProposerOrAdmin}
         comments={detail.comments}
         currentUserId={currentUserId}
         proposerId={detail.proposer_id}

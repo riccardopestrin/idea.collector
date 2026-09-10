@@ -90,7 +90,7 @@ delete from public.comments where id = 'cccc0020-0000-0000-0000-000000000001';
 select is(
   (select count(*) from public.comments where id = 'cccc0020-0000-0000-0000-000000000001'),
   0::bigint,
-  'l''admin elimina il commento di un altro (policy "admin delete open")'
+  'l''admin elimina il commento di un altro (policy "admin delete")'
 );
 
 -- service_role: scrive l'esito dello scan (unico principal con execute)

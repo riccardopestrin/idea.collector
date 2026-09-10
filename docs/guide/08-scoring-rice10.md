@@ -56,8 +56,9 @@ In sintesi: **geometrica dentro un valutatore** (per non compensare tra fattori)
 
 ## 8.4 I voti dei membri
 
-- Un voto per `(proposta, membro)`, **immutabile** (nessun update/delete a DB).
-- Si vota **solo quando la proposta è `in_valutazione`**.
+- Un voto per `(proposta, membro)`, **modificabile** (upsert, migration 0028).
+- Si vota **in ogni stato tranne `nuova`**; fuori da `in_valutazione` la UI
+  chiede conferma.
 - **Non si vota la propria proposta**, né una in cui si è co-autore `accepted`
   (parte in causa).
 - Validazione input in [`src/lib/validation/vote.ts`](../../src/lib/validation/vote.ts):

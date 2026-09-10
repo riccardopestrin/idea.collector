@@ -44,7 +44,6 @@ function renderSidebar(
     <CommentsSidebar
       proposalId="p1"
       comments={[comment]}
-      canComment
       currentUserId="u3"
       proposerId="u1"
       pendingAnchor={null}
@@ -79,7 +78,6 @@ describe("CommentsSidebar", () => {
       <CommentsSidebar
         proposalId="p1"
         comments={[comment]}
-        canComment
         currentUserId="u2"
         proposerId="u1"
         pendingAnchor={null}
@@ -93,12 +91,6 @@ describe("CommentsSidebar", () => {
   it("lets an admin delete but not edit or propose someone else's comment", () => {
     renderSidebar({ isAdmin: true });
     expect(buttons()).toEqual(["Elimina", "Commenta"]);
-  });
-
-  it("hides every control, including the form, once the proposal is closed", () => {
-    renderSidebar({ currentUserId: "u2", canComment: false });
-    expect(buttons()).toEqual([]);
-    expect(screen.queryByLabelText("Aggiungi un commento")).not.toBeInTheDocument();
   });
 
   it("deletes only after the confirm step", async () => {
@@ -141,7 +133,6 @@ describe("CommentsSidebar", () => {
       <CommentsSidebar
         proposalId="p1"
         comments={[{ ...comment, promotion_status: "pending" }]}
-        canComment
         currentUserId="u1"
         proposerId="u1"
         pendingAnchor={null}

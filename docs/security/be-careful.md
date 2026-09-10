@@ -1,4 +1,4 @@
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-10
 
 # Be Careful — issue note consapevolmente rinviate
 
@@ -7,6 +7,35 @@ Registro durevole delle NICE-TO-HAVE consapevolmente rinviate: problemi che **no
 Ogni voce ha un ID stabile nel formato `YYYY-MM-DD-XXXX` (data del flag + 4 char di hash). **Gli ID non vengono mai riusati, rinumerati o riscritti**, nemmeno dopo la risoluzione.
 
 ---
+
+## `2026-09-10-dupl` Scan duplicati in volo durante il move `nuova → in_valutazione`: card bloccata per sempre
+
+**Status:** non fissato — non si verifica nell'attuale use case.
+
+### Dove
+- [supabase/migrations/0031_hybrid_state_machine.sql](../../supabase/migrations/0031_hybrid_state_machine.sql) — `move_proposal`: una proposta `dup_flagged` non si muove verso nessuno stato (prima di 0027/0031 restava l'uscita `rifiutata`)
+- [supabase/migrations/0020_admin_powers_service_role.sql](../../supabase/migrations/0020_admin_powers_service_role.sql) — `apply_dup_scan` scrive `dup_flagged` senza condizione sullo stato
+- [src/lib/ai/runProposalScan.ts](../../src/lib/ai/runProposalScan.ts) — lo scan (e il re-scan su edit) parte solo con `status = 'nuova'`
+- [src/app/proposals/actions.ts](../../src/app/proposals/actions.ts) — `updateProposalStatus`: guard `dup_flagged` senza eccezioni
+
+### Il problema potenziale
+Uno scan avviato in `nuova` e ancora in volo mentre qualcuno sposta la card in `in_valutazione` può concludersi con `dup_flagged = true` su una proposta già fuori da `nuova`. Da lì la card non si muove più (guard su `dup_flagged` in TS e in `move_proposal`) e nessun re-scan può abbassare il flag (l'edit ri-scansiona solo in `nuova`). L'unica via d'uscita è l'eliminazione.
+
+### Perché oggi non è un problema
+Serve la coincidenza di uno scan in volo (decine di secondi) e di un move concorrente sulla stessa card da parte di un altro membro; con il team attuale la card in `nuova` viene spostata dopo che l'esito dello scan è visibile. Nessun attaccante: al massimo un auto-inflitto recuperabile eliminando e ricreando l'idea.
+
+### Quando diventa un problema
+1. Più membri lavorano la stessa colonna `Nuova` in tempo reale (il realtime refresh rende il move immediato mentre lo scan gira).
+2. Lo scan diventa più lento (più continuazioni web, più proposte da confrontare).
+3. Si automatizza il move `nuova → in_valutazione` (es. trigger a tempo).
+
+### Cosa fare se devi toccare quest'area
+- Opzione minima: in `apply_dup_scan` scrivere `dup_flagged` solo se `status = 'nuova'` (le altre colonne dello scan restano informative), così il flag non può nascere fuori dalla finestra in cui è enforced.
+- Alternativa: in `move_proposal` bloccare per `dup_flagged` solo se `p_from = 'nuova'`, così una card flaggata fuori da `nuova` resta libera.
+- In entrambi i casi aggiornare `updateProposalStatus` (guard gemello) e i pgTAP `rls_move_delete_test.sql`.
+
+### Cronologia
+- 2026-09-10 — Flaggato dal Security Expert durante la review chain di #10 (macchina a stati ibrida). Non di sicurezza; downgrade a NICE-TO-HAVE perché richiede una race auto-inflitta e ha via d'uscita (delete).
 
 ## `2026-09-09-scrl` Header fisso + lista che scorre da sola anche su mobile (home e classifica)
 

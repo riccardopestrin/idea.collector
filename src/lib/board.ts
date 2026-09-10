@@ -7,11 +7,15 @@ export const BOARD_COLUMNS = [
   "rilasciata", "rifiutata", "archiviata",
 ] as const satisfies readonly ProposalStatus[];
 
-// #9: libertà assoluta di spostamento — ogni card va in qualsiasi altro stato
-// (basta from !== to), per tutti gli utenti. Non c'è più una macchina a stati
-// che vincola il drag; l'accountability resta la status_history. DELETE è a parte
-// (azione trash, autore/admin, con conferma). Il blocco duplicati (RFC-006) è
-// enforced fuori di qui (updateProposalStatus + move_proposal), non dal drag.
+// Macchina a stati "ibrida" (#10): 'nuova' è la sola casella vincolata — da lì
+// si esce solo verso 'in_valutazione' e non ci si rientra mai. Fra tutti gli
+// altri stati il movimento è libero, per tutti i membri (l'accountability è la
+// status_history). Gemella di move_proposal (migration 0031). Il blocco
+// duplicati (RFC-006) è enforced a parte (updateProposalStatus + move_proposal).
+export function canMoveTo(from: ProposalStatus, to: ProposalStatus): boolean {
+  if (from === to || to === "nuova") return false;
+  return from !== "nuova" || to === "in_valutazione";
+}
 
 // Raggruppa le proposte per colonna preservando l'ordine di arrivo (la query
 // ordina già per created_at). Ogni colonna esiste sempre, anche vuota.

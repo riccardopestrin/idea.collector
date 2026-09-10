@@ -132,12 +132,6 @@ export function isProposalStatus(value: string | undefined): value is ProposalSt
   return PROPOSAL_STATUSES.includes(value as ProposalStatus);
 }
 
-// Proposta "aperta" = modificabile/commentabile/promuovibile; da 'approvata' in
-// poi è cristallizzata (migration 0013).
-export function isOpenProposalStatus(status: ProposalStatus): boolean {
-  return status === "nuova" || status === "in_valutazione";
-}
-
 // --- Punteggio RICE-10 (Claude + utenti) — ADR-0006 ---
 //
 // Tutti i rater (Claude e utenti) votano i 4 fattori sulla stessa scala 1–10

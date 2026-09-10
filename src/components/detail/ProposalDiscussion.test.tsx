@@ -39,7 +39,6 @@ function renderDiscussion(canEdit: boolean) {
       proposalId="p1"
       defaults={defaults}
       canEdit={canEdit}
-      canComment
       comments={[]}
       currentUserId="u1"
       proposerId="u1"

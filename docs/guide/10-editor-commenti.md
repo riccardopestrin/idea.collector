@@ -50,8 +50,8 @@ server-side dentro `addComment`.
 
 ## 10.3 Regole dei commenti
 
-- Si commenta **solo su proposta aperta** (`nuova`/`in_valutazione`) e non
-  promossa.
+- Si commenta **in ogni stato** della proposta (migration 0031), su un
+  passaggio non promosso.
 - L'autore può **modificare il `body`** e **cancellare** il proprio commento
   (finché non è `accepted`); l'admin di progetto può cancellare i commenti altrui.
 - Il limite è 1–4000 char (trim).

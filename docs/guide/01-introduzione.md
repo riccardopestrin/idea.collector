@@ -20,8 +20,8 @@ i duplicati e i competitor già esistenti — prima di investirci sopra.
 
 ## Cosa sa fare (V1)
 
-- **Board a colonne per stato** con drag-and-drop e una macchina a stati che
-  vincola le transizioni consentite.
+- **Board a colonne per stato** con drag-and-drop e una macchina a stati
+  "ibrida": vincolata solo in uscita da `Nuova`, libera altrove.
 - **Scoring RICE-10**: quattro fattori su scala 1–10 a rubriche, combinati con
   media geometrica. Sia i membri che l'AI votano sulla stessa scala.
 - **Valutazione AI** della proposta (Claude), arricchita dal contesto della repo

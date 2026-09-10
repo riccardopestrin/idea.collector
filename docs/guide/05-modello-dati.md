@@ -41,8 +41,9 @@ solo tramite una nuova migration, e il merge richiede la review dell'owner
 - `promotion_status` (`none` | `pending` | `accepted`) per la promozione a
   contributo.
 
-**`rice_votes`** — voti dei membri. Un voto per `(proposal, voter)`, **immutabile**
-(nessuna policy di update/delete). Componenti 1–10 (`reach` nullable per ICE).
+**`rice_votes`** — voti dei membri. Un voto per `(proposal, voter)`, **modificabile**
+dal votante (upsert; grant update solo sulle 4 componenti, 0028). Componenti 1–10
+(`reach` nullable per ICE).
 
 **`status_history`** — audit trail dei cambi di stato: `from_status`, `to_status`,
 `author_id`, `created_at`.
@@ -87,19 +88,20 @@ SECURITY DEFINER:
   admin-only.
 - `profiles`: l'utente può aggiornare **solo `name`** (grant a colonna, 0003 —
   impedisce l'auto-promozione via PostgREST). L'email la sincronizza un trigger.
-- `comments`: insert solo dall'autore, solo su proposta **aperta**
-  (`nuova`/`in_valutazione`) e non promossa; edit solo del `body`; delete
-  dall'autore (se non `accepted`) o dall'admin di progetto.
-- `rice_votes`: insert solo dal votante, solo su proposta `in_valutazione`, mai
-  sulla propria, mai se co-autore `accepted`. Niente update/delete.
+- `comments`: insert solo dall'autore, in **ogni stato** della proposta (0031),
+  non promosso alla nascita; edit solo del `body`; delete dall'autore (se non
+  `accepted`) o dall'admin di progetto. La membership è implicita: l'`exists`
+  su `proposals` gira sotto la RLS `member read`.
+- `rice_votes`: insert/update solo dal votante, in ogni stato **tranne `nuova`**
+  (0028), mai sulla propria, mai se co-autore `accepted`. Niente delete.
 - `project_members`: gestiti solo dall'admin del progetto, **mai sulla propria
   riga** (non ci si toglie l'accesso da soli).
 - `projects`: `name` aggiornabile dai membri; `github_*` solo dal server con
   service-role; delete solo dall'admin del progetto.
 
-**Cristallizzazione** (trigger `enforce_proposal_crystallization`, 0013): oltre
-lo stato `in_valutazione` i non-admin non possono più modificare title/
-description/problem/links — il contenuto "cristallizza".
+**Niente cristallizzazione** (0031, era il trigger `enforce_proposal_crystallization`
+di 0013): title/description/links restano modificabili da proposer e admin in
+ogni stato; il gate è solo `owner or admin update`.
 
 **Dove serve il service_role** (0020, [ADR-0008](../architecture/adr/0008-service-role-writes-for-ai-verdicts.md)):
 le RPC che scrivono gli esiti AI (`begin/apply/fail_ai_evaluation`,
@@ -115,7 +117,8 @@ compare-and-set, non da update grezzi:
 
 - **`move_proposal(id, from, to)`** — l'unica via con cui un non-admin cambia
   stato. Atomica (update + `status_history`), CAS su `from_status`, applica la
-  macchina a stati, blocca le proposte `dup_flagged`, richiede membership del
+  macchina a stati ibrida (da `nuova` solo `in_valutazione`, mai verso `nuova`),
+  blocca ogni mossa delle proposte `dup_flagged`, richiede membership del
   progetto, resetta subito la GUC.
 - **RPC valutazione AI** `begin/apply/fail_ai_evaluation` — una sola valutazione
   in-flight per proposta (`p_force` per recuperare scan orfani da crash); `apply`
@@ -123,7 +126,7 @@ compare-and-set, non da update grezzi:
 - **RPC scan** `begin/apply/fail_dup_scan` — stesso pattern per lo scan
   duplicati/competitor.
 - **Promozione commenti** `request/resolve/revoke_comment_promotion` — CAS sullo
-  stato di promozione, con guard su commento/proposta aperta/membership.
+  stato di promozione, con guard su commento/membership (in ogni stato).
 - **`create_project(name)`** — crea progetto + rende il creatore admin in una
   transazione (necessario: prima dell'insert non è ancora membro).
 - **`delete_account()`** — rifiuta se sei l'**unico admin** di un progetto con
@@ -151,12 +154,12 @@ il numero di un finding di sicurezza (`SEC-N`).
 | 0010 | Valutazione AI: enum `ai_eval_status`, colonne AI, `app_settings`, RPC eval. |
 | 0011 | `p_force` per recuperare valutazioni bloccate da crash. |
 | 0012 | Commenti ancorati a selezioni di testo. |
-| 0013 | Re-eval su edit dell'autore + cristallizzazione del contenuto. |
-| 0014 | Edit/delete dei propri commenti su proposta aperta. |
-| 0015 | Tabella `rice_votes` immutabile. |
+| 0013 | Re-eval su edit dell'autore + cristallizzazione del contenuto (rimossa in 0031). |
+| 0014 | Edit/delete dei propri commenti su proposta aperta (gate di stato rimosso in 0031). |
+| 0015 | Tabella `rice_votes` immutabile (editabile da 0028). |
 | 0016 | Promozione commento → contributo (co-autore). |
 | 0017 | Scan duplicati: colonne dup_*, RPC scan, blocco avanzamento flaggati. |
-| 0018 | Macchina a stati delle transizioni dentro `move_proposal`. |
+| 0018 | Macchina a stati delle transizioni dentro `move_proposal` (sostituita da 0027 e 0031). |
 | 0019 | GUC `idea.ai_eval` per il path non-admin; backstop range RICE. |
 | 0020 | RPC AI → `service_role`; delete commenti altrui admin; colonna `git_ref`. |
 | 0021 | **Progetti**: `projects`/`project_members`, ruolo per-progetto, isolamento RLS; drop ruolo globale/`app_settings`. |
@@ -165,6 +168,11 @@ il numero di un finding di sicurezza (`SEC-N`).
 | 0024 | `delete_account` self-service; anonimizzazione profilo. |
 | 0025 | Sync `profiles.email` col cambio email in GoTrue. |
 | 0026 | Colonna `task_url` (link ClickUp). |
+| 0027 | `move_proposal` senza whitelist di transizioni (movimento libero). |
+| 0028 | Voto RICE modificabile e consentito in ogni stato tranne `nuova`. |
+| 0029 | `project_members.position` + RPC `reorder_projects` (ordine progetti per utente). |
+| 0030 | Tabelle nella publication realtime + `replica identity full`. |
+| 0031 | **Macchina a stati ibrida** (da `nuova` solo `in_valutazione`, mai verso `nuova`); fine della cristallizzazione: policy commenti e `promotion_target` senza gate di stato. |
 
 I test pgTAP corrispondenti sono in [`supabase/tests/`](../../supabase/tests/) e
 coprono ognuna di queste aree — vedi [capitolo 11](11-testing.md).

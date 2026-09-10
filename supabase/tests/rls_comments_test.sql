@@ -1,8 +1,8 @@
--- Verifica 0009: commenti leggibili da tutti i membri, inserimento solo a
--- proprio nome, anon fuori, vincolo su body vuoto.
+-- Verifica 0009 (+0031): commenti leggibili da tutti i membri, inserimento solo
+-- a proprio nome e in ogni stato della proposta, anon fuori, vincolo su body vuoto.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(5);
+select plan(6);
 
 -- Setup (come superuser): due contributor e una proposta.
 insert into auth.users (id, email)
@@ -53,6 +53,20 @@ select is(
     where proposal_id = '55555555-0000-0000-0000-000000000001'),
   1,
   'i commenti sono leggibili dai membri del progetto'
+);
+
+-- 0031: niente più cristallizzazione — si commenta anche oltre in_valutazione.
+-- Lo stato si porta ad 'approvata' via move_proposal (aperta ai membri; un
+-- update diretto verrebbe fermato dal trigger sulle colonne privilegiate).
+do $$ begin
+  perform public.move_proposal('55555555-0000-0000-0000-000000000001', 'nuova', 'in_valutazione');
+  perform public.move_proposal('55555555-0000-0000-0000-000000000001', 'in_valutazione', 'approvata');
+end $$;
+select lives_ok(
+  $$insert into public.comments (proposal_id, author_id, body)
+    values ('55555555-0000-0000-0000-000000000001',
+            '99999999-9999-9999-9999-999999999999', 'Vale anche dopo')$$,
+  'un membro commenta anche una proposta fuori da nuova/in_valutazione (0031)'
 );
 
 -- Anon: nessuna lettura.

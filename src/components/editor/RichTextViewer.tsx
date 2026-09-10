@@ -54,8 +54,8 @@ const anchorHighlight = Extension.create({
 
 // Viewer read-only (ADR-0005): stesso schema dell'editor, inline decorations
 // per l'highlight dei commenti ancorati (non alterano il doc → formattazione
-// intatta, range cross-blocco gratis). onComment abilita il BubbleMenu
-// "Commenta" sulla selezione.
+// intatta, range cross-blocco gratis). Il BubbleMenu "Commenta" sulla selezione
+// chiama onComment.
 export function RichTextViewer({
   value,
   anchors = [],
@@ -63,7 +63,7 @@ export function RichTextViewer({
 }: {
   value: string;
   anchors?: ViewerAnchor[];
-  onComment?: (anchor: { quote: string; occurrence: number }) => void;
+  onComment: (anchor: { quote: string; occurrence: number }) => void;
 }) {
   const editor = useEditor(
     {
@@ -92,7 +92,7 @@ export function RichTextViewer({
   // sparisce (click fuori dal viewer), quindi il BubbleMenu "Commenta" resterebbe
   // appeso. La riallineiamo alla selezione reale del DOM.
   useEffect(() => {
-    if (!editor || !onComment) return;
+    if (!editor) return;
     const sync = () => {
       const sel = window.getSelection();
       const inside = sel && !sel.isCollapsed && editor.view.dom.contains(sel.anchorNode);
@@ -102,7 +102,7 @@ export function RichTextViewer({
     };
     document.addEventListener("selectionchange", sync);
     return () => document.removeEventListener("selectionchange", sync);
-  }, [editor, onComment]);
+  }, [editor]);
 
   if (!editor) {
     return <div className="whitespace-pre-wrap text-base text-foreground/80">{value}</div>;
@@ -110,28 +110,23 @@ export function RichTextViewer({
 
   return (
     <div className="relative">
-      {onComment && (
-        <BubbleMenu
-          editor={editor}
-          shouldShow={({ state }) => !state.selection.empty}
+      <BubbleMenu editor={editor} shouldShow={({ state }) => !state.selection.empty}>
+        <button
+          type="button"
+          // preventDefault tiene ferma la selezione mentre il click prende il
+          // focus, così captureSelection la legge prima che il sync la collassi.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            const { from, to } = editor.state.selection;
+            const captured = captureSelection(editor.state.doc, { from, to });
+            if (captured) onComment(captured);
+            editor.commands.setTextSelection(to); // collassa → nasconde il bubble
+          }}
+          className="border border-ink bg-ink px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-paper hover:bg-paprika"
         >
-          <button
-            type="button"
-            // preventDefault tiene ferma la selezione mentre il click prende il
-            // focus, così captureSelection la legge prima che il sync la collassi.
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              const { from, to } = editor.state.selection;
-              const captured = captureSelection(editor.state.doc, { from, to });
-              if (captured) onComment(captured);
-              editor.commands.setTextSelection(to); // collassa → nasconde il bubble
-            }}
-            className="border border-ink bg-ink px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-paper hover:bg-paprika"
-          >
-            {STRINGS.common.comment}
-          </button>
-        </BubbleMenu>
-      )}
+          {STRINGS.common.comment}
+        </button>
+      </BubbleMenu>
       <EditorContent editor={editor} />
     </div>
   );

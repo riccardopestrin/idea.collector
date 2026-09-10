@@ -4,7 +4,7 @@ import type { ProposalListItem } from "@/lib/proposals";
 
 import { STRINGS } from "@/lib/strings";
 
-import { BOARD_COLUMNS, groupByStatus } from "./board";
+import { BOARD_COLUMNS, canMoveTo, groupByStatus } from "./board";
 
 const proposal = (id: string, status: ProposalListItem["status"]): ProposalListItem => ({
   id,
@@ -45,6 +45,24 @@ describe("groupByStatus", () => {
   it("preserves the incoming order inside a column", () => {
     const groups = groupByStatus([proposal("b", "rifiutata"), proposal("a", "rifiutata")]);
     expect(groups.rifiutata.map((p) => p.id)).toEqual(["b", "a"]);
+  });
+});
+
+describe("canMoveTo", () => {
+  it("lets a card leave 'nuova' only towards 'in_valutazione'", () => {
+    expect(canMoveTo("nuova", "in_valutazione")).toBe(true);
+    expect(canMoveTo("nuova", "approvata")).toBe(false);
+    expect(canMoveTo("nuova", "rifiutata")).toBe(false);
+  });
+
+  it("never lets a card go back to 'nuova'", () => {
+    for (const from of BOARD_COLUMNS) expect(canMoveTo(from, "nuova")).toBe(false);
+  });
+
+  it("allows every other jump between distinct states, and refuses from = to", () => {
+    expect(canMoveTo("rilasciata", "in_valutazione")).toBe(true);
+    expect(canMoveTo("rifiutata", "approvata")).toBe(true);
+    expect(canMoveTo("approvata", "approvata")).toBe(false);
   });
 });
 

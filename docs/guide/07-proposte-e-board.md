@@ -7,34 +7,30 @@
    Nasce in stato `nuova`. All'atterraggio sul dettaglio parte lo **scan
    anti-duplicato**.
 2. **Triage in `nuova`** — se lo scan la marca `dup_flagged` (similarità ≥ 85 con
-   un'idea esistente), **non può avanzare** finché non viene sbloccata o rifiutata.
-3. **`in_valutazione`** — qui si discute con i commenti, votano i membri
-   (RICE-10) e l'admin può lanciare la **valutazione AI**. È l'unica finestra in
-   cui i membri votano e in cui il contenuto è ancora modificabile.
-4. **`approvata` → `in_sviluppo` → `rilasciata`** — l'avanzamento operativo.
-5. **`archiviata`** — messa da parte; può rientrare in `in_valutazione`/
-   `approvata`/`in_sviluppo`.
-6. **`rifiutata`** — stato terminale: da qui si può solo **eliminare** (safeguard
-   prima della cancellazione irreversibile).
+   un'idea esistente), **non si muove** finché non viene modificata (e la
+   similarità scende) o eliminata. In `nuova` non si vota.
+3. **`in_valutazione`** — l'unica uscita da `nuova`. Al passaggio parte la
+   **prima valutazione AI**; da qui in avanti si discute, si vota (RICE-10) e si
+   modifica liberamente, in ogni stato.
+4. **`approvata` → `in_sviluppo` → `rilasciata`**, **`archiviata`**, **`rifiutata`**
+   — caselle libere: si passa da ciascuna a ciascun'altra, mai indietro in `nuova`.
+   Da `rifiutata` si può anche **eliminare** (safeguard prima della cancellazione
+   irreversibile).
 
-## 7.2 La macchina a stati
+## 7.2 La macchina a stati "ibrida"
 
-Le transizioni consentite sono esplicite in
-[`src/lib/board.ts`](../../src/lib/board.ts) — non è un grafo completo:
+Una sola casella è vincolata (`canMoveTo` in
+[`src/lib/board.ts`](../../src/lib/board.ts)):
 
 ```
-nuova          → in_valutazione, rifiutata
-in_valutazione → approvata, rifiutata, archiviata
-approvata      → in_sviluppo, rifiutata
-in_sviluppo    → rilasciata, archiviata, rifiutata
-rilasciata     → rifiutata
-rifiutata      → (nessuna — terminale)
-archiviata     → in_valutazione, approvata, in_sviluppo, rifiutata
+nuova          → in_valutazione (soltanto)
+ogni altro     → ogni altro stato ≠ nuova
 ```
 
-`canMoveTo(from, to)` è la funzione che la board e la Server Action consultano.
-La stessa regola è **applicata anche a DB** dentro `move_proposal` (0018): la UI
-propone, il database dispone.
+La stessa regola è **applicata anche a DB** dentro `move_proposal` (0031): la UI
+propone, il database dispone. Non esiste più la "cristallizzazione": contenuto,
+commenti, promozioni e voti restano modificabili in ogni stato; la valutazione
+AI viene rilanciata quando cambia il testo dell'idea o un contributo accettato.
 
 > L'ordine delle colonne diverge dall'enum: `archiviata` è mostrata **dopo**
 > `rifiutata` (`BOARD_COLUMNS`), perché nel flusso di lettura ha senso lì.
@@ -50,8 +46,10 @@ L'**eliminazione** non è una colonna: è l'azione cestino su ogni card
   ogni colonna esiste sempre anche se vuota). Ricerca via `?q`.
 - **Drag-and-drop** con `@dnd-kit` ([`Board.tsx`](../../src/components/board/Board.tsx)):
   al drop chiama `updateProposalStatus`, che passa da `move_proposal` (CAS su
-  `fromStatus`). Se la transizione non è ammessa o c'è un flag duplicato, il DB
-  rifiuta e la card torna al suo posto.
+  `fromStatus`). Durante il drag le colonne vietate mostrano un piccolo divieto
+  arancione accanto al titolo (i bordi non cambiano mai) e il drop lì è un no-op;
+  se comunque la transizione non è ammessa o c'è un flag duplicato, il DB rifiuta
+  e la card torna al suo posto.
 - **Card** ([`ProposalCard.tsx`](../../src/components/cards/ProposalCard.tsx)):
   titolo, punteggio composito, stato AI/scan, autori, azioni rapide.
 
@@ -84,8 +82,8 @@ transazionale), con le RLS come backstop.
   (move), `evaluateProposal` (admin), `runProposalScanAction`, `addComment`,
   `editComment`/`deleteComment`, promozione commenti, `deleteProposal`.
 - [`proposals/[id]/actions.ts`](../../src/app/proposals/[id]/actions.ts):
-  `updateProposal` (solo `nuova`/`in_valutazione`; se il testo cambia, ri-lancia
-  eval+scan), `submitRiceVote`, `setGitRef`, `setTaskUrl`.
+  `updateProposal` (in ogni stato; se il testo cambia ri-lancia lo scan in
+  `nuova`, l'eval altrove), `submitRiceVote`, `setGitRef`, `setTaskUrl`.
 
 ---
 

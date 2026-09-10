@@ -15,10 +15,10 @@ import { parseVoteFields } from "@/lib/validation/vote";
 type UpdateProposalState = { error: string } | null;
 
 // Edit di una proposta (RFC-004 Fase E). Autorizzazione nel service: proposer
-// o admin, solo in 'nuova'/'in_valutazione' (trigger di cristallizzazione 0013
-// e enforce_proposal_privileged_columns come backstop). In 'in_valutazione' un
-// cambio dei campi testuali rilancia la valutazione AI; il fallimento eval non
-// fa fallire il save (semantica non bloccante esistente).
+// o admin, in ogni stato (#10: niente più cristallizzazione; policy "owner or
+// admin update" come backstop). Fuori da 'nuova' un cambio dei campi testuali
+// rilancia la valutazione AI; il fallimento eval non fa fallire il save
+// (semantica non bloccante esistente).
 export async function updateProposal(
   proposalId: string,
   _prev: UpdateProposalState,
@@ -47,9 +47,6 @@ export async function updateProposal(
   ) {
     return { error: STRINGS.proposal.editAuth };
   }
-  if (proposal.status !== "nuova" && proposal.status !== "in_valutazione") {
-    return { error: STRINGS.proposal.notEditable };
-  }
 
   const { error } = await supabase
     .from("proposals")
@@ -65,7 +62,7 @@ export async function updateProposal(
   // Re-run AI solo se il testo è cambiato davvero: evita chiamate Claude inutili.
   const textChanged =
     fields.title !== proposal.title || fields.description !== proposal.description;
-  if (proposal.status === "in_valutazione" && textChanged) {
+  if (proposal.status !== "nuova" && textChanged) {
     await runEvaluation(supabase, proposalId, true);
   }
   // RFC-006: in 'nuova' un edit ricalcola la similarità — se scende sotto

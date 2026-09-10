@@ -145,25 +145,32 @@ describe("Board", () => {
     expect(evaluateProposal).not.toHaveBeenCalled();
   });
 
-  it("ignores a drop on the origin column or outside any column (#9: every other target is valid)", async () => {
+  it("ignores a drop on the origin column, outside any column, or on a forbidden target (#10)", async () => {
     render(
-      <Board proposals={[proposal("1", "nuova", "Mia")]} userId="u1" isAdmin={false} />,
+      <Board
+        proposals={[proposal("1", "nuova", "Mia"), proposal("2", "approvata", "Tua")]}
+        userId="u1"
+        isAdmin={false}
+      />,
     );
 
     drag("1", "nuova"); // colonna d'origine
     drag("1", null); // drop fuori da ogni colonna
+    drag("1", "approvata"); // da 'nuova' solo verso 'in_valutazione'
+    drag("2", "nuova"); // in 'nuova' non si torna
     await flush();
 
     expect(updateProposalStatus).not.toHaveBeenCalled();
+    expect(evaluateProposal).not.toHaveBeenCalled();
   });
 
-  it("auto-triggers the AI evaluation on the first move out of 'nuova', for any user (#9)", async () => {
+  it("auto-triggers the AI evaluation on the move out of 'nuova', for any user (#10)", async () => {
     render(<Board proposals={[proposal("1", "nuova", "Mia")]} userId="u1" isAdmin={false} />);
 
-    drag("1", "approvata");
+    drag("1", "in_valutazione");
     await flush();
 
-    expect(updateProposalStatus).toHaveBeenCalledWith("1", "nuova", "approvata");
+    expect(updateProposalStatus).toHaveBeenCalledWith("1", "nuova", "in_valutazione");
     expect(evaluateProposal).toHaveBeenCalledWith("1");
   });
 
@@ -180,27 +187,24 @@ describe("Board", () => {
     expect(evaluateProposal).not.toHaveBeenCalled();
   });
 
-  it("marks every non-origin column with the valid drop hint during a drag (#9: free movement)", () => {
+  it("marks only the forbidden columns with the no-entry icon during a drag (#10)", () => {
     render(
       <Board proposals={[proposal("1", "nuova", "Mia")]} userId="u1" isAdmin={false} />,
     );
+    const forbiddenIn = (column: string) =>
+      within(screen.getByRole("region", { name: column })).queryByRole("img", {
+        name: "Qui non si può spostare",
+      });
 
     act(() => dnd.onDragStart?.({ active: { id: "1" } }));
-    // ogni colonna diversa dall'origine è un target valido
-    expect(screen.getByRole("region", { name: "In Valutazione" }).className).toContain(
-      "ring-ink",
-    );
-    expect(screen.getByRole("region", { name: "Approvata" }).className).toContain(
-      "ring-ink",
-    );
-    // colonna d'origine: nessun hint
-    expect(screen.getByRole("region", { name: "Nuova" }).className).not.toContain("ring-2");
+    // da 'nuova': solo In Valutazione è consentita (nessun segnale), le altre sono vietate
+    expect(forbiddenIn("In Valutazione")).toBeNull();
+    expect(forbiddenIn("Approvata")).not.toBeNull();
+    expect(forbiddenIn("Nuova")).toBeNull(); // origine: nessun segnale
 
-    // il drop (anche a vuoto) azzera gli hint
+    // il drop (anche a vuoto) azzera i segnali
     act(() => dnd.onDragEnd?.({ active: { id: "1" }, over: null }));
-    expect(
-      screen.getByRole("region", { name: "In Valutazione" }).className,
-    ).not.toContain("ring-2");
+    expect(forbiddenIn("Approvata")).toBeNull();
   });
 
   it("shows the delete button to a contributor only on their own proposals", () => {
@@ -245,17 +249,25 @@ describe("Board", () => {
     expect(deleteProposal).toHaveBeenCalledWith("1");
   });
 
-  it("offers 'Sposta in Rifiutata' as the conservative alternative", async () => {
+  it("offers 'Sposta in Rifiutata' as the conservative alternative, except from 'nuova' (#10)", async () => {
     const user = userEvent.setup();
-    render(
-      <Board proposals={[proposal("1", "nuova", "Mia", "u1")]} userId="u1" isAdmin={false} />,
+    const { unmount } = render(
+      <Board proposals={[proposal("1", "in_valutazione", "Mia", "u1")]} userId="u1" isAdmin={false} />,
     );
 
     await user.click(screen.getByRole("button", { name: "Elimina Mia" }));
     await user.click(screen.getByRole("button", { name: "Sposta in Rifiutata" }));
 
-    expect(updateProposalStatus).toHaveBeenCalledWith("1", "nuova", "rifiutata");
+    expect(updateProposalStatus).toHaveBeenCalledWith("1", "in_valutazione", "rifiutata");
     expect(deleteProposal).not.toHaveBeenCalled();
+
+    // da 'nuova' non si va in Rifiutata: resta solo l'eliminazione
+    unmount();
+    render(
+      <Board proposals={[proposal("2", "nuova", "Tua", "u1")]} userId="u1" isAdmin={false} />,
+    );
+    await user.click(screen.getByRole("button", { name: "Elimina Tua" }));
+    expect(screen.queryByRole("button", { name: "Sposta in Rifiutata" })).not.toBeInTheDocument();
   });
 
   it("closes the dialog on 'Annulla' without touching the proposal", async () => {
